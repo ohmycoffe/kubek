@@ -1,0 +1,26 @@
+[project]
+name = "kube-envx"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "ohmycoffe",email = "ohmycoffe1@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "typer (>=0.16.0,<0.17.0)"
+]
+
+[tool.poetry]
+packages = [
+    { from = "src", include = "envx" },
+]
+[tool.poetry.scripts]
+envx = "envx.__main__:app"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.12.8"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
