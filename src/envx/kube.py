@@ -69,9 +69,9 @@ def extract_envs_from_container(
                     key = value_from["configMapKeyRef"]["key"]
                     if key not in configmap["data"]:
                         logger.warning(
-                            f"Key {key} not found in ConfigMap {value_from['configMapKeyRef']['name']}"
+                            f"{name} won't be set: key {key} not found in ConfigMap {value_from['configMapKeyRef']['name']}"
                         )
-                        value = None
+                        value = ""
                     else:
                         value = configmap["data"][key]
                     result[name] = value
@@ -80,8 +80,10 @@ def extract_envs_from_container(
                     encoded = get_secret(namespace, secret_name)
                     key = value_from["secretKeyRef"]["key"]
                     if key not in encoded["data"]:
-                        logger.warning(f"Key {key} not found in Secret {secret_name}")
-                        value = None
+                        logger.warning(
+                            f"{name} won't be set: key {key} not found in Secret {secret_name}"
+                        )
+                        value = ""
                     else:
                         value = decode(encoded["data"][key])
                     result[name] = value
