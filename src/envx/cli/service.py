@@ -46,7 +46,7 @@ def get(
         default=None,
         help="Name of the service to get parameters for. If not provided, all services will be listed.",
     ),
-    namespace: str = "kube-public",
+    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_SERVICE"),
     output: ExportFormat = ExportFormat.ENV,
 ):
     """
@@ -73,7 +73,7 @@ def get(
 
 @app.command(name="list")
 def list_services(
-    namespace: str = "kube-public",
+    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_SERVICE"),
 ):
     """
     List all available services.
