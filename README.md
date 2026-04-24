@@ -5,10 +5,9 @@ It provides a simplified facade over kubectl commands.
 
 ## Features
 
-- List available Kubernetes services and Argo workers
-- Extract environment variables from deployments and workflow templates
+- Extract environment variables from Kubernetes deployments and Argo WorkflowTemplates
 - Export environment variables in `.env` or JSON format
-- Supports both services (deployments) and workers (workflow templates)
+- Interactive namespace and service selection when not specified
 - Simple, scriptable CLI interface
 
 ## Installation
@@ -38,32 +37,32 @@ You can run the CLI using Poetry:
 poetry run envx --help
 ```
 
-### Service Commands
+### Service
 
-List all available services in a namespace:
+Run without arguments to select namespace and service interactively:
 
 ```bash
-envx service list --namespace <namespace>
+envx service
 ```
 
-Get environment variables for a service:
+Or pass them directly:
 
 ```bash
-envx service get <service_name> --namespace <namespace> --output env|json
+envx service <service_name> --namespace <namespace> --output env|json
 ```
 
-### Worker Commands
+### Worker
 
-List all available workers in a namespace:
+Run without arguments to select namespace and worker interactively:
 
 ```bash
-envx worker list --namespace <namespace>
+envx worker
 ```
 
-Get environment variables for a worker:
+Or pass them directly:
 
 ```bash
-envx worker get <worker_name> --namespace <namespace> --output env|json
+envx worker <worker_name> --namespace <namespace> --output env|json
 ```
 
 ## Example
@@ -71,27 +70,27 @@ envx worker get <worker_name> --namespace <namespace> --output env|json
 Export environment variables for a service as a dotenv file:
 
 ```bash
-envx service get my-service --namespace kube-public --output env > .env
+envx service my-service --namespace kube-public --output env > .env
 ```
 
 Export worker environment variables as JSON:
 
 ```bash
-envx worker get my-worker --namespace kube-public --output json > worker-env.json
+envx worker my-worker --namespace kube-public --output json > worker-env.json
 ```
 
 ## Environment Variables
 
 | Variable | Applies to | Description | Default |
 |---|---|---|---|
-| `ENVX_NAMESPACE_SERVICE` | `envx service` commands | Default Kubernetes namespace for service commands | `kube-public` |
-| `ENVX_NAMESPACE_WORKER` | `envx worker` commands | Default Kubernetes namespace for worker commands | `kube-public` |
+| `ENVX_NAMESPACE_SERVICE` | `envx service` | Default Kubernetes namespace for service commands | — |
+| `ENVX_NAMESPACE_WORKER` | `envx worker` | Default Kubernetes namespace for worker commands | — |
 
 Note: the `--namespace` flag always takes precedence over the environment variable.
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) installed and configured
 - Access to the target Kubernetes cluster
 

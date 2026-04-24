@@ -21,6 +21,13 @@ def call_subprocess(cmd: list[str]) -> str:
     return result.stdout
 
 
+def get_available_namespaces() -> list[str]:
+    cmd = ["kubectl", "get", "namespaces", "-o", "json"]
+    result = call_subprocess(cmd)
+    data = json.loads(result)
+    return [el["metadata"]["name"] for el in data["items"]]
+
+
 @lru_cache
 def get_secret(namespace: str, name: str) -> dict[str, Any]:
     cmd = ["kubectl", "get", "secret", name, "-n", namespace, "-o", "json"]
