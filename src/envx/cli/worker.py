@@ -10,7 +10,7 @@ import typer
 from envx.kube import call_subprocess, extract_envs_from_container
 from envx.utils import export_as_dotenv
 
-logging.basicConfig(level=os.getenv("LOGGING_LEVEL", "INFO").upper())
+logging.basicConfig(level=os.getenv("ENVX_LOGGING_LEVEL", "INFO").upper())
 
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ def get(
     name: str = typer.Argument(
         help="Name of the worker to get parameters for.",
     ),
-    namespace: str = "kube-public",
+    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_WORKER"),
     output: ExportFormat = ExportFormat.ENV,
 ):
     """
@@ -81,7 +81,7 @@ def get(
 
 @app.command(name="list")
 def list_workers(
-    namespace: str = "kube-public",
+    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_WORKER"),
 ):
     """
     List all available workers.
