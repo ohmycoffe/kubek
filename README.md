@@ -80,6 +80,15 @@ Export worker environment variables as JSON:
 envx worker get my-worker --namespace kube-public --output json > worker-env.json
 ```
 
+## Environment Variables
+
+| Variable | Applies to | Description | Default |
+|---|---|---|---|
+| `ENVX_NAMESPACE_SERVICE` | `envx service` commands | Default Kubernetes namespace for service commands | `kube-public` |
+| `ENVX_NAMESPACE_WORKER` | `envx worker` commands | Default Kubernetes namespace for worker commands | `kube-public` |
+
+Note: the `--namespace` flag always takes precedence over the environment variable.
+
 ## Requirements
 
 - Python 3.9+
