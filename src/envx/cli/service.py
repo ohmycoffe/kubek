@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import json
 import logging
+from typing import Annotated
 
 import typer
 
@@ -42,11 +43,8 @@ app = typer.Typer()
 
 @app.command()
 def get(
-    service_name: str = typer.Argument(
-        default=None,
-        help="Name of the service to get parameters for. If not provided, all services will be listed.",
-    ),
-    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_SERVICE"),
+    service_name: Annotated[str | None, typer.Argument(help="Name of the service to get parameters for. If not provided, all services will be listed.")] = None,
+    namespace: Annotated[str, typer.Option(envvar="ENVX_NAMESPACE_SERVICE")] = "kube-public",
     output: ExportFormat = ExportFormat.ENV,
 ):
     """
@@ -73,7 +71,7 @@ def get(
 
 @app.command(name="list")
 def list_services(
-    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_SERVICE"),
+    namespace: Annotated[str, typer.Option(envvar="ENVX_NAMESPACE_SERVICE")] = "kube-public",
 ):
     """
     List all available services.

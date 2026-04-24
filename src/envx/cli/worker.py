@@ -4,6 +4,7 @@ import enum
 import json
 import logging
 import os
+from typing import Annotated
 
 import typer
 
@@ -59,10 +60,8 @@ app = typer.Typer()
 
 @app.command()
 def get(
-    name: str = typer.Argument(
-        help="Name of the worker to get parameters for.",
-    ),
-    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_WORKER"),
+    name: Annotated[str, typer.Argument(help="Name of the worker to get parameters for.")],
+    namespace: Annotated[str, typer.Option(envvar="ENVX_NAMESPACE_WORKER")] = "kube-public",
     output: ExportFormat = ExportFormat.ENV,
 ):
     """
@@ -81,7 +80,7 @@ def get(
 
 @app.command(name="list")
 def list_workers(
-    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_WORKER"),
+    namespace: Annotated[str, typer.Option(envvar="ENVX_NAMESPACE_WORKER")] = "kube-public",
 ):
     """
     List all available workers.
