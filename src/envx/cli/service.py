@@ -3,11 +3,17 @@ from __future__ import annotations
 import enum
 import json
 import logging
+from typing import Annotated
 
+import questionary
 import typer
 
-from envx.kube import call_subprocess, extract_envs_from_container
-from envx.utils import export_as_dotenv
+from envx.kube import (
+    call_subprocess,
+    extract_envs_from_container,
+    get_available_namespaces,
+)
+from envx.utils import export_as_dotenv, resolve_namespace
 
 logger = logging.getLogger(__name__)
 
@@ -40,25 +46,44 @@ class ExportFormat(str, enum.Enum):
 app = typer.Typer()
 
 
-@app.command()
+@app.callback(invoke_without_command=True)
 def get(
-    service_name: str = typer.Argument(
-        default=None,
-        help="Name of the service to get parameters for. If not provided, all services will be listed.",
-    ),
-    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_SERVICE"),
+    service_name: Annotated[
+        str | None,
+        typer.Argument(
+            help="Name of the service to get parameters for. If not provided, you will be prompted to select one."
+        ),
+    ] = None,
+    namespace: Annotated[
+        str | None,
+        typer.Option(
+            envvar="ENVX_NAMESPACE_SERVICE",
+            help="Kubernetes namespace. If not provided, you will be prompted to select one.",
+        ),
+    ] = None,
     output: ExportFormat = ExportFormat.ENV,
 ):
     """
     Get environment variables for a given service.
     """
-    # If name is not provided, list all services
+    namespaces = get_available_namespaces()
+    namespace = resolve_namespace(namespace, available_namespaces=namespaces)
+    services = get_available_services(namespace=namespace)
     if not service_name:
-        deployments = get_available_services(namespace=namespace)
-        print("Available services:\n")
-        for el in deployments:
-            print(el)
-        raise typer.Exit(code=0)
+        service_name = questionary.select(
+            "Select a service:",
+            choices=services,
+            use_search_filter=True,
+            use_jk_keys=False,
+        ).ask()
+        if not service_name:
+            raise typer.Exit(code=0)
+
+    if service_name not in services:
+        typer.echo(
+            f"Service '{service_name}' not found in namespace '{namespace}'.", err=True
+        )
+        raise typer.Exit(code=1)
 
     vals = get_environment_variables(namespace=namespace, service_name=service_name)
 
@@ -68,21 +93,6 @@ def get(
     elif output == ExportFormat.ENV:
         formated = export_as_dotenv(vals=vals, service_name=service_name)
     print(formated)
-    raise typer.Exit(code=0)
-
-
-@app.command(name="list")
-def list_services(
-    namespace: str = typer.Option(default="kube-public", envvar="ENVX_NAMESPACE_SERVICE"),
-):
-    """
-    List all available services.
-    """
-    # If name is not provided, list all services
-    deployments = get_available_services(namespace=namespace)
-    print("Available services:\n")
-    for el in deployments:
-        print(el)
     raise typer.Exit(code=0)
 
 
