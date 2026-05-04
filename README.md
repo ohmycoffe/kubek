@@ -81,10 +81,10 @@ envx worker my-worker --namespace kube-public --output json > worker-env.json
 
 ## Environment Variables
 
-| Variable | Applies to | Description | Default |
+| Variable | Applies to | Description |
 |---|---|---|---|
-| `ENVX_NAMESPACE_SERVICE` | `envx service` | Default Kubernetes namespace for service commands | — |
-| `ENVX_NAMESPACE_WORKER` | `envx worker` | Default Kubernetes namespace for worker commands | — |
+| `ENVX_NAMESPACE_SERVICE` | `envx service` | Default Kubernetes namespace for service commands |
+| `ENVX_NAMESPACE_WORKER` | `envx worker` | Default Kubernetes namespace for worker commands |
 
 Note: the `--namespace` flag always takes precedence over the environment variable.
 
