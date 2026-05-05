@@ -48,7 +48,16 @@ def get_environment_variables(namespace: str, worker_name: str) -> dict[str, str
         if "container" not in template:
             continue
         container = template["container"]
-        tmp = extract_envs_from_container(namespace, container)
+        # Argo allows to provide default values for input parameters, and those parameters can be used in env vars.
+        # These parmeters are not visible in the container spec, so we need to extract them from the template inputs.
+        fallback_keys = {
+            p["name"]: p["default"]
+            for p in template.get("inputs", {}).get("parameters", [])
+            if "default" in p
+        }
+        tmp = extract_envs_from_container(
+            namespace, container, fallback_keys=fallback_keys
+        )
         envs.update(tmp)
     return envs
 
@@ -65,7 +74,9 @@ app = typer.Typer()
 def get(
     name: Annotated[
         str | None,
-        typer.Argument(help="Name of the worker to get parameters for. If not provided, you will be prompted to select one."),
+        typer.Argument(
+            help="Name of the worker to get parameters for. If not provided, you will be prompted to select one."
+        ),
     ] = None,
     namespace: Annotated[
         str | None,
@@ -102,7 +113,7 @@ def get(
     if output == ExportFormat.JSON:
         formated = json.dumps(vals, sort_keys=True)
     elif output == ExportFormat.ENV:
-        formated = export_as_dotenv(vals=vals, service_name=name)
+        formated = export_as_dotenv(vals=vals, name=name)
     print(formated)
     raise typer.Exit(code=0)
 

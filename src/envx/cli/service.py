@@ -91,7 +91,7 @@ def get(
     if output == ExportFormat.JSON:
         formated = json.dumps(vals, sort_keys=True)
     elif output == ExportFormat.ENV:
-        formated = export_as_dotenv(vals=vals, service_name=service_name)
+        formated = export_as_dotenv(vals=vals, name=service_name)
     print(formated)
     raise typer.Exit(code=0)
 
