@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-
+import datetime
 import questionary
 import typer
 
@@ -11,11 +11,12 @@ def decode(val: str) -> str:
     return decoded_bytes.decode("utf-8")
 
 
-def export_as_dotenv(vals: dict[str, str], service_name: str | None = None) -> str:
+def export_as_dotenv(vals: dict[str, str], name: str | None = None) -> str:
     sorted_list = sorted(vals.items(), key=lambda x: x[0])
     res = []
-    if service_name:
-        res.append(f"# {service_name}")
+    if name:
+        now = datetime.datetime.now().isoformat(timespec="seconds")
+        res.append(f"# {name} @ {now}")
     for key, value in sorted_list:
         res.append(f"{key}={value}")
     return "\n".join(res)

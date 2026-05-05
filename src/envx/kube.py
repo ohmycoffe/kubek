@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 import logging
+import re
 import subprocess
 from functools import lru_cache
 from typing import Any
@@ -44,9 +46,27 @@ def get_configmap(namespace: str, name: str) -> dict[str, Any]:
     return configmap
 
 
+def _clean_key(key: str) -> str:
+    def strip_argo_inputs_param(key: str) -> str:
+        match = re.match(r"^\{\{inputs\.parameters\.(?P<param_name>\w+)\}\}$", key)
+        return match.group("param_name") if match else key
+
+    cleanups: list[Callable[[str], str]] = [
+        strip_argo_inputs_param,
+    ]
+
+    for cleanup in cleanups:
+        key = cleanup(key)
+    return key
+
+
 def extract_envs_from_container(
-    namespace: str, container: dict[str, Any]
+    namespace: str,
+    container: dict[str, Any],
+    fallback_keys: dict[str, str] | None = None,
 ) -> dict[str, str]:
+    if fallback_keys is None:
+        fallback_keys = {}
     result = {}
     if "envFrom" in container:
         for env_from in container["envFrom"]:
@@ -75,6 +95,8 @@ def extract_envs_from_container(
                     )
                     key = value_from["configMapKeyRef"]["key"]
                     if key not in configmap["data"]:
+                        key = fallback_keys.get(_clean_key(key), key)
+                    if key not in configmap["data"]:
                         logger.warning(
                             f"{name} won't be set: key {key} not found in ConfigMap {value_from['configMapKeyRef']['name']}"
                         )
@@ -86,6 +108,8 @@ def extract_envs_from_container(
                     secret_name = value_from["secretKeyRef"]["name"]
                     encoded = get_secret(namespace, secret_name)
                     key = value_from["secretKeyRef"]["key"]
+                    if key not in encoded["data"]:
+                        key = fallback_keys.get(_clean_key(key), key)
                     if key not in encoded["data"]:
                         logger.warning(
                             f"{name} won't be set: key {key} not found in Secret {secret_name}"
