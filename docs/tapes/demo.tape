@@ -15,25 +15,7 @@ Enter
 Sleep 300ms
 Show
 
-# --- envx service ---
-Type "envx service"
-Enter
-Sleep 3s
-
-Type "demo"
-Sleep 300ms
-Enter
-Sleep 2s
-
-Enter
-Sleep 4s
-
-# --- envx worker ---
-Type "clear"
-Enter
-Sleep 300ms
-
-Type "envx worker"
+Type "kenvx"
 Enter
 Sleep 3s
 

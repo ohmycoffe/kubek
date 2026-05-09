@@ -9,15 +9,16 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "typer (>=0.16.0,<0.17.0)",
-    "questionary",
+    "questionary (>=2.1.1,<3.0.0)",
 ]
 
 [tool.poetry]
 packages = [
-    { from = "src", include = "envx" },
+    { from = "src", include = "kenvx" },
 ]
 [tool.poetry.scripts]
-envx = "envx.__main__:app"
+kenvx = "kenvx.__main__:app"
+envx = "kenvx.__main__:deprecated_entry"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.12.8"

@@ -6,13 +6,14 @@ import logging
 import questionary
 import typer
 
-from envx.style import STYLE, console
+from kenvx.console import console
+from kenvx.style import STYLE
 
 
 def setup_logging(verbose: int) -> None:
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     level = levels[min(verbose, len(levels) - 1)]
-    logging.getLogger("envx").setLevel(level)
+    logging.getLogger("kenvx").setLevel(level)
 
 
 def decode(val: str) -> str:

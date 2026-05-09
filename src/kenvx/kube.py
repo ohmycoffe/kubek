@@ -8,7 +8,7 @@ import subprocess
 from functools import lru_cache
 from typing import Any
 
-from envx.utils import decode
+from kenvx.utils import decode
 
 logger = logging.getLogger(__name__)
 

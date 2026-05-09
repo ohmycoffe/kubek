@@ -209,3 +209,4 @@ __marimo__/
 # Custom
 .vscode
 .DS_Store
+/docs/assets/demo.gif

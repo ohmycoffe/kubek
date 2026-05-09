@@ -7,15 +7,16 @@ from typing import Annotated
 
 import questionary
 import typer
-from envx.style import COLOR_MUTED, STYLE, console, print_error
-from envx.kube import (
+from kenvx.console import console, print_error
+from kenvx.style import COLOR_MUTED, STYLE
+from kenvx.kube import (
     get_available_namespaces,
     get_available_deployments,
     get_available_workflowtemplates,
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
-from envx.utils import export_as_dotenv, resolve_namespace, setup_logging
+from kenvx.utils import export_as_dotenv, resolve_namespace, setup_logging
 
 
 class ResourceKind(str, enum.Enum):
@@ -65,7 +66,7 @@ def get(
     namespace: Annotated[
         str | None,
         typer.Option(
-            envvar="ENVX_NAMESPACE",
+            envvar="KENVX_NAMESPACE",
             help="Kubernetes namespace. If not provided, you will be prompted to select one.",
         ),
     ] = None,
@@ -135,7 +136,9 @@ def get(
         raise typer.Exit(code=1)
 
     try:
-        with console.status(f"[italic {COLOR_MUTED}]Fetching environment variables…[/]"):
+        with console.status(
+            f"[italic {COLOR_MUTED}]Fetching environment variables…[/]"
+        ):
             if kind == ResourceKind.DEPLOYMENT:
                 vals = get_deployment_envs(namespace=namespace, name=name)
             else:

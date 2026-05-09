@@ -1,34 +1,21 @@
-# kube-envx
+# kube-kenvx
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-kube-envx is a CLI tool for extracting and exporting environment variables from Kubernetes deployments and Argo WorkflowTemplates.
-It provides a simplified facade over kubectl commands.
+Extract and export environment variables from Kubernetes Deployments and Argo WorkflowTemplates — interactively or scripted.
 
 ![demo](https://github.com/user-attachments/assets/1e826827-c7c9-4ddb-b7e3-98e4824aebf7)
 
-## Features
-
-- Extract environment variables from Kubernetes deployments and Argo WorkflowTemplates
-- Export environment variables in `.env` or JSON format
-- Interactive namespace and service selection when not specified
-- Simple, scriptable CLI interface
-
 ## Installation
 
-
-### Install with pipx (recommended)
-
-You can install kube-envx globally using [pipx](https://pipx.pypa.io/):
+**pipx** (recommended):
 
 ```bash
-pipx install git+https://github.com/ohmycoffe/kube-envx.git
+pipx install git+https://github.com/ohmycoffe/kube-kenvx.git
 ```
 
-### Install with Poetry (development)
-
-This project uses [Poetry](https://python-poetry.org/) for dependency management.
+**Poetry** (development):
 
 ```bash
 poetry install
@@ -36,78 +23,53 @@ poetry install
 
 ## Usage
 
-You can run the CLI using Poetry:
+Run without arguments for fully interactive mode:
 
 ```bash
-poetry run envx --help
+kenvx
 ```
 
-### Service
-
-Run without arguments to select namespace and service interactively:
+Or pass options directly to skip individual prompts:
 
 ```bash
-envx service
+kenvx --kind deployment --namespace my-namespace --name my-service
 ```
 
-Or pass them directly:
+### Options
 
-```bash
-envx service <service_name> --namespace <namespace> --output env|json
-```
-
-### Worker
-
-Run without arguments to select namespace and worker interactively:
-
-```bash
-envx worker
-```
-
-Or pass them directly:
-
-```bash
-envx worker <worker_name> --namespace <namespace> --output env|json
-```
-
-## Example
-
-Export environment variables for a service as a dotenv file:
-
-```bash
-envx service my-service --namespace kube-public --output env > .env
-```
-
-Export worker environment variables as JSON:
-
-```bash
-envx worker my-worker --namespace kube-public --output json > worker-env.json
-```
-
-## Environment Variables
-
-| Variable | Applies to | Description |
+| Option | Default | Description |
 |---|---|---|
-| `ENVX_NAMESPACE_SERVICE` | `envx service` | Default Kubernetes namespace for service commands |
-| `ENVX_NAMESPACE_WORKER` | `envx worker` | Default Kubernetes namespace for worker commands |
+| `--kind` | — | `deployment` or `workflowtemplate`. Prompted if omitted. |
+| `--namespace` | — | Kubernetes namespace. Prompted if omitted. |
+| `--name` | — | Resource name. Prompted if omitted. |
+| `--output` | `env` | Output format: `env` or `json`. |
+| `-v` / `-vv` | — | Verbosity: info / debug. |
 
-Note: the `--namespace` flag always takes precedence over the environment variable.
+### Environment variables
 
-## Verbosity
+| Variable | Description |
+|---|---|
+| `ENVX_NAMESPACE` | Default namespace, overridden by `--namespace`. |
 
-Use `-v` for info-level logs and `-vv` for debug output:
+## Examples
+
+Export env vars for a deployment to a dotenv file:
 
 ```bash
-envx service my-service -vv
+kenvx --kind deployment --name my-service --namespace prod > .env
+```
+
+Extract WorkflowTemplate env vars as JSON:
+
+```bash
+kenvx --kind workflowtemplate --name my-workflow --namespace argo --output json
 ```
 
 ## Requirements
 
 - Python 3.10+
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) installed and configured
-- Access to the target Kubernetes cluster
-
+- [`kubectl`](https://kubernetes.io/docs/tasks/tools/) configured with cluster access
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
