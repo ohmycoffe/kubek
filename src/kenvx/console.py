@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import logging
 import subprocess
 
-from questionary import Style
 from rich.console import Console
 from rich.panel import Panel
+
+from kenvx.style import COLOR_ERROR
 
 console = Console(stderr=True)
 
@@ -18,7 +21,7 @@ def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
     content = "\n".join(
         [
             "[dim]stderr:[/dim]",
-            f"[red]{stderr}[/red]",
+            f"[{COLOR_ERROR}]{stderr}[/]",
             "",
             "[dim]stdout:[/dim]",
             stdout,
@@ -30,24 +33,8 @@ def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
     console.print(
         Panel(
             content,
-            title=f"[bold red]{msg}[/bold red]",
-            border_style="red",
+            title=f"[bold {COLOR_ERROR}]{msg}[/]",
+            border_style=COLOR_ERROR,
             expand=False,
         )
     )
-
-
-STYLE = Style(
-    [
-        ("qmark", "fg:#61afef bold"),
-        ("question", "bold"),
-        ("answer", "fg:#98c379 bold"),
-        ("pointer", "fg:#61afef bold"),
-        ("highlighted", "fg:#61afef bold"),
-        ("selected", "fg:#98c379"),
-        ("separator", "fg:#4b5263"),
-        ("instruction", "fg:#4b5263"),
-        ("text", ""),
-        ("disabled", "fg:#4b5263 italic"),
-    ]
-)

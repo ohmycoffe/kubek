@@ -1,11 +1,11 @@
 Output docs/assets/demo.gif
 
-Set Theme "Catppuccin Mocha"
+Set Theme "GitHub Dark"
 Set FontSize 16
 Set Width 650
 Set Height 500
 Set WindowBar Colorful
-Set TypingSpeed 80ms
+Set TypingSpeed 40ms
 Set CursorBlink false
 Set Padding 20
 
@@ -15,34 +15,23 @@ Enter
 Sleep 300ms
 Show
 
-# --- envx service ---
-Type "envx service"
+Type "kenvx"
+Enter
+Sleep 500ms
+
+# Select kind: Deployment
 Enter
 Sleep 3s
 
-Type "demo"
-Sleep 300ms
-Enter
-Sleep 2s
-
-Enter
-Sleep 4s
-
-# --- envx worker ---
-Type "clear"
-Enter
-Sleep 300ms
-
-Type "envx worker"
+# Select namespace
+Type "de"
+Sleep 400ms
+Down
+Sleep 400ms
 Enter
 Sleep 3s
 
-Type "demo"
-Sleep 300ms
+# Select resource
 Enter
-Sleep 2s
+Sleep 3s
 
-Enter
-Sleep 4s
-
-Sleep 2s
