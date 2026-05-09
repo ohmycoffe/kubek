@@ -5,7 +5,7 @@
 
 Extract and export environment variables from Kubernetes Deployments and Argo WorkflowTemplates — interactively or scripted.
 
-![demo](https://github.com/user-attachments/assets/1e826827-c7c9-4ddb-b7e3-98e4824aebf7)
+![demo](https://github.com/user-attachments/assets/4c492cd0-87ab-4c97-90b5-fa5e3a43db82)
 
 ## Installation
 
