@@ -1,5 +1,8 @@
 # kube-envx
 
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 kube-envx is a CLI tool for extracting and exporting environment variables from Kubernetes deployments and Argo WorkflowTemplates.
 It provides a simplified facade over kubectl commands.
 
@@ -89,6 +92,14 @@ envx worker my-worker --namespace kube-public --output json > worker-env.json
 | `ENVX_NAMESPACE_WORKER` | `envx worker` | Default Kubernetes namespace for worker commands |
 
 Note: the `--namespace` flag always takes precedence over the environment variable.
+
+## Verbosity
+
+Use `-v` for info-level logs and `-vv` for debug output:
+
+```bash
+envx service my-service -vv
+```
 
 ## Requirements
 

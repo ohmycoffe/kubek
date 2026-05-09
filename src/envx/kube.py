@@ -14,12 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def call_subprocess(cmd: list[str]) -> str:
-    logger.debug("Running command: %s", " ".join(cmd))
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        logger.exception("%s", e.stderr)
-        raise
+    logger.debug("%s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     return result.stdout
 
 
