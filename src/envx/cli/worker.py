@@ -2,23 +2,18 @@ from __future__ import annotations
 
 import enum
 import json
-import logging
-import os
+import subprocess
 from typing import Annotated
 
 import questionary
 import typer
-
+from envx.style import STYLE, console, print_error
 from envx.kube import (
     call_subprocess,
     extract_envs_from_container,
     get_available_namespaces,
 )
-from envx.utils import export_as_dotenv, resolve_namespace
-
-logging.basicConfig(level=os.getenv("ENVX_LOGGING_LEVEL", "INFO").upper())
-
-logger = logging.getLogger(__name__)
+from envx.utils import export_as_dotenv, resolve_namespace, setup_logging
 
 
 def get_available_workers(namespace: str) -> list[str]:
@@ -86,29 +81,54 @@ def get(
         ),
     ] = None,
     output: ExportFormat = ExportFormat.ENV,
+    verbose: Annotated[
+        int,
+        typer.Option("--verbose", "-v", count=True, help="Verbose output. Use -vv for debug."),
+    ] = 0,
 ):
     """
     Get environment variables for a given worker.
     """
-    namespace = resolve_namespace(
-        namespace, available_namespaces=get_available_namespaces()
-    )
-    workers = get_available_workers(namespace=namespace)
+    setup_logging(verbose)
+    try:
+        with console.status("[bold blue]Fetching namespaces…[/bold blue]"):
+            namespaces = get_available_namespaces()
+    except subprocess.CalledProcessError as e:
+        print_error(e, "Failed to fetch namespaces")
+        raise typer.Exit(code=1) from None
+
+    namespace = resolve_namespace(namespace, available_namespaces=namespaces)
+
+    try:
+        with console.status(f"[bold blue]Fetching workers in {namespace}…[/bold blue]"):
+            workers = get_available_workers(namespace=namespace)
+    except subprocess.CalledProcessError as e:
+        print_error(e, f"Failed to fetch workers in namespace '{namespace}'")
+        raise typer.Exit(code=1) from None
+
     if not name:
         name = questionary.select(
             "Select a worker:",
             choices=workers,
             use_search_filter=True,
             use_jk_keys=False,
+            style=STYLE,
         ).ask()
         if not name:
             raise typer.Exit(code=0)
 
     if name not in workers:
-        typer.echo(f"Worker '{name}' not found in namespace '{namespace}'.", err=True)
+        console.print(
+            f"[red]Error:[/red] Worker '{name}' not found in namespace '{namespace}'."
+        )
         raise typer.Exit(code=1)
 
-    vals = get_environment_variables(namespace=namespace, worker_name=name)
+    try:
+        with console.status("[bold blue]Fetching environment variables…[/bold blue]"):
+            vals = get_environment_variables(namespace=namespace, worker_name=name)
+    except subprocess.CalledProcessError as e:
+        print_error(e, f"Failed to fetch environment variables for '{name}'")
+        raise typer.Exit(code=1) from None
 
     if output == ExportFormat.JSON:
         formated = json.dumps(vals, sort_keys=True)
