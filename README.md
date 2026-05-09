@@ -9,7 +9,7 @@ Extract and export environment variables from Kubernetes Deployments and Argo Wo
 
 ## Installation
 
-**pipx** (recommended):
+**pipx**:
 
 ```bash
 pipx install git+https://github.com/ohmycoffe/kube-envx.git
