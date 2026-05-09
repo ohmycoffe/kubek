@@ -2,20 +2,18 @@ from __future__ import annotations
 
 import enum
 import json
-import logging
+import subprocess
 from typing import Annotated
 
 import questionary
 import typer
-
+from envx.style import STYLE, console, print_error
 from envx.kube import (
     call_subprocess,
     extract_envs_from_container,
     get_available_namespaces,
 )
-from envx.utils import export_as_dotenv, resolve_namespace
-
-logger = logging.getLogger(__name__)
+from envx.utils import export_as_dotenv, resolve_namespace, setup_logging
 
 
 def get_available_services(namespace: str) -> list[str]:
@@ -62,30 +60,58 @@ def get(
         ),
     ] = None,
     output: ExportFormat = ExportFormat.ENV,
+    verbose: Annotated[
+        int,
+        typer.Option("--verbose", "-v", count=True, help="Verbose output. Use -vv for debug."),
+    ] = 0,
 ):
     """
     Get environment variables for a given service.
     """
-    namespaces = get_available_namespaces()
+    setup_logging(verbose)
+    try:
+        with console.status("[bold blue]Fetching namespaces…[/bold blue]"):
+            namespaces = get_available_namespaces()
+    except subprocess.CalledProcessError as e:
+        print_error(e, "Failed to fetch namespaces")
+        raise typer.Exit(code=1) from None
+
     namespace = resolve_namespace(namespace, available_namespaces=namespaces)
-    services = get_available_services(namespace=namespace)
+
+    try:
+        with console.status(
+            f"[bold blue]Fetching services in {namespace}…[/bold blue]"
+        ):
+            services = get_available_services(namespace=namespace)
+    except subprocess.CalledProcessError as e:
+        print_error(e, f"Failed to fetch services in namespace '{namespace}'")
+        raise typer.Exit(code=1) from None
+
     if not service_name:
         service_name = questionary.select(
             "Select a service:",
             choices=services,
             use_search_filter=True,
             use_jk_keys=False,
+            style=STYLE,
         ).ask()
         if not service_name:
             raise typer.Exit(code=0)
 
     if service_name not in services:
-        typer.echo(
-            f"Service '{service_name}' not found in namespace '{namespace}'.", err=True
+        console.print(
+            f"[red]Error:[/red] Service '{service_name}' not found in namespace '{namespace}'."
         )
         raise typer.Exit(code=1)
 
-    vals = get_environment_variables(namespace=namespace, service_name=service_name)
+    try:
+        with console.status("[bold blue]Fetching environment variables…[/bold blue]"):
+            vals = get_environment_variables(
+                namespace=namespace, service_name=service_name
+            )
+    except subprocess.CalledProcessError as e:
+        print_error(e, f"Failed to fetch environment variables for '{service_name}'")
+        raise typer.Exit(code=1) from None
 
     # Format
     if output == ExportFormat.JSON:
