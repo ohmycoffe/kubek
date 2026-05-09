@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  DATABASE_HOST: postgres.demo.svc.cluster.local
+  DATABASE_PORT: "5432"
+  APP_ENV: local
+  LOG_LEVEL: debug
+  MAX_CONNECTIONS: "20"
+  FEATURE_FLAG_NEW_UI: "true"
+  SERVICE_TIMEOUT_MS: "3000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+data:
+  DATABASE_PASSWORD: c2VjcmV0cGFzc3dvcmQ=
+  API_KEY: bXlhcGlrZXkxMjM=
+  JWT_SECRET: and0LXNlY3JldC10b2tlbi14eXo=
+  REDIS_URL: cmVkaXM6Ly9yZWRpcy5kZW1vLnN2Yy5jbHVzdGVyLmxvY2FsOjYzNzk=
+  S3_ACCESS_KEY: czMtYWNjZXNzLWtleS1hYmM=
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-service
+  template:
+    metadata:
+      labels:
+        app: api-service
+    spec:
+      containers:
+        - name: api-service
+          image: nginx:alpine
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_PASSWORD
+            - name: LOG_LEVEL_OVERRIDE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: LOG_LEVEL
+            - name: DIRECT_VALUE
+              value: "hello-from-api"
+            - name: API_VERSION
+              value: "v2"
+            - name: ENABLE_TRACING
+              value: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dummy-service
+  template:
+    metadata:
+      labels:
+        app: dummy-service
+    spec:
+      containers:
+        - name: dummy-service
+          image: nginx:alpine
+          env:
+            - name: DIRECT_VALUE
+              value: "hello-from-dummy"
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: data-processor
+spec:
+  templates:
+    - name: main
+      inputs:
+        parameters:
+          - name: batch_size
+            default: "100"
+          - name: source_bucket
+            default: "my-bucket"
+      container:
+        image: python:3.10-slim
+        envFrom:
+          - configMapRef:
+              name: app-config
+          - secretRef:
+              name: app-secrets
+        env:
+          - name: BATCH_SIZE
+            value: "{{inputs.parameters.batch_size}}"
+          - name: SOURCE_BUCKET
+            value: "{{inputs.parameters.source_bucket}}"
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: app-config
+                key: DATABASE_HOST
+          - name: API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: app-secrets
+                key: API_KEY
+---
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: dummy-worker
+spec:
+  templates:
+    - name: main
+      container:
+        image: python:3.10-slim
+        env:
+          - name: DIRECT_VALUE
+            value: "hello-from-dummy-worker"

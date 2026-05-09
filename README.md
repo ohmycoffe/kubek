@@ -3,6 +3,8 @@
 kube-envx is a CLI tool for extracting and exporting environment variables from Kubernetes deployments and Argo WorkflowTemplates.
 It provides a simplified facade over kubectl commands.
 
+![demo]()
+
 ## Features
 
 - Extract environment variables from Kubernetes deployments and Argo WorkflowTemplates
