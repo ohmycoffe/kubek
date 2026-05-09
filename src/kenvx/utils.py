@@ -3,16 +3,18 @@ from __future__ import annotations
 import base64
 import datetime
 import logging
+
 import questionary
 import typer
 
-from envx.style import STYLE, console
+from kenvx.console import console
+from kenvx.style import STYLE
 
 
 def setup_logging(verbose: int) -> None:
     levels = [logging.WARNING, logging.INFO, logging.DEBUG]
     level = levels[min(verbose, len(levels) - 1)]
-    logging.getLogger("envx").setLevel(level)
+    logging.getLogger("kenvx").setLevel(level)
 
 
 def decode(val: str) -> str:
@@ -34,7 +36,7 @@ def export_as_dotenv(vals: dict[str, str], name: str | None = None) -> str:
 def resolve_namespace(value: str | None, available_namespaces: list[str]) -> str:
     if value:
         if value not in available_namespaces:
-            console.print(f"[red]Error:[/red] Namespace '{value}' not found.")
+            console.print(f"[red]Error:[/red] namespace '{value}' not found.")
             raise typer.Exit(code=1)
         return value
     selected = questionary.select(
