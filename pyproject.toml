@@ -1,6 +1,6 @@
 [project]
 name = "kube-envx"
-version = "0.2.1"
+version = "0.3.0"
 description = "Extract environment variables from Kubernetes resources in dotenv format"
 authors = [
     {name = "ohmycoffe",email = "ohmycoffe1@gmail.com"}
