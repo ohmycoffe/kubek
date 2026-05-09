@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 import json
 import logging
 import re
 import subprocess
+from collections.abc import Callable
 from functools import lru_cache
 from typing import Any
 

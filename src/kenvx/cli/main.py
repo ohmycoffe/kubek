@@ -7,15 +7,16 @@ from typing import Annotated
 
 import questionary
 import typer
+
 from kenvx.console import console, print_error
-from kenvx.style import COLOR_MUTED, STYLE
 from kenvx.kube import (
-    get_available_namespaces,
     get_available_deployments,
+    get_available_namespaces,
     get_available_workflowtemplates,
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
+from kenvx.style import COLOR_MUTED, STYLE
 from kenvx.utils import export_as_dotenv, resolve_namespace, setup_logging
 
 

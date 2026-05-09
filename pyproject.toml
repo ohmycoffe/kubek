@@ -23,6 +23,13 @@ envx = "kenvx.__main__:deprecated_entry"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.12.8"
 
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
