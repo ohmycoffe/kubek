@@ -34,7 +34,7 @@ def export_as_dotenv(vals: dict[str, str], name: str | None = None) -> str:
 def resolve_namespace(value: str | None, available_namespaces: list[str]) -> str:
     if value:
         if value not in available_namespaces:
-            console.print(f"[red]Error:[/red] Namespace '{value}' not found.")
+            console.print(f"[red]Error:[/red] namespace '{value}' not found.")
             raise typer.Exit(code=1)
         return value
     selected = questionary.select(

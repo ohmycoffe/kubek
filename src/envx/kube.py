@@ -56,6 +56,51 @@ def _clean_key(key: str) -> str:
     return key
 
 
+def get_available_deployments(namespace: str) -> list[str]:
+    cmd = ["kubectl", "get", "deployment", "-n", namespace, "-o", "json"]
+    result = call_subprocess(cmd)
+    data = json.loads(result)
+    return [el["metadata"]["name"] for el in data["items"]]
+
+
+def get_deployment_envs(namespace: str, name: str) -> dict[str, str]:
+    cmd = ["kubectl", "get", "deployment", name, "-n", namespace, "-o", "json"]
+    result = call_subprocess(cmd)
+    deployment = json.loads(result)
+    containers = deployment["spec"]["template"]["spec"]["containers"]
+    if len(containers) != 1:
+        raise ValueError(f"Expected 1 container, got {len(containers)}")
+    return extract_envs_from_container(namespace=namespace, container=containers[0])
+
+
+def get_available_workflowtemplates(namespace: str) -> list[str]:
+    cmd = ["kubectl", "get", "workflowtemplate", "-n", namespace, "-o", "json"]
+    result = call_subprocess(cmd)
+    data = json.loads(result)
+    return [el["metadata"]["name"] for el in data["items"]]
+
+
+def get_workflowtemplate_envs(namespace: str, name: str) -> dict[str, str]:
+    cmd = ["kubectl", "get", "workflowtemplate", name, "-n", namespace, "-o", "json"]
+    result = call_subprocess(cmd)
+    workflow = json.loads(result)
+    envs = {}
+    for template in workflow["spec"]["templates"]:
+        if "container" not in template:
+            continue
+        fallback_keys = {
+            p["name"]: p["default"]
+            for p in template.get("inputs", {}).get("parameters", [])
+            if "default" in p
+        }
+        envs.update(
+            extract_envs_from_container(
+                namespace, template["container"], fallback_keys=fallback_keys
+            )
+        )
+    return envs
+
+
 def extract_envs_from_container(
     namespace: str,
     container: dict[str, Any],

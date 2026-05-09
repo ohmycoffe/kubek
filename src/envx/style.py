@@ -18,7 +18,7 @@ def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
     content = "\n".join(
         [
             "[dim]stderr:[/dim]",
-            f"[red]{stderr}[/red]",
+            f"[{COLOR_ERROR}]{stderr}[/]",
             "",
             "[dim]stdout:[/dim]",
             stdout,
@@ -30,24 +30,34 @@ def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
     console.print(
         Panel(
             content,
-            title=f"[bold red]{msg}[/bold red]",
-            border_style="red",
+            title=f"[bold {COLOR_ERROR}]{msg}[/]",
+            border_style=COLOR_ERROR,
             expand=False,
         )
     )
 
 
+# fmt: off
+COLOR_ACCENT  = "#e5c07b"  # yellow     — draws attention (qmark)
+COLOR_SUCCESS = "#98c379"  # green      — confirmed / selected
+COLOR_ACTIVE  = "#61afef"  # blue       — navigation / pointer
+COLOR_ERROR   = "#e06c75"  # red        — errors / failures
+COLOR_MUTED   = "#5c6370"  # gray       — secondary elements
+COLOR_SUBTLE  = "#4b5263"  # dark gray  — near-invisible hints
+
+# fmt: off
 STYLE = Style(
     [
-        ("qmark", "fg:#61afef bold"),
-        ("question", "bold"),
-        ("answer", "fg:#98c379 bold"),
-        ("pointer", "fg:#61afef bold"),
-        ("highlighted", "fg:#61afef bold"),
-        ("selected", "fg:#98c379"),
-        ("separator", "fg:#4b5263"),
-        ("instruction", "fg:#4b5263"),
-        ("text", ""),
-        ("disabled", "fg:#4b5263 italic"),
+        ("qmark",       f"fg:{COLOR_ACCENT} bold"),
+        ("question",    "bold"),
+        ("answer",      f"fg:{COLOR_SUCCESS} bold"),
+        ("pointer",     f"fg:{COLOR_ACTIVE} bold"),
+        ("highlighted", f"fg:{COLOR_ACTIVE} bold"),
+        ("selected",    f"fg:{COLOR_SUCCESS}"),
+        ("separator",   f"fg:{COLOR_MUTED}"),
+        ("instruction", f"fg:{COLOR_SUBTLE} italic"),
+        ("text",        ""),
+        ("disabled",    f"fg:{COLOR_SUBTLE} italic"),
     ]
 )
+# fmt: on
