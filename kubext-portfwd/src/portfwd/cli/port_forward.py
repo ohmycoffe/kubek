@@ -17,8 +17,8 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
-from pfwd.config import DEFAULT_CONFIG_PATH, ServiceConfig, load_config
-from pfwd.kube import (
+from portfwd.config import DEFAULT_CONFIG_PATH, ServiceConfig, load_config
+from portfwd.kube import (
     KubernetesService,
     PortForwardProcess,
     RunningPortForward,
@@ -28,7 +28,7 @@ from pfwd.kube import (
     get_services,
     start_port_forward,
 )
-from pfwd.utils import ensure_port
+from portfwd.utils import ensure_port
 
 logger = logging.getLogger(__name__)
 

@@ -12,8 +12,8 @@ usage() {
     echo "Sets up a local Kind cluster with test manifests."
     echo ""
     echo "Examples:"
-    echo "  $0 kubext-pfwd              # only pfwd"
-    echo "  $0 kubext-pfwd kubext-envx  # both"
+    echo "  $0 kubext-portfwd              # only portfwd"
+    echo "  $0 kubext-portfwd kubext-envx  # both"
     exit 0
 }
 

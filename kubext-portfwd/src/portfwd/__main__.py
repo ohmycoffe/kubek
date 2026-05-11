@@ -1,6 +1,6 @@
 import logging
 
-from pfwd.cli.main import app
+from portfwd.cli.main import app
 
 logging.basicConfig()
 

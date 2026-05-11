@@ -1,4 +1,4 @@
-# kube-pf
+# kubectl portfwd
 
 > Interactive `kubectl port-forward` — fuzzy-search namespaces and services,
 > forward multiple ports at once, watch a live status table.
@@ -24,13 +24,13 @@
 **Install with [pipx](https://pipx.pypa.io/) (recommended)**
 
 ```bash
-pipx install kube-pf
+pipx install kubectl portfwd
 ```
 
 Or install from source:
 
 ```bash
-pipx install git+https://github.com/ohmycoffe/kube-pf.git
+pipx install git+https://github.com/ohmycoffe/kubectl portfwd.git
 ```
 
 **Requirements:** Python 3.11+, `kubectl` installed and pointing at a cluster.

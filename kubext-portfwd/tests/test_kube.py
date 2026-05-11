@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-from pfwd.kube import (
+from portfwd.kube import (
     KubernetesService,
     RunningPortForward,
     find_running_port_forwards,
@@ -157,7 +157,7 @@ def test_find_running_port_forwards_match():
         cmdline=["kubectl", "port-forward", "svc/my-svc", "5000:80", "-n", "default"],
         pid=1234,
     )
-    with patch("pfwd.kube.psutil.process_iter", return_value=[proc]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[proc]):
         result = find_running_port_forwards(services)
     assert result == [
         RunningPortForward(name="my-svc", remote_port=80, local_port=5000, pid=1234)
@@ -172,7 +172,7 @@ def test_find_running_port_forwards_port_only_uses_remote_as_local():
         cmdline=["kubectl", "port-forward", "svc/my-svc", "80", "-n", "default"],
         pid=1234,
     )
-    with patch("pfwd.kube.psutil.process_iter", return_value=[proc]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[proc]):
         result = find_running_port_forwards(services)
     assert result == [
         RunningPortForward(name="my-svc", remote_port=80, local_port=80, pid=1234)
@@ -194,7 +194,7 @@ def test_find_running_port_forwards_service_prefix_variant():
         ],
         pid=1234,
     )
-    with patch("pfwd.kube.psutil.process_iter", return_value=[proc]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[proc]):
         result = find_running_port_forwards(services)
     assert result == [
         RunningPortForward(name="my-svc", remote_port=80, local_port=5000, pid=1234)
@@ -216,7 +216,7 @@ def test_find_running_port_forwards_unknown_service_ignored():
         ],
         pid=1234,
     )
-    with patch("pfwd.kube.psutil.process_iter", return_value=[proc]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[proc]):
         assert find_running_port_forwards(services) == []
 
 
@@ -228,7 +228,7 @@ def test_find_running_port_forwards_non_kubectl_process_ignored():
         cmdline=["python", "script.py", "svc/my-svc", "5000:80"],
         pid=1234,
     )
-    with patch("pfwd.kube.psutil.process_iter", return_value=[proc]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[proc]):
         assert find_running_port_forwards(services) == []
 
 
@@ -240,12 +240,12 @@ def test_ignore_port_forwards_other_than_service():
         cmdline=["kubectl", "port-forward", "pod/my-pod", "5000:80", "-n", "default"],
         pid=1234,
     )
-    with patch("pfwd.kube.psutil.process_iter", return_value=[proc]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[proc]):
         assert find_running_port_forwards(services) == []
 
 
 def test_find_running_port_forwards_no_processes():
     """Returns an empty list when no running processes are found."""
     services = [KubernetesService(name="my-svc", port=80, protocol="TCP")]
-    with patch("pfwd.kube.psutil.process_iter", return_value=[]):
+    with patch("portfwd.kube.psutil.process_iter", return_value=[]):
         assert find_running_port_forwards(services) == []

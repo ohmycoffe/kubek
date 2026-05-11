@@ -2,9 +2,9 @@ import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from pfwd.cli.port_forward import ensure_local_ports, make_table, watch_processes
-from pfwd.config import ServiceConfig
-from pfwd.kube import KubernetesService, PortForwardProcess
+from portfwd.cli.port_forward import ensure_local_ports, make_table, watch_processes
+from portfwd.config import ServiceConfig
+from portfwd.kube import KubernetesService, PortForwardProcess
 
 
 def _make_service(name: str, port: int) -> KubernetesService:
@@ -33,7 +33,7 @@ def test_resolve_local_ports_uses_preferred_port():
     """Uses the configured local port when the preferred port is available."""
     services = [_make_service("svc", 80)]
 
-    with patch("pfwd.cli.port_forward.ensure_port", return_value=9000):
+    with patch("portfwd.cli.port_forward.ensure_port", return_value=9000):
         result = ensure_local_ports(services, [_SVC_CONFIG], "ns")
 
     assert result == [(services[0], 9000)]
@@ -44,8 +44,8 @@ def test_resolve_local_ports_falls_back_when_preferred_unavailable(caplog):
     services = [_make_service("svc", 80)]
 
     with (
-        caplog.at_level(logging.WARNING, logger="pfwd.cli.port_forward"),
-        patch("pfwd.cli.port_forward.ensure_port", return_value=9001),
+        caplog.at_level(logging.WARNING, logger="portfwd.cli.port_forward"),
+        patch("portfwd.cli.port_forward.ensure_port", return_value=9001),
     ):
         result = ensure_local_ports(services, [_SVC_CONFIG], "ns")
 
@@ -58,7 +58,7 @@ def test_resolve_local_ports_no_config_match():
     """Returns a free port when no config entry matches the service."""
     services = [_make_service("svc", 80)]
 
-    with patch("pfwd.cli.port_forward.ensure_port", return_value=50000):
+    with patch("portfwd.cli.port_forward.ensure_port", return_value=50000):
         result = ensure_local_ports(services, [], "ns")
 
     assert result == [(services[0], 50000)]
@@ -71,7 +71,7 @@ def test_resolve_local_ports_ignores_config_from_other_namespace():
         name="svc", namespace="other-ns", remote_port=80, local_port=9000
     )
 
-    with patch("pfwd.cli.port_forward.ensure_port", return_value=50000):
+    with patch("portfwd.cli.port_forward.ensure_port", return_value=50000):
         result = ensure_local_ports(services, [other_ns], "ns")
 
     assert result == [(services[0], 50000)]

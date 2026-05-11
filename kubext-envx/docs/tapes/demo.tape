@@ -1,4 +1,4 @@
-Output docs/assets/demo.gif
+Output demo-kubectl-envx.gif
 
 Set Theme "GitHub Dark"
 Set FontSize 16

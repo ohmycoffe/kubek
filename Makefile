@@ -26,8 +26,8 @@ bump: ## Bump version (v=patch|minor|major)
 	scripts/bump_version.sh $(v)
 
 cluster: ## Create local Kind cluster
-	scripts/run-local-cluster.sh kubext-pfwd kubext-envx
+	scripts/run-local-cluster.sh kubext-portfwd kubext-envx
 
 demo: ## Regenerate VHS demo GIFs
-	vhs kubext-pfwd/docs/tapes/demo.tape
+	vhs kubext-portfwd/docs/tapes/demo.tape
 	vhs kubext-envx/docs/tapes/demo.tape

@@ -1,5 +1,5 @@
 # Where should we write the GIF?
-Output docs/assets/demo.gif
+Output demo-kubectl-portfwd.gif
 
 Set FontSize 16
 Set Width 800

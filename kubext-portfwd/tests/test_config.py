@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from pfwd.config import Config, ServiceConfig, load_config
+from portfwd.config import Config, ServiceConfig, load_config
 from pydantic import ValidationError
 
 EXAMPLE_CONFIG = Path(__file__).parent.parent / "docs" / "example_config.toml"
