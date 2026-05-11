@@ -39,7 +39,7 @@ kubectl-envx = "envx.__main__:app"
 kubectl-portfwd = "portfwd.__main__:app"
 
 # Deprecated entries for backward compatibility, will be removed in the future
-envx = "kenvx.__main__:deprecated_entry" # Deprecated, use `kubectl envx` instead
+envx = "envx.__main__:deprecated_entry" # Deprecated, use `kubectl envx` instead
 
 [project.urls]
 Repository = "https://github.com/ohmycoffe/kubext"

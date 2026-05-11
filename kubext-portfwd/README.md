@@ -33,8 +33,3 @@ local_port  = 50001
 ```
 
 Option precedence: CLI flag → `KPF_CONFIG` env var → config file → built-in default.
-
-
-## License
-
-MIT — see [LICENSE](LICENSE).
