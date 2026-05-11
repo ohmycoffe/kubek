@@ -8,16 +8,16 @@ from typing import Annotated
 import questionary
 import typer
 
-from kenvx.console import console, print_error
-from kenvx.kube import (
+from envx.console import console, print_error
+from envx.kube import (
     get_available_deployments,
     get_available_namespaces,
     get_available_workflowtemplates,
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
-from kenvx.style import COLOR_MUTED, STYLE
-from kenvx.utils import export_as_dotenv, resolve_namespace, setup_logging
+from envx.style import COLOR_MUTED, STYLE
+from envx.utils import export_as_dotenv, resolve_namespace, setup_logging
 
 
 class ResourceKind(str, enum.Enum):
@@ -89,7 +89,6 @@ def get(
     Get environment variables for a Kubernetes deployment or Argo WorkflowTemplate.
     """
     setup_logging(verbose)
-
     if kind is None:
         kind = select_resource_kind()
 

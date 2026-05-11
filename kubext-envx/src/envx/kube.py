@@ -8,7 +8,7 @@ from collections.abc import Callable
 from functools import lru_cache
 from typing import Any
 
-from kenvx.utils import decode
+from envx.utils import decode
 
 logger = logging.getLogger(__name__)
 

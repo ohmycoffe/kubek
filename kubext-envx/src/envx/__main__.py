@@ -1,8 +1,8 @@
 import logging
 
-from kenvx.cli.main import app
-from kenvx.console import console
-from kenvx.style import COLOR_WARNING
+from envx.cli.main import app
+from envx.console import console
+from envx.style import COLOR_WARNING
 
 logging.basicConfig()
 

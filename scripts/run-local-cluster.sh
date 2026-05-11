@@ -2,13 +2,30 @@
 
 set -eEuo pipefail
 
-CLUSTER_NAME="kube-envx-test"
-MANIFEST="$(dirname "$0")/../tests/resources/k8s/local-cluster.yaml"
-NAMESPACE="demo"
+CLUSTER_NAME="kubext-test"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+usage() {
+    echo "Usage: $0 TARGET [TARGET...]"
+    echo ""
+    echo "Sets up a local Kind cluster with test manifests."
+    echo ""
+    echo "Examples:"
+    echo "  $0 kubext-pfwd              # only pfwd"
+    echo "  $0 kubext-pfwd kubext-envx  # both"
+    exit 0
+}
+
+if [[ $# -eq 0 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    usage
+fi
+
+TARGETS=("$@")
 
 require() {
     command -v "$1" >/dev/null 2>&1 || {
-        echo "$1 is required"
+        echo "Error: $1 is required but not found in PATH"
         exit 1
     }
 }
@@ -23,7 +40,6 @@ fi
 
 echo "Creating cluster..."
 kind create cluster --name "${CLUSTER_NAME}"
-
 kubectl config use-context "kind-${CLUSTER_NAME}"
 
 echo "Waiting for nodes..."
@@ -33,17 +49,28 @@ echo "Installing Argo Workflows CRDs..."
 kubectl apply -k "github.com/argoproj/argo-workflows//manifests/base/crds/minimal?ref=stable"
 kubectl wait --for=condition=Established crd/workflowtemplates.argoproj.io --timeout=60s
 
-echo "Creating namespace..."
-kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+for target in "${TARGETS[@]}"; do
+    manifest="${REPO_ROOT}/${target}/tests/resources/k8s/local-cluster.yaml"
 
-echo "Applying manifests..."
-kubectl apply -n "${NAMESPACE}" -f "${MANIFEST}"
+    if [[ ! -f "${manifest}" ]]; then
+        echo "Skipping ${target}: no manifest found at ${manifest}"
+        continue
+    fi
 
-echo "Waiting for deployments..."
-kubectl wait \
-    -n "${NAMESPACE}" \
-    --for=condition=available deployment \
-    --all \
-    --timeout=120s
+    echo "Setting up namespace ${target}..."
+    kubectl create namespace "${target}" --dry-run=client -o yaml | kubectl apply -f -
+
+    echo "Applying ${target} manifests..."
+    kubectl apply -n "${target}" -f "${manifest}"
+done
+
+echo "Waiting for all deployments..."
+for target in "${TARGETS[@]}"; do
+    kubectl wait \
+        -n "${target}" \
+        --for=condition=available deployment \
+        --all \
+        --timeout=120s 2>/dev/null || true
+done
 
 echo "Cluster ready."

@@ -7,8 +7,8 @@ import logging
 import questionary
 import typer
 
-from kenvx.console import console
-from kenvx.style import STYLE
+from envx.console import console
+from envx.style import STYLE
 
 
 def setup_logging(verbose: int) -> None:
