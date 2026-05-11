@@ -2,11 +2,11 @@
 
 ## Project
 
-`kubext` is a Python 3.11+ monorepo of `kubectl` plugins. See each package's README for details:
-- `kubext-portfwd/README.md` — interactive multi-service port-forwarding
-- `kubext-envx/README.md` — export env vars from Kubernetes Deployments and Argo WorkflowTemplates
+`kubek` is a Python 3.11+ monorepo of `kubectl` plugins. See each package's README for details:
+- `kubectl-portfwd/README.md` — interactive multi-service port-forwarding
+- `kubectl-envx/README.md` — export env vars from Kubernetes Deployments and Argo WorkflowTemplates
 
-Shared library lives in `kubext-shared/src/kubext/`. 
+Shared library lives in `kubek-shared/src/kubek/`. 
 
 ## Rules
 

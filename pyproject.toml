@@ -42,13 +42,13 @@ kubectl-portfwd = "portfwd.__main__:app"
 envx = "envx.__main__:deprecated_entry" # Deprecated, use `kubectl envx` instead
 
 [project.urls]
-Repository = "https://github.com/ohmycoffe/kubext"
+Repository = "https://github.com/ohmycoffe/kubek"
 
 [tool.poetry]
 packages = [
-    { from = "kubext-envx/src", include = "envx" },
-    { from = "kubext-portfwd/src", include = "portfwd" },
-    { from = "kubext-shared/src", include = "kubext" },
+    { from = "kubectl-envx/src", include = "envx" },
+    { from = "kubectl-portfwd/src", include = "portfwd" },
+    { from = "kubek-shared/src", include = "kubek" },
 ]
 
 [tool.poetry.group.dev.dependencies]
