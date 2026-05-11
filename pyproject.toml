@@ -8,7 +8,7 @@ authors = [
 ]
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = ["kubernetes", "kubectl", "kubectl plugins","cli", "devtools", "port forwarding", "dotenv"]
 classifiers = [
     "Development Status :: 4 - Beta",
