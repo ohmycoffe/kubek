@@ -1,5 +1,5 @@
 [project]
-name = "kubext"
+name = "kubek"
 version = "0.4.2"
 description = "kubectl extensions"
 readme = "README.md"
