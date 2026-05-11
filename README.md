@@ -1,12 +1,12 @@
 <div align="center">
 
-# kubext
+# kubek
 
 > `kubectl` plugins for friendlier Kubernetes interactions.
 
-**kubext** (**kub**ectl **ext**ensions) is a collection of CLI tools that plug into `kubectl` and add interactive, developer-friendly shortcuts on top of it.
+**kubek** (**kub**ernetes **e**xtension **k**it) is a collection of CLI tools that plug into `kubectl` and add interactive, developer-friendly shortcuts on top of it.
 
-![CI](https://github.com/ohmycoffe/kubext/actions/workflows/ci.yml/badge.svg?branch=main)
+![CI](https://github.com/ohmycoffe/kubek/actions/workflows/ci.yml/badge.svg?branch=main)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -29,7 +29,7 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 
 ![portfwd demo](https://github.com/user-attachments/assets/18e1b913-b1f4-420a-8d76-2a717d604b3e)
 
-→ [Full documentation](kubext-portfwd/README.md)
+→ [Full documentation](kubectl-portfwd/README.md)
 
 ---
 
@@ -43,7 +43,7 @@ Getting credentials out of a running deployment usually means digging through `k
 
 ![envx demo](https://github.com/user-attachments/assets/232d778b-77db-4de6-9b79-929a525419d4)
 
-→ [Full documentation](kubext-envx/README.md)
+→ [Full documentation](kubectl-envx/README.md)
 
 ---
 
@@ -56,14 +56,14 @@ Getting credentials out of a running deployment usually means digging through `k
 
 ### Install
 
-The recommended way to install kubext is with [pipx](https://pipx.pypa.io/), which installs it in an isolated environment and automatically makes the plugin executables available on your PATH:
+The recommended way to install kubek is with [pipx](https://pipx.pypa.io/), which installs it in an isolated environment and automatically makes the plugin executables available on your PATH:
 
 ```bash
 # Latest stable release (recommended)
-pipx install kubext
+pipx install kubek
 
 # Newest development version
-pipx install git+https://github.com/ohmycoffe/kubext.git
+pipx install git+https://github.com/ohmycoffe/kubek.git
 ```
 
 If you use pip or another package manager, make sure the installation's `bin/` directory is on your PATH — `kubectl` discovers plugins by scanning PATH for executables prefixed with `kubectl-`.

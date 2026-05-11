@@ -2,7 +2,7 @@
 
 set -eEuo pipefail
 
-CLUSTER_NAME="kubext-test"
+CLUSTER_NAME="kubek-test"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
@@ -12,8 +12,8 @@ usage() {
     echo "Sets up a local Kind cluster with test manifests."
     echo ""
     echo "Examples:"
-    echo "  $0 kubext-portfwd              # only portfwd"
-    echo "  $0 kubext-portfwd kubext-envx  # both"
+    echo "  $0 kubectl-portfwd              # only portfwd"
+    echo "  $0 kubectl-portfwd kubectl-envx  # both"
     exit 0
 }
 
