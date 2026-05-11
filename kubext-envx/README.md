@@ -43,7 +43,3 @@ Extract WorkflowTemplate env vars as JSON:
 ```bash
 kubectl envx --kind workflowtemplate --name my-workflow --namespace argo --output json
 ```
-
-## License
-
-MIT — see [LICENSE](LICENSE).
