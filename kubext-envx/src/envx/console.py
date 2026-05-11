@@ -6,7 +6,7 @@ import subprocess
 from rich.console import Console
 from rich.panel import Panel
 
-from kenvx.style import COLOR_ERROR
+from envx.style import COLOR_ERROR
 
 console = Console(stderr=True)
 

@@ -1,24 +1,54 @@
 [project]
-name = "kube-envx"
-version = "0.3.0"
-description = "Extract environment variables from Kubernetes resources in dotenv format"
+name = "kubext"
+version = "0.4.0"
+description = "kubectl extensions"
+readme = "README.md"
 authors = [
     {name = "ohmycoffe",email = "ohmycoffe1@gmail.com"}
 ]
-readme = "README.md"
-requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+keywords = ["kubernetes", "kubectl", "kubectl plugins","cli", "devtools", "port forwarding", "dotenv"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
 dependencies = [
-    "typer (>=0.16.0,<0.17.0)",
+    "typer (>=0.25.1,<0.26.0)",
     "questionary (>=2.1.1,<3.0.0)",
+    "psutil (>=7.2.2,<8.0.0)",
+    "pydantic (>=2.13.4,<3.0.0)",
+    "rich (>=15.0.0,<16.0.0)",
+
 ]
 
 [project.scripts]
-kenvx = "kenvx.__main__:app"
-envx = "kenvx.__main__:deprecated_entry"
+# Kubectl plugins must be prefixed with `kubectl-` and be discoverable in PATH
+kubectl-envx = "envx.__main__:app"
+kubectl-portfwd = "portfwd.__main__:app"
+
+# Deprecated entries for backward compatibility, will be removed in the future
+envx = "kenvx.__main__:deprecated_entry" # Deprecated, use `kubectl envx` instead
+
+[project.urls]
+Repository = "https://github.com/ohmycoffe/kubext"
 
 [tool.poetry]
 packages = [
-    { from = "src", include = "kenvx" },
+    { from = "kubext-envx/src", include = "envx" },
+    { from = "kubext-portfwd/src", include = "portfwd" },
+    { from = "kubext-shared/src", include = "kubext" },
 ]
 
 [tool.poetry.group.dev.dependencies]
@@ -27,6 +57,7 @@ pytest = "^9.0.3"
 
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
