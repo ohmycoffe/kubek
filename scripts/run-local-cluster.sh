@@ -56,18 +56,19 @@ for target in "${TARGETS[@]}"; do
         echo "Skipping ${target}: no manifest found at ${manifest}"
         continue
     fi
-
-    echo "Setting up namespace ${target}..."
-    kubectl create namespace "${target}" --dry-run=client -o yaml | kubectl apply -f -
+    namespace_name="ns-${target}"
+    echo "Setting up namespace ${namespace_name}..."
+    kubectl create namespace "${namespace_name}" --dry-run=client -o yaml | kubectl apply -f -
 
     echo "Applying ${target} manifests..."
-    kubectl apply -n "${target}" -f "${manifest}"
+    kubectl apply -n "${namespace_name}" -f "${manifest}"
 done
 
 echo "Waiting for all deployments..."
 for target in "${TARGETS[@]}"; do
+    namespace_name="ns-${target}"
     kubectl wait \
-        -n "${target}" \
+        -n "${namespace_name}" \
         --for=condition=available deployment \
         --all \
         --timeout=120s 2>/dev/null || true

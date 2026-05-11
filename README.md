@@ -29,7 +29,7 @@ forward multiple ports at once, watch a live status table.
 - Inform user which services are currently forwarded and on which ports
 
 
-![portfwd demo](demo_kubext_pfwd.gif)
+![portfwd demo](https://github.com/user-attachments/assets/18e1b913-b1f4-420a-8d76-2a717d604b3e)
 
 → [Full documentation](kubext-portfwd/README.md)
 
@@ -41,9 +41,9 @@ Pull environment variables out of Kubernetes Deployments and Argo WorkflowTempla
 
 - Fully interactive (fuzzy-search, arrow key navigation, multi-select)
 - Output as `.env` or JSON
-- Pipe directly: `kenvx ... > .env` to produce a dotenv file
+- Pipe directly: `kubectl envx ... > .env` to produce a dotenv file
 
-![envx demo](demo_kubext_envx.gif)
+![envx demo](https://github.com/user-attachments/assets/232d778b-77db-4de6-9b79-929a525419d4)
 
 → [Full documentation](kubext-envx/README.md)
 
