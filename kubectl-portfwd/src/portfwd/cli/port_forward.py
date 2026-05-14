@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
 from pathlib import Path
 from typing import Annotated
 
@@ -14,15 +15,19 @@ from portfwd.config import (
     QualifiedName,
     load_config,
 )
-from portfwd.kube import get_current_context
-from portfwd.runner import (
-    _fetch_services_for_namespaces,
-    fetch_namespaces,
-    fetch_running_forwards,
-    manage_port_forwards,
-    resolve_services,
+from portfwd.kube import (
+    KubernetesService,
+    get_available_namespaces,
+    get_current_context,
+    get_current_namespace,
+    get_service,
 )
-from portfwd.ui.display import console
+from portfwd.runner import (
+    fetch_running_forwards,
+    fetch_services,
+    manage_port_forwards,
+)
+from portfwd.ui.display import console, print_error
 from portfwd.ui.prompts import (
     SpecialGroups,
     select_group_name,
@@ -33,6 +38,54 @@ from portfwd.ui.prompts import (
 logger = logging.getLogger(__name__)
 
 app = typer.Typer()
+
+
+def __resolve_services(qualnames: list[QualifiedName]) -> list[KubernetesService]:
+    """Look up each service by exact name in its namespace.
+
+    Hard-fails on missing services or kubectl errors, distinguishing the two cases.
+    """
+    result: list[KubernetesService] = []
+    not_found: list[str] = []
+    try:
+        with console.status("[bold blue]Fetching services…[/bold blue]"):
+            for q in qualnames:
+                svc = get_service(q.namespace, q.name)
+                if svc is None:
+                    not_found.append(str(q))
+                else:
+                    result.append(svc)
+    except subprocess.CalledProcessError as e:
+        print_error(e, "Failed to fetch service using kubectl")
+        raise typer.Exit(code=1) from None
+    if not_found:
+        console.print(f"[red]Services not found: {', '.join(not_found)}[/red]")
+        raise typer.Exit(code=1)
+    return result
+
+
+def __fetch_services_for_namespaces(namespaces: list[str]) -> list[KubernetesService]:
+    try:
+        with console.status("[bold blue]Fetching services…[/bold blue]"):
+            return fetch_services(namespaces)
+    except subprocess.CalledProcessError as e:
+        print_error(e, "Failed to fetch services using kubectl")
+        raise typer.Exit(code=1) from None
+
+
+def __fetch_namespaces() -> tuple[list[str], str | None]:
+    """Fetch all namespaces and current namespace.
+
+    Returns tuple of (all_namespaces, current_namespace).
+    """
+    try:
+        with console.status("[bold blue]Fetching namespaces…[/bold blue]"):
+            all_namespaces = get_available_namespaces()
+            current = get_current_namespace()
+            return all_namespaces, current
+    except subprocess.CalledProcessError as e:
+        print_error(e, "Failed to fetch namespaces using kubectl")
+        raise typer.Exit(code=1) from None
 
 
 def __setup_logging(verbose: int) -> None:
@@ -63,20 +116,20 @@ def __run_group(group_name: str, cfg: PortFwdConfig, context: str | None) -> Non
     __validate_group(group_name, cfg.groups)
     group_obj = __extract_group(group_name, cfg.groups)
     assert group_obj is not None
-    selected = resolve_services(group_obj.services)
+    selected = __resolve_services(group_obj.services)
     asyncio.run(manage_port_forwards(selected, cfg.ports, context))
 
 
 def __run_services(service: list[str], cfg: PortFwdConfig, context: str | None) -> None:
     qualnames = [QualifiedName.from_string(s) for s in service]
-    selected = resolve_services(qualnames)
+    selected = __resolve_services(qualnames)
     asyncio.run(manage_port_forwards(selected, cfg.ports, context))
 
 
 def __run_interactive(cfg: PortFwdConfig, context: str | None) -> None:
-    all_namespaces, current_namespace = fetch_namespaces()
+    all_namespaces, current_namespace = __fetch_namespaces()
     selected_namespaces = select_namespaces(all_namespaces, current_namespace)
-    available = _fetch_services_for_namespaces(selected_namespaces)
+    available = __fetch_services_for_namespaces(selected_namespaces)
     if not available:
         console.print("[yellow]No services found.[/yellow]")
         raise typer.Exit(code=0)

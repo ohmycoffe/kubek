@@ -4,7 +4,6 @@ import asyncio
 import itertools
 import logging
 import signal
-import subprocess
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -13,17 +12,14 @@ from rich.live import Live
 
 from portfwd.kube import (
     find_running_port_forwards,
-    get_available_namespaces,
-    get_current_namespace,
-    get_service,
     get_services,
     start_port_forward,
 )
-from portfwd.ui.display import console, make_table, print_error
+from portfwd.ui.display import console, make_table
 from portfwd.utils import find_free_port, is_port_free
 
 if TYPE_CHECKING:
-    from portfwd.config import QualifiedName, ServiceConfig
+    from portfwd.config import ServiceConfig
     from portfwd.kube import KubernetesService, PortForwardProcess, RunningPortForward
 
 logger = logging.getLogger(__name__)
@@ -127,56 +123,8 @@ async def manage_port_forwards(
         )
 
 
-def resolve_services(qualnames: list[QualifiedName]) -> list[KubernetesService]:
-    """Look up each service by exact name in its namespace.
-
-    Hard-fails on missing services or kubectl errors, distinguishing the two cases.
-    """
-    result: list[KubernetesService] = []
-    not_found: list[str] = []
-    try:
-        with console.status("[bold blue]Fetching services…[/bold blue]"):
-            for q in qualnames:
-                svc = get_service(q.namespace, q.name)
-                if svc is None:
-                    not_found.append(str(q))
-                else:
-                    result.append(svc)
-    except subprocess.CalledProcessError as e:
-        print_error(e, "Failed to fetch service using kubectl")
-        raise typer.Exit(code=1) from None
-    if not_found:
-        console.print(f"[red]Services not found: {', '.join(not_found)}[/red]")
-        raise typer.Exit(code=1)
-    return result
-
-
 def fetch_services(namespaces: list[str]) -> list[KubernetesService]:
     return list(itertools.chain.from_iterable(get_services(ns) for ns in namespaces))
-
-
-def _fetch_services_for_namespaces(namespaces: list[str]) -> list[KubernetesService]:
-    try:
-        with console.status("[bold blue]Fetching services…[/bold blue]"):
-            return fetch_services(namespaces)
-    except subprocess.CalledProcessError as e:
-        print_error(e, "Failed to fetch services using kubectl")
-        raise typer.Exit(code=1) from None
-
-
-def fetch_namespaces() -> tuple[list[str], str | None]:
-    """Fetch all namespaces and current namespace.
-
-    Returns tuple of (all_namespaces, current_namespace).
-    """
-    try:
-        with console.status("[bold blue]Fetching namespaces…[/bold blue]"):
-            all_namespaces = get_available_namespaces()
-            current = get_current_namespace()
-            return all_namespaces, current
-    except subprocess.CalledProcessError as e:
-        print_error(e, "Failed to fetch namespaces using kubectl")
-        raise typer.Exit(code=1) from None
 
 
 def fetch_running_forwards(
