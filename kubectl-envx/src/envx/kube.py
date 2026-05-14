@@ -3,28 +3,15 @@ from __future__ import annotations
 import json
 import logging
 import re
-import subprocess
 from collections.abc import Callable
 from functools import lru_cache
 from typing import Any
 
+from kubek.kube import call_subprocess
+
 from envx.utils import decode
 
 logger = logging.getLogger(__name__)
-
-
-def call_subprocess(cmd: list[str]) -> str:
-    logger.debug("%s", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return result.stdout
-
-
-def get_current_namespace() -> str:
-    """Get the active namespace from kubeconfig, falling back to 'default'."""
-    result = call_subprocess(
-        ["kubectl", "config", "view", "--minify", "-o", "jsonpath={..namespace}"]
-    )
-    return result.strip() or "default"
 
 
 @lru_cache

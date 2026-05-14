@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-import subprocess
 from dataclasses import dataclass
+
+from kubek.kube import call_subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,6 @@ class KubernetesService:
     port: int
     protocol: str
     namespace: str
-
-
-def __call_subprocess(cmd: list[str]) -> str:
-    logger.debug(" ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    return result.stdout
 
 
 def parse_context(raw: str) -> str:
@@ -65,30 +60,20 @@ def parse_services(raw: str, namespace: str) -> list[KubernetesService]:
 
 def get_current_context() -> str:
     """Get the current kubectl context, extracting cluster name from ARN if present."""
-    return parse_context(__call_subprocess(["kubectl", "config", "current-context"]))
-
-
-def get_current_namespace() -> str | None:
-    """Get the active namespace from kubeconfig, or None if not set."""
-    result = __call_subprocess(
-        ["kubectl", "config", "view", "--minify", "-o", "jsonpath={..namespace}"]
-    )
-    return result.strip() or None
+    return parse_context(call_subprocess(["kubectl", "config", "current-context"]))
 
 
 def get_available_namespaces() -> list[str]:
     """Get the list of available Kubernetes namespaces using kubectl."""
     return parse_namespaces(
-        __call_subprocess(["kubectl", "get", "namespaces", "-o", "json"])
+        call_subprocess(["kubectl", "get", "namespaces", "-o", "json"])
     )
 
 
 def get_services(namespace: str) -> list[KubernetesService]:
     """Get the list of services with their ports in the specified namespace."""
     return parse_services(
-        __call_subprocess(
-            ["kubectl", "get", "services", "-n", namespace, "-o", "json"]
-        ),
+        call_subprocess(["kubectl", "get", "services", "-n", namespace, "-o", "json"]),
         namespace=namespace,
     )
 
@@ -99,7 +84,7 @@ def get_service(namespace: str, name: str) -> KubernetesService | None:
     Returns None when the service does not exist.
     Raises CalledProcessError on connectivity or auth errors.
     """
-    raw = __call_subprocess(
+    raw = call_subprocess(
         [
             "kubectl",
             "get",

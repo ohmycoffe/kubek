@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from kubek.ui import console, print_error
 
 from portfwd.config import (
     DEFAULT_CONFIG_PATH,
@@ -27,7 +28,6 @@ from portfwd.runner import (
     fetch_services,
     manage_port_forwards,
 )
-from portfwd.ui.display import console, print_error
 from portfwd.ui.prompts import (
     SpecialGroups,
     select_group_name,

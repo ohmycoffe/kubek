@@ -1,19 +1,11 @@
 from __future__ import annotations
 
-import logging
-import subprocess
 from typing import TYPE_CHECKING
 
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 if TYPE_CHECKING:
     from portfwd.kube.process import PortForwardProcess
-
-logger = logging.getLogger(__name__)
-
-console = Console(stderr=True)
 
 
 def make_table(
@@ -54,14 +46,4 @@ def make_table(
     return table
 
 
-def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
-    stderr = (e.stderr or "").strip()
-    logger.error("Command %s failed [%s]: %s", " ".join(e.cmd), e.returncode, stderr)
-    console.print(
-        Panel(
-            f"[red]{stderr or 'no output'}[/red]",
-            title=f"[bold red]{msg}[/bold red]",
-            border_style="red",
-            expand=False,
-        )
-    )
+__all__ = ["make_table"]

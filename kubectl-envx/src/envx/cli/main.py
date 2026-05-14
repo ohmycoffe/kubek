@@ -7,16 +7,15 @@ from typing import Annotated
 
 import questionary
 import typer
+from kubek.kube import get_current_namespace
+from kubek.ui import COLOR_MUTED, STYLE, console, print_error
 
-from envx.console import console, print_error
 from envx.kube import (
     get_available_deployments,
     get_available_workflowtemplates,
-    get_current_namespace,
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
-from envx.style import COLOR_MUTED, STYLE
 from envx.utils import export_as_dotenv, setup_logging
 
 

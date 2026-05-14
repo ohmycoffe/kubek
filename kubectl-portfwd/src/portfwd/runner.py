@@ -8,6 +8,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import typer
+from kubek.ui import console
 from rich.live import Live
 
 from portfwd.kube import (
@@ -15,7 +16,7 @@ from portfwd.kube import (
     get_services,
     start_port_forward,
 )
-from portfwd.ui.display import console, make_table
+from portfwd.ui.display import make_table
 from portfwd.utils import find_free_port, is_port_free
 
 if TYPE_CHECKING:

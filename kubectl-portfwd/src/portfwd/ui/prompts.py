@@ -5,10 +5,9 @@ from typing import TYPE_CHECKING, TypeAlias
 
 import questionary
 import typer
+from kubek.ui import STYLE, console
 
 from portfwd.config import GroupRef
-from portfwd.ui.display import console
-from portfwd.ui.style import STYLE
 
 if TYPE_CHECKING:
     from portfwd.kube import KubernetesService, RunningPortForward

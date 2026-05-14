@@ -1,8 +1,8 @@
 import logging
 
+from kubek.ui import COLOR_WARNING, console
+
 from envx.cli.main import app
-from envx.console import console
-from envx.style import COLOR_WARNING
 
 logging.basicConfig()
 
