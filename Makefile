@@ -13,12 +13,13 @@ help: ## Show available commands
 test: ## Run all tests
 	poetry run pytest
 
-lint: ## Check code style and lint errors
+format: ## Format code and fix lint errors with Ruff
+	poetry run ruff format
+	poetry run ruff check --fix
+
+lint: ## Lint and format check without fixing (mirrors CI)
 	poetry run ruff check
 	poetry run ruff format --check
-
-format: ## Format code
-	poetry run ruff format
 
 
 bump: ## Bump version (v=patch|minor|major)

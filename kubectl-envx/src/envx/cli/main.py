@@ -11,21 +11,21 @@ import typer
 from envx.console import console, print_error
 from envx.kube import (
     get_available_deployments,
-    get_available_namespaces,
     get_available_workflowtemplates,
+    get_current_namespace,
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
 from envx.style import COLOR_MUTED, STYLE
-from envx.utils import export_as_dotenv, resolve_namespace, setup_logging
+from envx.utils import export_as_dotenv, setup_logging
 
 
-class ResourceKind(str, enum.Enum):
+class ResourceKind(enum.StrEnum):
     DEPLOYMENT = "deployment"
     WORKFLOWTEMPLATE = "workflowtemplate"
 
 
-class ExportFormat(str, enum.Enum):
+class ExportFormat(enum.StrEnum):
     ENV = "env"
     JSON = "json"
 
@@ -92,14 +92,9 @@ def get(
     if kind is None:
         kind = select_resource_kind()
 
-    try:
-        with console.status(f"[italic {COLOR_MUTED}]Fetching available namespaces…[/]"):
-            namespaces = get_available_namespaces()
-    except subprocess.CalledProcessError as e:
-        print_error(e, "Failed to fetch available namespaces")
-        raise typer.Exit(code=1) from None
-
-    namespace = resolve_namespace(namespace, available_namespaces=namespaces)
+    if namespace is None:
+        namespace = get_current_namespace()
+    console.print(f"[dim]Namespace:[/dim] [cyan]{namespace}[/cyan]")
 
     try:
         with console.status(

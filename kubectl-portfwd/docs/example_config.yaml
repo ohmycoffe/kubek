@@ -1,0 +1,16 @@
+port_forwards:
+  - name: auth-service
+    namespace: kube-public
+    local_port: 50013
+    remote_port: 80
+  - name: user-service
+    namespace: kube-public
+    local_port: 50014
+    remote_port: 80
+
+groups:
+  backend:
+    - kube-public/auth-service
+    - kube-public/user-service
+  ddr:
+    - kube-public/auth-service

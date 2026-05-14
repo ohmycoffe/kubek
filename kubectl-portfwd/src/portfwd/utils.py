@@ -29,3 +29,11 @@ def ensure_port(preferred: int | None) -> int:
         return preferred
     else:
         return find_free_port()
+
+
+def parse_qualname(ref: str) -> tuple[str, str]:
+    """Parse a qualified name in the form 'namespace/service'."""
+    ns, name = ref.split("/", 1)
+    if not ns or not name:
+        raise ValueError(f"Invalid reference {ref!r} (expected 'namespace/service')")
+    return ns, name

@@ -27,11 +27,12 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --only=dev
 
-      - name: Ruff format check
+      - name: Lint
+        run: poetry run ruff check
+
+      - name: Format check
         run: poetry run ruff format --check
 
-      - name: Ruff check
-        run: poetry run ruff check
   test:
     needs: lint
     runs-on: ubuntu-latest

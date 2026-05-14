@@ -19,11 +19,12 @@ def call_subprocess(cmd: list[str]) -> str:
     return result.stdout
 
 
-def get_available_namespaces() -> list[str]:
-    cmd = ["kubectl", "get", "namespaces", "-o", "json"]
-    result = call_subprocess(cmd)
-    data = json.loads(result)
-    return [el["metadata"]["name"] for el in data["items"]]
+def get_current_namespace() -> str:
+    """Get the active namespace from kubeconfig, falling back to 'default'."""
+    result = call_subprocess(
+        ["kubectl", "config", "view", "--minify", "-o", "jsonpath={..namespace}"]
+    )
+    return result.strip() or "default"
 
 
 @lru_cache

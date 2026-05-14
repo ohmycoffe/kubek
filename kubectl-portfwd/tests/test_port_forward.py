@@ -1,14 +1,16 @@
 import asyncio
-import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from portfwd.cli.port_forward import ensure_local_ports, make_table, watch_processes
+import pytest
+import typer
 from portfwd.config import ServiceConfig
 from portfwd.kube import KubernetesService, PortForwardProcess
+from portfwd.runner import ensure_local_ports, watch_processes
+from portfwd.ui.display import make_table
 
 
-def _make_service(name: str, port: int) -> KubernetesService:
-    return KubernetesService(name=name, port=port, protocol="TCP")
+def _make_service(name: str, port: int, namespace: str = "ns") -> KubernetesService:
+    return KubernetesService(name=name, port=port, protocol="TCP", namespace=namespace)
 
 
 def _make_process(
@@ -23,6 +25,7 @@ def _make_process(
         service_name=service_name,
         remote_port=remote_port,
         local_port=local_port,
+        namespace="ns",
     )
 
 
@@ -30,56 +33,55 @@ _SVC_CONFIG = ServiceConfig(name="svc", namespace="ns", remote_port=80, local_po
 
 
 def test_resolve_local_ports_uses_preferred_port():
-    """Uses the configured local port when the preferred port is available."""
+    """Uses the configured local port when the preferred port is free."""
     services = [_make_service("svc", 80)]
 
-    with patch("portfwd.cli.port_forward.ensure_port", return_value=9000):
-        result = ensure_local_ports(services, [_SVC_CONFIG], "ns")
+    with patch("portfwd.runner.is_port_free", return_value=True):
+        result = ensure_local_ports(services, [_SVC_CONFIG])
 
     assert result == [(services[0], 9000)]
 
 
-def test_resolve_local_ports_falls_back_when_preferred_unavailable(caplog):
-    """Falls back to a free port and logs a warning when the preferred port is taken."""
+def test_resolve_local_ports_fails_when_preferred_unavailable():
+    """Hard-fails when the configured local port is already in use."""
     services = [_make_service("svc", 80)]
 
     with (
-        caplog.at_level(logging.WARNING, logger="portfwd.cli.port_forward"),
-        patch("portfwd.cli.port_forward.ensure_port", return_value=9001),
+        patch("portfwd.runner.is_port_free", return_value=False),
+        patch("portfwd.runner.console"),
+        pytest.raises(typer.Exit) as exc_info,
     ):
-        result = ensure_local_ports(services, [_SVC_CONFIG], "ns")
+        ensure_local_ports(services, [_SVC_CONFIG])
 
-    assert result == [(services[0], 9001)]
-    assert "9000" in caplog.text
-    assert "9001" in caplog.text
+    assert exc_info.value.exit_code == 1
 
 
 def test_resolve_local_ports_no_config_match():
-    """Returns a free port when no config entry matches the service."""
+    """Assigns a random free port when no config entry matches the service."""
     services = [_make_service("svc", 80)]
 
-    with patch("portfwd.cli.port_forward.ensure_port", return_value=50000):
-        result = ensure_local_ports(services, [], "ns")
+    with patch("portfwd.runner.find_free_port", return_value=50000):
+        result = ensure_local_ports(services, [])
 
     assert result == [(services[0], 50000)]
 
 
 def test_resolve_local_ports_ignores_config_from_other_namespace():
     """Does not use config entries whose namespace does not match."""
-    services = [_make_service("svc", 80)]
+    services = [_make_service("svc", 80, namespace="ns")]
     other_ns = ServiceConfig(
         name="svc", namespace="other-ns", remote_port=80, local_port=9000
     )
 
-    with patch("portfwd.cli.port_forward.ensure_port", return_value=50000):
-        result = ensure_local_ports(services, [other_ns], "ns")
+    with patch("portfwd.runner.find_free_port", return_value=50000):
+        result = ensure_local_ports(services, [other_ns])
 
     assert result == [(services[0], 50000)]
 
 
 def test_resolve_local_ports_empty_services():
     """Returns an empty list when no services are provided."""
-    assert ensure_local_ports([], [], "ns") == []
+    assert ensure_local_ports([], []) == []
 
 
 def test_make_table_has_one_row_per_process():
@@ -89,7 +91,7 @@ def test_make_table_has_one_row_per_process():
         _make_process("svc-b", remote_port=8080, local_port=9001),
     ]
     statuses = {"svc-a:80": "live", "svc-b:8080": "live"}
-    table = make_table(procs, statuses, "ns", context=None)
+    table = make_table(procs, statuses, context=None)
     assert table.row_count == 2
 
 
