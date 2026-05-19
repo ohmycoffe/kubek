@@ -30,6 +30,7 @@ def _spec(name, namespace=None, remote=None, local=None):
         (" api ", _spec(name="api")),
         ("  default/api:80  ", _spec(name="api", namespace="default", remote=80)),
         ("  api:80::8080  ", _spec(name="api", remote=80, local=8080)),
+        ("api::8080  ", _spec(name="api", local=8080)),
     ],
 )
 def test_from_string_valid(tested, expected):
