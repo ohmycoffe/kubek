@@ -1,6 +1,6 @@
 import json
 
-from kubek.kube.schemas.service import Service, ServiceList
+from kubek.kube.schemas import Service, ServiceList
 
 
 def _service_json(name: str, namespace: str, ports: list[dict]) -> dict:

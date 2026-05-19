@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from kubek.kube.schemas.container import Container
+from kubek.kube.schemas import Container
 
 
 class TemplateType(StrEnum):

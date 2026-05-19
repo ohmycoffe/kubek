@@ -2,8 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from kubek.kube.schemas.base import Kind
-from kubek.kube.schemas.container import Container
+from kubek.kube.schemas import Container, Kind
 
 
 class DeploymentMetadata(BaseModel):

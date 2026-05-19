@@ -5,13 +5,19 @@ import shlex
 import subprocess
 from collections.abc import Sequence
 
-from kubek.kube.schemas.config import Config
-from kubek.kube.schemas.configmap import ConfigMap
-from kubek.kube.schemas.deployment import Deployment, DeploymentList
-from kubek.kube.schemas.namespace import Namespace, NamespaceList
-from kubek.kube.schemas.secret import Secret
-from kubek.kube.schemas.service import Service, ServiceList
-from kubek.kube.schemas.workflowtemplate import WorkflowTemplate, WorkflowTemplateList
+from kubek.kube.schemas import (
+    Config,
+    ConfigMap,
+    Deployment,
+    DeploymentList,
+    Namespace,
+    NamespaceList,
+    Secret,
+    Service,
+    ServiceList,
+    WorkflowTemplate,
+    WorkflowTemplateList,
+)
 
 logger = logging.getLogger(__name__)
 

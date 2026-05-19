@@ -1,6 +1,6 @@
 from kubek.core.ports import find_free_port, get_deterministic_port, is_port_free
 from kubek.kube.client import KubectlWrapper
-from kubek.kube.schemas.service import Service
+from kubek.kube.schemas import Service
 
 from portfwd.config import (
     PortFwdConfig,

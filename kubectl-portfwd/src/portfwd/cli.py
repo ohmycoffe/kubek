@@ -14,7 +14,7 @@ from kubek.kube.client import (
     KubectlError,
     KubectlWrapper,
 )
-from kubek.kube.schemas.service import Service
+from kubek.kube.schemas import Service
 from kubek.term import format as fmt
 from kubek.term import get_console, print_error, setup_logging
 from pydantic import ValidationError

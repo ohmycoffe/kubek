@@ -1,6 +1,6 @@
 import json
 
-from kubek.kube.schemas.service import Service, ServiceList
+from kubek.kube.schemas import Service, ServiceList
 from portfwd.cli import _convert_to_spec
 from portfwd.models import ServicePortForwardSpec
 

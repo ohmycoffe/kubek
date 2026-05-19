@@ -6,10 +6,7 @@ from collections.abc import Callable
 from functools import lru_cache
 
 from kubek.kube.client import KubectlWrapper
-from kubek.kube.schemas.configmap import ConfigMap
-from kubek.kube.schemas.container import Container
-from kubek.kube.schemas.secret import Secret
-from kubek.kube.schemas.workflowtemplate import TemplateType
+from kubek.kube.schemas import ConfigMap, Container, Secret, TemplateType
 
 logger = logging.getLogger(__name__)
 

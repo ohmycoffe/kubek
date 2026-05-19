@@ -3,7 +3,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from kubek.kube.schemas.base import Kind
-from kubek.kube.schemas.workflowtemplate.template import (
+
+from .template import (
     ContainerTemplate,
     DagTemplate,
     ScriptTemplate,

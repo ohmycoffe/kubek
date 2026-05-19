@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from kubek.kube.schemas.base import Kind
+from kubek.kube.schemas import Kind
 
 
 class Metadata(BaseModel):
