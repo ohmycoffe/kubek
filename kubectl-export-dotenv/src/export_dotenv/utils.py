@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import datetime
 
 from kubek.term.logging import setup_logging as _setup_logging
@@ -8,11 +7,6 @@ from kubek.term.logging import setup_logging as _setup_logging
 
 def setup_logging(verbose: int) -> None:
     _setup_logging(verbose, "export_dotenv", "kubek")
-
-
-def decode(val: str) -> str:
-    decoded_bytes = base64.b64decode(val)
-    return decoded_bytes.decode("utf-8")
 
 
 def export_as_dotenv(vals: dict[str, str], name: str | None = None) -> str:

@@ -63,13 +63,6 @@ def get_default_service(
     return candidates[-1] if candidates else None
 
 
-def get_group(cfg: PortFwdConfig, name: str) -> GroupSpec | None:
-    for group in cfg.groups:
-        if group.name == name:
-            return group
-    return None
-
-
 def load_config(path: Path | None) -> PortFwdConfig:
     """Load port-forward config from YAML.
 
