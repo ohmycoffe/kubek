@@ -43,7 +43,7 @@ jobs:
         # Uses OIDC trusted publisher — no API token needed.
         # One-time setup on PyPI:
         #   1. Go to pypi.org → your project → Publishing → Add trusted publisher
-        #   2. Set: owner=ohmycoffe, repo=kube-envx,
+        #   2. Set: owner=ohmycoffe, repo=kubek,
         #      workflow=release.yml, environment=pypi
 
       # - name: Create GitHub Release

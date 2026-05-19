@@ -1,14 +1,12 @@
 import asyncio
-import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from portfwd.cli.port_forward import ensure_local_ports, make_table, watch_processes
-from portfwd.config import ServiceConfig
-from portfwd.kube import KubernetesService, PortForwardProcess
-
-
-def _make_service(name: str, port: int) -> KubernetesService:
-    return KubernetesService(name=name, port=port, protocol="TCP")
+from portfwd.config import PortFwdConfig, ServicePortForwardDefaults
+from portfwd.kube import PortForwardProcess
+from portfwd.plan import resolve_local_port
+from portfwd.runner import watch_processes
+from portfwd.term.display import make_table
+from portfwd.utils import get_port_forward_status_id
 
 
 def _make_process(
@@ -23,63 +21,58 @@ def _make_process(
         service_name=service_name,
         remote_port=remote_port,
         local_port=local_port,
+        namespace="ns",
     )
 
 
-_SVC_CONFIG = ServiceConfig(name="svc", namespace="ns", remote_port=80, local_port=9000)
+_SVC_CONFIG = ServicePortForwardDefaults(
+    name="svc", namespace="ns", remote_port=80, local_port=9000
+)
 
 
-def test_resolve_local_ports_uses_preferred_port():
-    """Uses the configured local port when the preferred port is available."""
-    services = [_make_service("svc", 80)]
-
-    with patch("portfwd.cli.port_forward.ensure_port", return_value=9000):
-        result = ensure_local_ports(services, [_SVC_CONFIG], "ns")
-
-    assert result == [(services[0], 9000)]
+def test_resolve_local_port_uses_configured_port():
+    """Returns the configured local_port when a matching config entry exists."""
+    config = PortFwdConfig(defaults=[_SVC_CONFIG])
+    result = resolve_local_port("svc", "ns", 80, config)
+    assert result == 9000
 
 
-def test_resolve_local_ports_falls_back_when_preferred_unavailable(caplog):
-    """Falls back to a free port and logs a warning when the preferred port is taken."""
-    services = [_make_service("svc", 80)]
-
+def test_resolve_local_port_uses_deterministic_port_when_free():
+    """Returns the deterministic port when no config match and the port is free."""
+    config = PortFwdConfig()
     with (
-        caplog.at_level(logging.WARNING, logger="portfwd.cli.port_forward"),
-        patch("portfwd.cli.port_forward.ensure_port", return_value=9001),
+        patch("portfwd.plan.get_deterministic_port", return_value=55000),
+        patch("portfwd.plan.is_port_free", return_value=True),
     ):
-        result = ensure_local_ports(services, [_SVC_CONFIG], "ns")
-
-    assert result == [(services[0], 9001)]
-    assert "9000" in caplog.text
-    assert "9001" in caplog.text
+        result = resolve_local_port("svc", "ns", 80, config)
+    assert result == 55000
 
 
-def test_resolve_local_ports_no_config_match():
-    """Returns a free port when no config entry matches the service."""
-    services = [_make_service("svc", 80)]
+def test_resolve_local_port_falls_back_to_free_port_when_deterministic_taken():
+    """Falls back to find_free_port when the deterministic port is already in use."""
+    config = PortFwdConfig()
+    with (
+        patch("portfwd.plan.get_deterministic_port", return_value=55000),
+        patch("portfwd.plan.is_port_free", return_value=False),
+        patch("portfwd.plan.find_free_port", return_value=50000),
+    ):
+        result = resolve_local_port("svc", "ns", 80, config)
+    assert result == 50000
 
-    with patch("portfwd.cli.port_forward.ensure_port", return_value=50000):
-        result = ensure_local_ports(services, [], "ns")
 
-    assert result == [(services[0], 50000)]
-
-
-def test_resolve_local_ports_ignores_config_from_other_namespace():
-    """Does not use config entries whose namespace does not match."""
-    services = [_make_service("svc", 80)]
-    other_ns = ServiceConfig(
+def test_resolve_local_port_ignores_config_from_other_namespace():
+    """Does not use a config entry whose namespace does not match."""
+    other_ns = ServicePortForwardDefaults(
         name="svc", namespace="other-ns", remote_port=80, local_port=9000
     )
-
-    with patch("portfwd.cli.port_forward.ensure_port", return_value=50000):
-        result = ensure_local_ports(services, [other_ns], "ns")
-
-    assert result == [(services[0], 50000)]
-
-
-def test_resolve_local_ports_empty_services():
-    """Returns an empty list when no services are provided."""
-    assert ensure_local_ports([], [], "ns") == []
+    config = PortFwdConfig(defaults=[other_ns])
+    with (
+        patch("portfwd.plan.get_deterministic_port", return_value=55000),
+        patch("portfwd.plan.is_port_free", return_value=False),
+        patch("portfwd.plan.find_free_port", return_value=50000),
+    ):
+        result = resolve_local_port("svc", "ns", 80, config)
+    assert result == 50000
 
 
 def test_make_table_has_one_row_per_process():
@@ -88,28 +81,41 @@ def test_make_table_has_one_row_per_process():
         _make_process("svc-a", remote_port=80, local_port=9000),
         _make_process("svc-b", remote_port=8080, local_port=9001),
     ]
-    statuses = {"svc-a:80": "live", "svc-b:8080": "live"}
-    table = make_table(procs, statuses, "ns", context=None)
+    statuses = {
+        get_port_forward_status_id(
+            namespace="ns", service_name="svc-a", remote_port=80
+        ): "live",
+        get_port_forward_status_id(
+            namespace="ns", service_name="svc-b", remote_port=8080
+        ): "live",
+    }
+    table = make_table(procs, statuses, context=None)
     assert table.row_count == 2
 
 
 def test_watch_processes_updates_status_on_exit():
     """Updates the status dict to 'died (exit N)' when a process exits."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    statuses: dict[str, str] = {"svc:80": "live"}
+    row_id = get_port_forward_status_id(
+        namespace="ns", service_name="svc", remote_port=80
+    )
+    statuses: dict[str, str] = {row_id: "live"}
 
     asyncio.run(watch_processes([proc], statuses, asyncio.Event()))
 
-    assert statuses["svc:80"] == "died (exit 1)"
+    assert statuses[row_id] == "died (exit 1)"
 
 
 def test_watch_processes_skips_update_when_stopped():
     """Does not update status when stop_event is already set."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    statuses: dict[str, str] = {"svc:80": "live"}
+    row_id = get_port_forward_status_id(
+        namespace="ns", service_name="svc", remote_port=80
+    )
+    statuses: dict[str, str] = {row_id: "live"}
     stop_event = asyncio.Event()
     stop_event.set()
 
     asyncio.run(watch_processes([proc], statuses, stop_event))
 
-    assert statuses["svc:80"] == "live"
+    assert statuses[row_id] == "live"

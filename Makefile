@@ -13,12 +13,13 @@ help: ## Show available commands
 test: ## Run all tests
 	poetry run pytest
 
-lint: ## Check code style and lint errors
+format: ## Format code and fix lint errors with Ruff
+	poetry run ruff format
+	poetry run ruff check --fix
+
+lint: ## Lint and format check without fixing (mirrors CI)
 	poetry run ruff check
 	poetry run ruff format --check
-
-format: ## Format code
-	poetry run ruff format
 
 
 bump: ## Bump version (v=patch|minor|major)
@@ -26,8 +27,8 @@ bump: ## Bump version (v=patch|minor|major)
 	scripts/bump_version.sh $(v)
 
 cluster: ## Create local Kind cluster
-	scripts/run-local-cluster.sh kubectl-portfwd kubectl-envx
+	scripts/run-local-cluster.sh kubectl-portfwd kubectl-export-dotenv
 
 demo: ## Regenerate VHS demo GIFs
 	vhs kubectl-portfwd/docs/tapes/demo.tape
-	vhs kubectl-envx/docs/tapes/demo.tape
+	vhs kubectl-export-dotenv/docs/tapes/demo.tape

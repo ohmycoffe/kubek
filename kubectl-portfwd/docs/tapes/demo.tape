@@ -2,7 +2,7 @@ Output demo-kubectl-portfwd.gif
 
 Set Theme "GitHub Dark"
 Set FontSize 16
-Set Width 650
+Set Width 1000
 Set Height 500
 Set WindowBar Colorful
 Set TypingSpeed 80ms
@@ -10,6 +10,8 @@ Set CursorBlink false
 Set Padding 20
 
 Hide
+Type "kubectl config set-context --current --namespace=ns-kubectl-portfwd"
+Enter
 Type "clear"
 Enter
 Sleep 300ms
@@ -20,11 +22,13 @@ Sleep 2s
 Enter
 Sleep 2s
 
-# Namespace selection — type to filter, then confirm
-Type "ns-"
-Sleep 2s
+# Group selection — type to filter, then confirm
 Down
 Sleep 2s
+Enter
+Sleep 2s
+
+# Namespace selection — type to filter, then confirm
 Enter
 Sleep 2s
 
@@ -41,4 +45,6 @@ Sleep 2s
 Ctrl+C
 Sleep 2s
 Type clear
+Sleep 600ms
+Enter
 Sleep 1s

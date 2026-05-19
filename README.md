@@ -27,23 +27,23 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 - Fallback to a random free port if the preferred port is taken
 - Inform user which services are currently forwarded and on which ports
 
-![portfwd demo](https://github.com/user-attachments/assets/18e1b913-b1f4-420a-8d76-2a717d604b3e)
+![portfwd demo](https://github.com/user-attachments/assets/98e91737-8bed-4b2d-a760-4d685ecdb1a9)
 
 → [Full documentation](kubectl-portfwd/README.md)
 
 ---
 
-### 📦 envx — Export env vars from Kubernetes manifests
+### 📦 export-dotenv — Export env vars from Kubernetes manifests
 
-Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **envx** (**env**ironment e**x**porter) does it in one command — pick any Deployment or Argo WorkflowTemplate you have access to and get its env vars exported instantly.
+Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **export-dotenv** (**env**ironment e**x**porter) does it in one command — pick any Deployment or Argo WorkflowTemplate you have access to and get its env vars exported instantly.
 
 - Fully interactive (fuzzy-search, arrow key navigation)
 - Output as `.env` or JSON
-- Pipe directly: `kubectl envx ... > .env` to produce a dotenv file
+- Pipe directly: `kubectl export-dotenv ... > .env` to produce a dotenv file
 
-![envx demo](https://github.com/user-attachments/assets/232d778b-77db-4de6-9b79-929a525419d4)
+![export-dotenv demo](https://github.com/user-attachments/assets/05ed2fad-6a51-4816-a1b3-24ddc9520dec)
 
-→ [Full documentation](kubectl-envx/README.md)
+→ [Full documentation](kubectl-export-dotenv/README.md)
 
 ---
 
@@ -52,7 +52,7 @@ Getting credentials out of a running deployment usually means digging through `k
 ### Prerequisites
 
 - Python 3.11+
-- `kubectl` installed and configured with cluster access
+- `kubectl` installed and configured with cluster access (recommended version 1.36+)
 
 ### Install
 
@@ -74,7 +74,7 @@ After installing, confirm both plugins are available:
 
 ```bash
 kubectl portfwd --help
-kubectl envx --help
+kubectl export-dotenv --help
 ```
 
 See each plugin's README for full usage details.

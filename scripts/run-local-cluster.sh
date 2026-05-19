@@ -13,7 +13,7 @@ usage() {
     echo ""
     echo "Examples:"
     echo "  $0 kubectl-portfwd              # only portfwd"
-    echo "  $0 kubectl-portfwd kubectl-envx  # both"
+    echo "  $0 kubectl-portfwd kubectl-export-dotenv  # both"
     exit 0
 }
 
