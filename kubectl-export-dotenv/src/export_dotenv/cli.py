@@ -4,7 +4,7 @@ import enum
 import json
 import subprocess
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import kubek.term.format as fmt
 import questionary
@@ -16,6 +16,7 @@ from kubek.kube.client import (
     KubectlError,
     KubectlWrapper,
 )
+from kubek.kube.schemas.base import Kind
 from kubek.term import STYLE_QUESTIONARY, get_console, print_error
 
 from export_dotenv.kube import (
@@ -27,11 +28,6 @@ from export_dotenv.utils import export_as_dotenv, setup_logging
 console = get_console()
 
 
-class KindOptions(enum.StrEnum):
-    DEPLOYMENT = "deployment"
-    WORKFLOWTEMPLATE = "workflowtemplate"
-
-
 class ExportFormat(enum.StrEnum):
     ENV = "env"
     JSON = "json"
@@ -40,18 +36,18 @@ class ExportFormat(enum.StrEnum):
 app = typer.Typer()
 
 
-def ask_for_kind() -> KindOptions:
+def ask_for_kind() -> Kind:
     selected = questionary.select(
         "Select a kind:",
         choices=[
             questionary.Choice(
                 title="Deployment",
-                value=KindOptions.DEPLOYMENT,
+                value=Kind.DEPLOYMENT,
                 description="(Kubernetes Deployment)",
             ),
             questionary.Choice(
                 title="WorkflowTemplate",
-                value=KindOptions.WORKFLOWTEMPLATE,
+                value=Kind.WORKFLOWTEMPLATE,
                 description="(Argo WorkflowTemplate)",
             ),
         ],
@@ -59,10 +55,10 @@ def ask_for_kind() -> KindOptions:
         style=STYLE_QUESTIONARY,
     ).ask()
 
-    return KindOptions(selected)
+    return Kind(selected)
 
 
-def ask_for_resource(resources: list[str], kind: KindOptions) -> str:
+def ask_for_resource(resources: list[str], kind: Kind) -> str:
     selected = questionary.select(
         f"Select a {kind.value}:",
         choices=resources,
@@ -76,8 +72,9 @@ def ask_for_resource(resources: list[str], kind: KindOptions) -> str:
 @app.callback(invoke_without_command=True)
 def get(
     kind: Annotated[
-        KindOptions | None,
+        Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE] | None,
         typer.Option(
+            case_sensitive=False,
             help="Kind of resource to get parameters for. If not provided, you will be prompted to select one.",
         ),
     ] = None,
@@ -162,7 +159,7 @@ def get(
         with console.status(
             fmt.ongoing_status(f"Fetching available {kind.value}s in {namespace}…")
         ):
-            if kind == KindOptions.DEPLOYMENT:
+            if kind == Kind.DEPLOYMENT:
                 resources = kubectl.get_deployments()
             else:
                 resources = kubectl.get_workflowtemplates()
@@ -189,9 +186,9 @@ def get(
 
     try:
         with console.status(fmt.ongoing_status("Fetching environment variables…")):
-            if kind == KindOptions.DEPLOYMENT:
+            if kind == Kind.DEPLOYMENT:
                 vals = get_deployment_envs(name=name, kubectl=kubectl)
-            elif kind == KindOptions.WORKFLOWTEMPLATE:
+            elif kind == Kind.WORKFLOWTEMPLATE:
                 vals = get_workflowtemplate_envs(name=name, kubectl=kubectl)
             else:
                 raise BadParameter(f"Unsupported kind: {kind}")
