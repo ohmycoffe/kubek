@@ -5,15 +5,13 @@ from portfwd.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 REGEXP_PORT_FORWARD_SPEC = re.compile(
     r"""
     ^
-    (?:(?P<namespace>[^/\s:]+)/)?     # optional namespace
-    (?P<name>[^/\s:]+)               # service name
+    (?:(?P<namespace>[^/\s:]+)/)?
+    (?P<name>[^/\s:]+)
     (?:
-        :
-        (?P<remote>\d+)              # remote port
-        (?:
-            ::
-            (?P<local>\d+)           # optional local port
-        )?
+        :(?P<remote>\d+)
+        (?:::(?P<local>\d+))?
+        |
+        ::(?P<local_only>\d+)
     )?
     $
     """,
@@ -35,9 +33,9 @@ def parse_spec(value: str) -> ServicePortForwardSpec:
         namespace=match.group("namespace"),
         name=match.group("name"),
     )
-
+    local = match.group("local") or match.group("local_only")
     return ServicePortForwardSpec(
         target=target,
         remote_port=match.group("remote"),  # type: ignore[arg-type]
-        local_port=match.group("local"),  # type: ignore[arg-type]
+        local_port=local,  # type: ignore[arg-type]
     )
