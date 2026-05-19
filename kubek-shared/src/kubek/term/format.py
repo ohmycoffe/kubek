@@ -14,11 +14,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-ICON_WIDTH = 3  # reserve space for emoji column
-
-
 LABEL_WIDTH = 8
-ICON_WIDTH = 3
+ICON_WIDTH = 3  # reserve space for emoji column
 
 
 def _fmt(

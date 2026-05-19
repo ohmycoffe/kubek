@@ -10,6 +10,7 @@ from kubek.term.format import (
     success,
     warn,
 )
+from kubek.term.logging import setup_logging
 from kubek.term.style import STYLE_QUESTIONARY
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "mute",
     "ongoing_status",
     "print_error",
+    "setup_logging",
     "success",
     "STYLE_QUESTIONARY",
     "warn",

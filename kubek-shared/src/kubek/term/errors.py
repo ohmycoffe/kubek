@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
-import subprocess
+from subprocess import CalledProcessError
 
 from rich.panel import Panel
 from rich.text import Text
 
+from kubek.kube.client import KubectlError
 from kubek.term.console import get_console
 from kubek.term.style import Color, Icon, RichStyle
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 console = get_console()
 
 
-def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
+def print_error(e: KubectlError | CalledProcessError, msg: str) -> None:
     stderr = (e.stderr or "no output").strip()
     stdout = (e.stdout or "no output").strip()
     cmd = " ".join(e.cmd)
@@ -39,13 +40,3 @@ def print_error(e: subprocess.CalledProcessError, msg: str) -> None:
             expand=False,
         )
     )
-
-
-if __name__ == "__main__":
-    # Example usage
-    try:
-        subprocess.run(
-            ["ls", "/nonexistent"], check=True, capture_output=True, text=True
-        )
-    except subprocess.CalledProcessError as e:
-        print_error(e, "Failed to list directory")

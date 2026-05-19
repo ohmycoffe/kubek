@@ -3,17 +3,22 @@ from __future__ import annotations
 import enum
 import json
 import subprocess
+from pathlib import Path
 from typing import Annotated
 
 import kubek.term.format as fmt
 import questionary
 import typer
-from kubek.kube import DEFAULT_NAMESPACE, get_current_namespace
+from click import BadParameter
+from kubek.kube import DEFAULT_NAMESPACE
+from kubek.kube.client import (
+    ContextNotSetError,
+    KubectlError,
+    KubectlWrapper,
+)
 from kubek.term import STYLE_QUESTIONARY, get_console, print_error
 
 from export_dotenv.kube import (
-    get_available_deployments,
-    get_available_workflowtemplates,
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
@@ -22,7 +27,7 @@ from export_dotenv.utils import export_as_dotenv, setup_logging
 console = get_console()
 
 
-class ResourceKind(enum.StrEnum):
+class KindOptions(enum.StrEnum):
     DEPLOYMENT = "deployment"
     WORKFLOWTEMPLATE = "workflowtemplate"
 
@@ -35,18 +40,18 @@ class ExportFormat(enum.StrEnum):
 app = typer.Typer()
 
 
-def ask_for_kind() -> ResourceKind:
+def ask_for_kind() -> KindOptions:
     selected = questionary.select(
         "Select a kind:",
         choices=[
             questionary.Choice(
                 title="Deployment",
-                value=ResourceKind.DEPLOYMENT,
+                value=KindOptions.DEPLOYMENT,
                 description="(Kubernetes Deployment)",
             ),
             questionary.Choice(
                 title="WorkflowTemplate",
-                value=ResourceKind.WORKFLOWTEMPLATE,
+                value=KindOptions.WORKFLOWTEMPLATE,
                 description="(Argo WorkflowTemplate)",
             ),
         ],
@@ -54,10 +59,10 @@ def ask_for_kind() -> ResourceKind:
         style=STYLE_QUESTIONARY,
     ).ask()
 
-    return ResourceKind(selected)
+    return KindOptions(selected)
 
 
-def ask_for_resource(resources: list[str], kind: ResourceKind) -> str:
+def ask_for_resource(resources: list[str], kind: KindOptions) -> str:
     selected = questionary.select(
         f"Select a {kind.value}:",
         choices=resources,
@@ -71,9 +76,26 @@ def ask_for_resource(resources: list[str], kind: ResourceKind) -> str:
 @app.callback(invoke_without_command=True)
 def get(
     kind: Annotated[
-        ResourceKind | None,
+        KindOptions | None,
         typer.Option(
             help="Kind of resource to get parameters for. If not provided, you will be prompted to select one.",
+        ),
+    ] = None,
+    context: Annotated[
+        str | None,
+        typer.Option(
+            help="Kubernetes context. If not provided, the current context will be used.",
+        ),
+    ] = None,
+    kubeconfig: Annotated[
+        Path | None,
+        typer.Option(
+            "--kubeconfig",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
+            help="Path to a kubeconfig file (single path). Omit to use kubectl's default.",
         ),
     ] = None,
     namespace: Annotated[
@@ -101,28 +123,50 @@ def get(
     """
     setup_logging(verbose)
 
+    kubeconfig_path = str(kubeconfig) if kubeconfig is not None else None
+    if kubeconfig_path:
+        console.print("Kubeconfig:", fmt.highlight(kubeconfig_path))
+
+    try:
+        kube_config = KubectlWrapper.get_config(
+            kubeconfig=kubeconfig_path, context=context
+        )
+    except ContextNotSetError as e:
+        print_error(e, "Failed to get current context from kubeconfig")
+        raise typer.Exit(code=1) from None
+
+    context = context or kube_config.current_context
+    if context is None:
+        console.print(
+            fmt.error(
+                "No active context found in kubeconfig. Please specify a context using the '--context' flag or set a current context in your kubeconfig."
+            )
+        )
+        raise typer.Exit(code=1) from None
+
+    console.print("Context:", fmt.highlight(context))
+
+    namespace = namespace or kube_config.current_namespace or DEFAULT_NAMESPACE
+    console.print("Namespace:", fmt.highlight(namespace))
+
     kind = kind or ask_for_kind()
 
     if not kind:
         raise typer.Exit(code=0)
 
-    try:
-        namespace = namespace or get_current_namespace() or DEFAULT_NAMESPACE
-    except subprocess.CalledProcessError as e:
-        print_error(e, "Failed to get current namespace from kubeconfig")
-        raise typer.Exit(code=1) from None
-
-    console.print("Namespace:", fmt.highlight(namespace))
+    kubectl = KubectlWrapper(
+        namespace=namespace, context=context, kubeconfig=kubeconfig_path
+    )
 
     try:
         with console.status(
             fmt.ongoing_status(f"Fetching available {kind.value}s in {namespace}…")
         ):
-            if kind == ResourceKind.DEPLOYMENT:
-                resources = get_available_deployments(namespace=namespace)
+            if kind == KindOptions.DEPLOYMENT:
+                resources = kubectl.get_deployments()
             else:
-                resources = get_available_workflowtemplates(namespace=namespace)
-    except subprocess.CalledProcessError as e:
+                resources = kubectl.get_workflowtemplates()
+    except KubectlError as e:
         print_error(
             e, f"Failed to fetch available {kind.value}s in namespace '{namespace}'"
         )
@@ -131,12 +175,13 @@ def get(
         console.print(fmt.error(f"No {kind.value}s found in namespace '{namespace}'"))
         raise typer.Exit(code=1)
 
+    available_names = [r.metadata.name for r in resources]
     if not name:
-        name = ask_for_resource(resources=resources, kind=kind)
+        name = ask_for_resource(resources=available_names, kind=kind)
         if not name:
             raise typer.Exit(code=0)
 
-    if name not in resources:
+    if name not in available_names:
         console.print(
             fmt.error(f"{kind.value} '{name}' not found in namespace '{namespace}'")
         )
@@ -144,10 +189,12 @@ def get(
 
     try:
         with console.status(fmt.ongoing_status("Fetching environment variables…")):
-            if kind == ResourceKind.DEPLOYMENT:
-                vals = get_deployment_envs(namespace=namespace, name=name)
+            if kind == KindOptions.DEPLOYMENT:
+                vals = get_deployment_envs(name=name, kubectl=kubectl)
+            elif kind == KindOptions.WORKFLOWTEMPLATE:
+                vals = get_workflowtemplate_envs(name=name, kubectl=kubectl)
             else:
-                vals = get_workflowtemplate_envs(namespace=namespace, name=name)
+                raise BadParameter(f"Unsupported kind: {kind}")
     except subprocess.CalledProcessError as e:
         print_error(e, f"Failed to fetch environment variables for '{name}'")
         raise typer.Exit(code=1) from None

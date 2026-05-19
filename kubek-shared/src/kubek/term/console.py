@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 __stderr_console = Console(stderr=True, theme=RICH_THEME)
-__stdout_console = Console(stderr=False)
+__stdout_console = Console(stderr=False, theme=RICH_THEME)
 
 
 def get_console(stderr: bool = True) -> Console:

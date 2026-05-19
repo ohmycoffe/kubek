@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import portfwd.config as config_module
 import pytest
 from portfwd.config import (
     GroupSpec,
@@ -52,26 +53,38 @@ def test_should_load_config():
     ]
 
 
-def test_load_config_missing_file_returns_defaults(tmp_path):
-    """Returns a default Config when the config file does not exist."""
-    config = load_config(tmp_path / "nonexistent.yaml")
-    assert config == PortFwdConfig()
+def test_load_config_default_missing_returns_empty(tmp_path, monkeypatch):
+    """Returns a default Config when the default path does not exist."""
+    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", tmp_path / "missing")
+    assert load_config(None) == PortFwdConfig()
 
 
-def test_load_config_invalid_schema_returns_defaults(tmp_path):
-    """Returns a default Config when the YAML contains an unrecognised key."""
+def test_load_config_explicit_missing_raises(tmp_path):
+    """Raises FileNotFoundError when an explicit config path does not exist."""
+    with pytest.raises(FileNotFoundError):
+        load_config(tmp_path / "nonexistent.yaml")
+
+
+def test_load_config_invalid_schema_raises(tmp_path):
+    """Raises ValidationError when the YAML contains an unrecognised key."""
     bad = tmp_path / "config.yaml"
     bad.write_text("unknown_key: oops\n")
-    config = load_config(bad)
-    assert config == PortFwdConfig()
+    with pytest.raises(ValidationError):
+        load_config(bad)
 
 
-def test_load_config_invalid_yaml_returns_defaults(tmp_path):
-    """Returns a default Config when the file is not valid YAML."""
+def test_load_config_invalid_yaml_raises(tmp_path):
+    """Raises ValueError when the file is not valid YAML."""
     bad = tmp_path / "config.yaml"
     bad.write_text(": : :\n")
-    config = load_config(bad)
-    assert config == PortFwdConfig()
+    with pytest.raises(ValueError, match="Invalid YAML"):
+        load_config(bad)
+
+
+def test_group_name_custom_is_reserved():
+    """Rejects a group named 'custom' because it conflicts with interactive mode."""
+    with pytest.raises(ValidationError):
+        GroupSpec(name="custom", services=[])
 
 
 @pytest.mark.parametrize(

@@ -27,7 +27,7 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 - Fallback to a random free port if the preferred port is taken
 - Inform user which services are currently forwarded and on which ports
 
-![portfwd demo](https://github.com/user-attachments/assets/18e1b913-b1f4-420a-8d76-2a717d604b3e)
+![portfwd demo](https://github.com/user-attachments/assets/98e91737-8bed-4b2d-a760-4d685ecdb1a9)
 
 → [Full documentation](kubectl-portfwd/README.md)
 
@@ -41,7 +41,7 @@ Getting credentials out of a running deployment usually means digging through `k
 - Output as `.env` or JSON
 - Pipe directly: `kubectl export-dotenv ... > .env` to produce a dotenv file
 
-![export-dotenv demo](https://github.com/user-attachments/assets/232d778b-77db-4de6-9b79-929a525419d4)
+![export-dotenv demo](https://github.com/user-attachments/assets/05ed2fad-6a51-4816-a1b3-24ddc9520dec)
 
 → [Full documentation](kubectl-export-dotenv/README.md)
 
@@ -52,7 +52,7 @@ Getting credentials out of a running deployment usually means digging through `k
 ### Prerequisites
 
 - Python 3.11+
-- `kubectl` installed and configured with cluster access
+- `kubectl` installed and configured with cluster access (recommended version 1.36+)
 
 ### Install
 

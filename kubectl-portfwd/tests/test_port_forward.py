@@ -2,10 +2,11 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from portfwd.config import PortFwdConfig, ServicePortForwardDefaults
-from portfwd.kube.process import PortForwardProcess
+from portfwd.kube import PortForwardProcess
 from portfwd.plan import resolve_local_port
 from portfwd.runner import watch_processes
 from portfwd.term.display import make_table
+from portfwd.utils import get_port_forward_status_id
 
 
 def _make_process(
@@ -80,7 +81,14 @@ def test_make_table_has_one_row_per_process():
         _make_process("svc-a", remote_port=80, local_port=9000),
         _make_process("svc-b", remote_port=8080, local_port=9001),
     ]
-    statuses = {"svc-a:80": "live", "svc-b:8080": "live"}
+    statuses = {
+        get_port_forward_status_id(
+            namespace="ns", service_name="svc-a", remote_port=80
+        ): "live",
+        get_port_forward_status_id(
+            namespace="ns", service_name="svc-b", remote_port=8080
+        ): "live",
+    }
     table = make_table(procs, statuses, context=None)
     assert table.row_count == 2
 
@@ -88,20 +96,26 @@ def test_make_table_has_one_row_per_process():
 def test_watch_processes_updates_status_on_exit():
     """Updates the status dict to 'died (exit N)' when a process exits."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    statuses: dict[str, str] = {"svc:80": "live"}
+    row_id = get_port_forward_status_id(
+        namespace="ns", service_name="svc", remote_port=80
+    )
+    statuses: dict[str, str] = {row_id: "live"}
 
     asyncio.run(watch_processes([proc], statuses, asyncio.Event()))
 
-    assert statuses["svc:80"] == "died (exit 1)"
+    assert statuses[row_id] == "died (exit 1)"
 
 
 def test_watch_processes_skips_update_when_stopped():
     """Does not update status when stop_event is already set."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    statuses: dict[str, str] = {"svc:80": "live"}
+    row_id = get_port_forward_status_id(
+        namespace="ns", service_name="svc", remote_port=80
+    )
+    statuses: dict[str, str] = {row_id: "live"}
     stop_event = asyncio.Event()
     stop_event.set()
 
     asyncio.run(watch_processes([proc], statuses, stop_event))
 
-    assert statuses["svc:80"] == "live"
+    assert statuses[row_id] == "live"

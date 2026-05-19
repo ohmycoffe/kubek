@@ -20,6 +20,8 @@ kubectl export-dotenv --kind deployment --namespace my-namespace --name my-servi
 |---|---|---|
 | `--kind` | — | `deployment` or `workflowtemplate`. Prompted if omitted. |
 | `--namespace` | — | Kubernetes namespace. Prompted if omitted. |
+| `--context` | current | Kubernetes context from kubeconfig. |
+| `--kubeconfig` | — | Path to kubeconfig file (optional). |
 | `--name` | — | Resource name. Prompted if omitted. |
 | `--output` | `env` | Output format: `env` or `json`. |
 | `-v` / `-vv` | — | Verbosity: info / debug. |

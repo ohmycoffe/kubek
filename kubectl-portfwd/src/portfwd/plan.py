@@ -1,36 +1,35 @@
-from kubek.core.ports import get_deterministic_port
-from kubek.kube.client import DEFAULT_NAMESPACE, get_current_namespace
+from kubek.core.ports import find_free_port, get_deterministic_port, is_port_free
+from kubek.kube.client import KubectlWrapper
+from kubek.kube.schemas.service import Service
 
 from portfwd.config import (
     PortFwdConfig,
     get_default_service,
 )
-from portfwd.error import AmbiguousPortError, KubernetesResourceNotFoundError
-from portfwd.kube import get_service
-from portfwd.kube.client import KubernetesService
+from portfwd.errors import (
+    KubernetesError,
+)
 from portfwd.models import (
     NamespacedServiceName,
     ServicePortForwardPlan,
     ServicePortForwardSpec,
 )
-from portfwd.utils import find_free_port, is_port_free
 
 
-def resolve_remote_port(remote_port: int | None, service: KubernetesService) -> int:
-    # If remote port is explicitly specified in the spec, use it
-    if remote_port is not None:
-        return int(remote_port)
-
-    ports = [p.port for p in service.ports]
-
+def resolve_remote_port(service: Service) -> int:
     # If there are multiple ports, we cannot guess which one to use
-    if len(service.ports) > 1:
-        raise AmbiguousPortError(
-            f"Service '{service.namespace}/{service.name}' has multiple ports, "
-            f"remote port must be specified (available: {', '.join(map(str, [p.port for p in service.ports]))})"
+    if len(service.spec.ports) > 1:
+        ports = ", ".join(str(p.port) for p in service.spec.ports)
+        raise KubernetesError(
+            f'error: service "{service.metadata.namespace}/{service.metadata.name}" has multiple ports '
+            f"({ports}); specify one with :port in --service"
+        )
+    if len(service.spec.ports) == 0:
+        raise KubernetesError(
+            f'error: service "{service.metadata.namespace}/{service.metadata.name}" has no ports'
         )
     # If there is exactly one port, we can use it
-    return ports[0]
+    return service.spec.ports[0].port
 
 
 def resolve_local_port(
@@ -64,24 +63,33 @@ def resolve_local_port(
 def build_port_forward_plan(
     spec: ServicePortForwardSpec,
     config: PortFwdConfig,
+    kubectl: KubectlWrapper,
 ) -> ServicePortForwardPlan:
     name = spec.target.name
-    ns = spec.target.namespace or get_current_namespace() or DEFAULT_NAMESPACE
+    ns = spec.target.namespace or kubectl.namespace
+    if not ns:
+        raise ValueError(
+            "error: namespace must be specified either in the service spec or as the current kubectl namespace"
+        )
 
-    service = get_service(ns, name)
+    service = kubectl.get_service(name=name, namespace=ns)
     if not service:
-        raise KubernetesResourceNotFoundError(f"Service '{ns}/{name}' not found")
+        raise KubernetesError(f'error: services "{name}" not found in namespace "{ns}"')
 
-    remote_port = resolve_remote_port(spec.remote_port, service)
+    # Assign a remote port
+    # If remote port is explicitly specified in the spec, use it
+    if spec.remote_port is not None:
+        remote_port = int(spec.remote_port)
+    else:
+        remote_port = resolve_remote_port(service)
+
+    # Assign a local port
     # If local port is explicitly specified in the spec, use it
     if spec.local_port is not None:
         local_port = int(spec.local_port)
     else:
         local_port = resolve_local_port(
-            name=name,
-            namespace=ns,
-            remote_port=remote_port,
-            config=config,
+            name=name, namespace=ns, remote_port=remote_port, config=config
         )
 
     return ServicePortForwardPlan(

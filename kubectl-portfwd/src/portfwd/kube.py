@@ -17,15 +17,26 @@ class PortForwardProcess:
 
 
 async def start_port_forward(
-    namespace: str, service: str, local_port: int, remote_port: int
+    namespace: str,
+    service: str,
+    local_port: int,
+    remote_port: int,
+    context: str | None,
+    kubeconfig: str | None = None,
 ) -> PortForwardProcess:
     """Start a kubectl port-forward process for the specified service and port."""
+    args = []
+    if kubeconfig:
+        args += ["--kubeconfig", kubeconfig]
+    if context:
+        args += ["--context", context]
     cmd = [
         "kubectl",
+        *args,
         "port-forward",
         f"svc/{service}",
         f"{local_port}:{remote_port}",
-        "-n",
+        "--namespace",
         namespace,
     ]
     logger.debug(" ".join(cmd))

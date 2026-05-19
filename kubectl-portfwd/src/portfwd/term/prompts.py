@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import StrEnum
 from typing import TYPE_CHECKING, TypeAlias
 
 import kubek.term.format as fmt
@@ -10,14 +9,11 @@ from kubek.term.console import get_console
 from kubek.term.style import STYLE_QUESTIONARY
 
 from portfwd.config import GroupSpec
-from portfwd.models import NamespacedServiceNameSpec, ServicePortForwardSpec
+from portfwd.constants import SpecialGroups
+from portfwd.models import ServicePortForwardSpec
 
 if TYPE_CHECKING:
-    from portfwd.kube import KubernetesService
-
-
-class SpecialGroups(StrEnum):
-    CUSTOM = "custom"
+    pass
 
 
 GroupNamesSelection: TypeAlias = GroupSpec | SpecialGroups
@@ -58,16 +54,19 @@ def ask_for_namespace(
 
 
 def ask_for_service(
-    available_services: list[KubernetesService],
+    available_services: list[ServicePortForwardSpec],
 ) -> list[ServicePortForwardSpec]:
     choices: list[questionary.Choice] = []
-    for svc in sorted(available_services, key=lambda x: (x.namespace, x.name)):
-        for port in sorted(svc.ports, key=lambda x: x.port):
-            target = NamespacedServiceNameSpec(namespace=svc.namespace, name=svc.name)
-            title = f"{svc.namespace}/{svc.name}  :{port.port} ({port.protocol})"
-            spec = ServicePortForwardSpec(target=target, remote_port=port.port)
-            choice = questionary.Choice(title=title, value=spec)
-            choices.append(choice)
+    for spec in sorted(
+        available_services,
+        key=lambda x: (x.target.namespace, x.target.name, x.remote_port),
+    ):
+        ns = spec.target.namespace
+        name = spec.target.name
+        port = spec.remote_port
+        title = f"{ns}/{name}  :{port}"
+        choice = questionary.Choice(title=title, value=spec)
+        choices.append(choice)
 
     selected: list[ServicePortForwardSpec] = questionary.checkbox(
         "Select services to forward:",

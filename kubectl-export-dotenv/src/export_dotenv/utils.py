@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import base64
 import datetime
-import logging
+
+from kubek.term.logging import setup_logging as _setup_logging
 
 
 def setup_logging(verbose: int) -> None:
-    levels = [logging.WARNING, logging.INFO, logging.DEBUG]
-    level = levels[min(verbose, len(levels) - 1)]
-    logging.getLogger("export_dotenv").setLevel(level)
-    logging.getLogger("kubek").setLevel(level)
+    _setup_logging(verbose, "export_dotenv", "kubek")
 
 
 def decode(val: str) -> str:

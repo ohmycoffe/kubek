@@ -2,7 +2,7 @@ Output demo-kubectl-portfwd.gif
 
 Set Theme "GitHub Dark"
 Set FontSize 16
-Set Width 650
+Set Width 1000
 Set Height 500
 Set WindowBar Colorful
 Set TypingSpeed 80ms

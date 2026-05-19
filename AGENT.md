@@ -12,7 +12,7 @@ Shared library lives in `kubek-shared/src/kubek/`.
 
 - Before modifying `pyproject.toml` (adding, removing, or changing any package), stop and confirm with the user.
 - Use `asyncio` only. Do not use `threading`, `concurrent.futures`, or `multiprocessing`.
-- Always use `rich` for all user-facing output. Do not call `print()` directly.
+- Always use `rich` for all user-facing output which goes to stderr.
 - Commit format: `type(scope): description`. Example: `fix(portfwd): handle kubectl crash without breaking live table`
 - Do not drop a docstring when you edit a file. If a function lacks one, add it when you touch the function.
 - Always add a docstring to any new test function that explains what it verifies and any important setup details.

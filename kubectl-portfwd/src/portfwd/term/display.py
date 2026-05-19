@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING
 
 from rich.table import Table
 
+from portfwd.utils import get_port_forward_status_id
+
 if TYPE_CHECKING:
-    from portfwd.kube.process import PortForwardProcess
+    from portfwd.kube import PortForwardProcess
 
 
 def make_table(
@@ -27,8 +29,14 @@ def make_table(
     table.add_column("PID", style="dim", justify="right")
     table.add_column("Status")
     for fwd in processes:
-        key = f"{fwd.service_name}:{fwd.remote_port}"
-        raw = statuses.get(key, "live")
+        raw = statuses.get(
+            get_port_forward_status_id(
+                namespace=fwd.namespace,
+                service_name=fwd.service_name,
+                remote_port=fwd.remote_port,
+            ),
+            "live",
+        )
         if raw == "live":
             status = "[green]● live[/green]"
         elif raw == "stopped":

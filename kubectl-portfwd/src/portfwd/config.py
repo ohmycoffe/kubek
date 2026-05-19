@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
-from ruamel.yaml import YAML
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from ruamel.yaml import YAML, YAMLError
+
+from portfwd.constants import SpecialGroups
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,15 @@ class GroupSpec(BaseModel):
 
     name: str
     services: list[ServicePortForwardDefaults] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def name_not_reserved(cls, value: str) -> str:
+        if value.lower() == SpecialGroups.CUSTOM:
+            raise ValueError(
+                f'error: invalid group name "{value}": name is reserved for interactive mode'
+            )
+        return value
 
 
 class PortFwdConfig(BaseModel):
@@ -60,29 +71,47 @@ def get_group(cfg: PortFwdConfig, name: str) -> GroupSpec | None:
 
 
 def load_config(path: Path | None) -> PortFwdConfig:
-    if path is None:
-        path = DEFAULT_CONFIG_PATH
+    """Load port-forward config from YAML.
 
-    if not path.exists():
-        logger.debug("No config file found at %s, using empty config", path)
+    When ``path`` is omitted, uses ``DEFAULT_CONFIG_PATH`` and returns an empty
+    config if that file does not exist. When ``path`` is given explicitly,
+    missing or invalid files raise instead of falling back silently.
+    """
+    explicit = path is not None
+    config_path = path or DEFAULT_CONFIG_PATH
+
+    if not config_path.exists():
+        if explicit:
+            raise FileNotFoundError(config_path)
+        logger.debug("No config file found at %s, using empty config", config_path)
         return PortFwdConfig()
 
     yaml = YAML(typ="safe")
     try:
-        with path.open(encoding="utf-8") as f:
+        with config_path.open(encoding="utf-8") as f:
             root = yaml.load(f)
-        if not isinstance(root, dict):
-            logger.warning(
-                "Config at %s has unexpected structure, using empty config", path
-            )
-            return PortFwdConfig()
-        logger.info("Loaded config from %s", path)
-        return PortFwdConfig.model_validate(root)
-    except Exception as e:
-        logger.warning("Failed to load config from %s: %s, using empty config", path, e)
+    except YAMLError as e:
+        if explicit:
+            raise ValueError(f"Invalid YAML in config {config_path}: {e}") from e
+        logger.warning(
+            "Failed to parse config from %s: %s, using empty config", config_path, e
+        )
         return PortFwdConfig()
 
+    if not isinstance(root, dict):
+        msg = (
+            f"Config at {config_path} must be a YAML mapping, got {type(root).__name__}"
+        )
+        if explicit:
+            raise ValueError(msg)
+        logger.warning("%s, using empty config", msg)
+        return PortFwdConfig()
 
-if __name__ == "__main__":
-    cfg = load_config(Path("portfwd"))
-    print(cfg)
+    try:
+        logger.info("Loaded config from %s", config_path)
+        return PortFwdConfig.model_validate(root)
+    except ValidationError:
+        if explicit:
+            raise
+        logger.warning("Invalid config at %s, using empty config", config_path)
+        return PortFwdConfig()
