@@ -5,8 +5,7 @@ import logging
 import signal
 from collections.abc import Callable
 
-from kubek.kube.client import KubectlWrapper
-from kubek.term import get_console
+from kubek.kube import KubeFacade
 from rich.live import Live
 
 from portfwd.kube import (
@@ -18,7 +17,6 @@ from portfwd.term import make_table
 from portfwd.utils import get_port_forward_status_id
 
 logger = logging.getLogger(__name__)
-console = get_console()
 
 
 async def watch_processes(
@@ -46,7 +44,7 @@ async def watch_processes(
 
 async def manage_port_forwards(
     plans: list[ServicePortForwardPlan],
-    kubectl: KubectlWrapper,
+    api: KubeFacade,
 ) -> None:
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
@@ -60,8 +58,8 @@ async def manage_port_forwards(
                 service=plan.target.name,
                 local_port=plan.local_port,
                 remote_port=plan.remote_port,
-                context=kubectl.context,
-                kubeconfig=kubectl.kubeconfig,
+                context=api.current_config.context,
+                kubeconfig=api.current_config.kubeconfig,
             )
             processes.append(process)
             statuses[
@@ -83,13 +81,12 @@ async def manage_port_forwards(
         return
 
     with Live(
-        renderable=make_table(processes, statuses, kubectl.context),
-        console=console,
+        renderable=make_table(processes, statuses, api.current_config.context),
         refresh_per_second=1,
     ) as live:
 
         def refresh() -> None:
-            live.update(make_table(processes, statuses, kubectl.context))
+            live.update(make_table(processes, statuses, api.current_config.context))
 
         def cleanup() -> None:
             stop_event.set()

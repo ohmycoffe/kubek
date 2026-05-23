@@ -3,10 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from kubek.kube.schemas import Container
+from kubek.kube.dto.container import Container
 
 
-class TemplateType(StrEnum):
+class WorkflowTemplateType(StrEnum):
     DAG = "dag"
     STEPS = "steps"
     SCRIPT = "script"
@@ -16,21 +16,21 @@ class TemplateType(StrEnum):
 class DagTemplate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    kind: Literal[TemplateType.DAG] = TemplateType.DAG
+    kind: Literal[WorkflowTemplateType.DAG] = WorkflowTemplateType.DAG
     name: str
 
 
 class StepsTemplate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    kind: Literal[TemplateType.STEPS] = TemplateType.STEPS
+    kind: Literal[WorkflowTemplateType.STEPS] = WorkflowTemplateType.STEPS
     name: str
 
 
 class ScriptTemplate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    kind: Literal[TemplateType.SCRIPT] = TemplateType.SCRIPT
+    kind: Literal[WorkflowTemplateType.SCRIPT] = WorkflowTemplateType.SCRIPT
     name: str
 
 
@@ -46,7 +46,7 @@ class Inputs(BaseModel):
 class ContainerTemplate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    kind: Literal[TemplateType.CONTAINER] = TemplateType.CONTAINER
+    kind: Literal[WorkflowTemplateType.CONTAINER] = WorkflowTemplateType.CONTAINER
     name: str
     container: Container
     inputs: Inputs | None = None

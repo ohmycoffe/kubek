@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from kubek.kube.schemas import Kind
+from kubek.kube.dto.kind import Kind
 
 
 class ContextData(BaseModel):

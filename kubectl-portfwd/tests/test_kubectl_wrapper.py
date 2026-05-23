@@ -1,42 +1,6 @@
 from unittest.mock import AsyncMock, patch
 
-import pytest
-from kubek.kube.client import KubectlWrapper
 from portfwd.kube import start_port_forward
-
-
-@pytest.mark.parametrize(
-    ("kwargs", "expected"),
-    [
-        ({}, []),
-        ({"kubeconfig": "/tmp/kcfg"}, ["--kubeconfig", "/tmp/kcfg"]),
-        ({"context": "ctx"}, ["--context", "ctx"]),
-        (
-            {"kubeconfig": "/tmp/kcfg", "context": "ctx", "namespace": "ns"},
-            ["--kubeconfig", "/tmp/kcfg", "--context", "ctx", "--namespace", "ns"],
-        ),
-    ],
-)
-def test_global_kubectl_args(kwargs, expected):
-    assert KubectlWrapper.global_kubectl_args(**kwargs) == expected
-
-
-def test_wrapper_passes_kubeconfig_to_global_args():
-    kubectl = KubectlWrapper(
-        context="ctx", namespace="ns", kubeconfig="/path/to/config"
-    )
-    assert KubectlWrapper.global_kubectl_args(
-        kubeconfig=kubectl.kubeconfig,
-        context=kubectl.context,
-        namespace=kubectl.namespace,
-    ) == [
-        "--kubeconfig",
-        "/path/to/config",
-        "--context",
-        "ctx",
-        "--namespace",
-        "ns",
-    ]
 
 
 def test_start_port_forward_passes_kubeconfig_and_context():

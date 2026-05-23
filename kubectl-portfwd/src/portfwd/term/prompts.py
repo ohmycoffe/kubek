@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, TypeAlias
 
-import kubek.term.format as fmt
 import questionary
-import typer
-from kubek.term.console import get_console
-from kubek.term.style import STYLE_QUESTIONARY
+from kubek.term.style import DEFAULT_QUESTIONARY_THEME
 
 from portfwd.config import GroupSpec
 from portfwd.constants import SpecialGroups
@@ -18,8 +15,7 @@ if TYPE_CHECKING:
 
 GroupNamesSelection: TypeAlias = GroupSpec | SpecialGroups
 
-
-console = get_console()
+QUESTIONARY_STYLE = questionary.Style(DEFAULT_QUESTIONARY_THEME)
 
 
 def ask_for_namespace(
@@ -44,12 +40,8 @@ def ask_for_namespace(
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
-        style=STYLE_QUESTIONARY,
+        style=QUESTIONARY_STYLE,
     ).ask()
-
-    if not selected:
-        console.print(fmt.warn("No namespaces selected. Exiting."))
-        raise typer.Exit(code=0)
     return selected
 
 
@@ -73,11 +65,8 @@ def ask_for_service(
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
-        style=STYLE_QUESTIONARY,
+        style=QUESTIONARY_STYLE,
     ).ask()
-    if not selected:
-        console.print(fmt.warn("No services selected. Exiting."))
-        raise typer.Exit(code=0)
     return selected
 
 
@@ -97,6 +86,6 @@ def ask_for_group(groups: list[GroupSpec]) -> GroupNamesSelection:
         "Select a group to run:",
         choices=choices,
         use_jk_keys=False,
-        style=STYLE_QUESTIONARY,
+        style=QUESTIONARY_STYLE,
     ).ask()
     return selected

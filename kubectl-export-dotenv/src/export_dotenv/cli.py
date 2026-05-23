@@ -2,30 +2,21 @@ from __future__ import annotations
 
 import enum
 import json
-import subprocess
 from pathlib import Path
 from typing import Annotated, Literal
 
-import kubek.term.format as fmt
-import questionary
 import typer
 from click import BadParameter
-from kubek.kube import DEFAULT_NAMESPACE
-from kubek.kube.client import (
-    ContextNotSetError,
-    KubectlError,
-    KubectlWrapper,
-)
-from kubek.kube.schemas.base import Kind
-from kubek.term import STYLE_QUESTIONARY, get_console, print_error
+from kubek.kube import Kind, KubeFacade
+from kubek.kube.config import KubeConfig
+from kubek.term.output import CLIOutput, create_output
 
 from export_dotenv.kube import (
     get_deployment_envs,
     get_workflowtemplate_envs,
 )
+from export_dotenv.prompts import ask_for_kind, ask_for_resource
 from export_dotenv.utils import export_as_dotenv, setup_logging
-
-console = get_console()
 
 
 class ExportFormat(enum.StrEnum):
@@ -34,39 +25,6 @@ class ExportFormat(enum.StrEnum):
 
 
 app = typer.Typer()
-
-
-def ask_for_kind() -> Kind:
-    selected = questionary.select(
-        "Select a kind:",
-        choices=[
-            questionary.Choice(
-                title="Deployment",
-                value=Kind.DEPLOYMENT,
-                description="(Kubernetes Deployment)",
-            ),
-            questionary.Choice(
-                title="WorkflowTemplate",
-                value=Kind.WORKFLOWTEMPLATE,
-                description="(Argo WorkflowTemplate)",
-            ),
-        ],
-        use_jk_keys=False,
-        style=STYLE_QUESTIONARY,
-    ).ask()
-
-    return Kind(selected)
-
-
-def ask_for_resource(resources: list[str], kind: Kind) -> str:
-    selected = questionary.select(
-        f"Select a {kind.value}:",
-        choices=resources,
-        use_search_filter=True,
-        use_jk_keys=False,
-        style=STYLE_QUESTIONARY,
-    ).ask()
-    return selected
 
 
 @app.callback(invoke_without_command=True)
@@ -119,57 +77,53 @@ def get(
     Get environment variables for a Kubernetes deployment or Argo WorkflowTemplate.
     """
     setup_logging(verbose)
+    out: CLIOutput = create_output(verbosity_count=verbose)
 
-    kubeconfig_path = str(kubeconfig) if kubeconfig is not None else None
-    if kubeconfig_path:
-        console.print("Kubeconfig:", fmt.highlight(kubeconfig_path))
+    kubeconfig_str = kubeconfig if kubeconfig else None
 
-    try:
-        kube_config = KubectlWrapper.get_config(
-            kubeconfig=kubeconfig_path, context=context
+    kube_config = KubeConfig(
+        context=context,
+        namespace=namespace,
+        kubeconfig=kubeconfig_str,
+    )
+    api = KubeFacade.from_config(config=kube_config)
+
+    if kube_config.kubeconfig:
+        out.note(
+            f"Kubeconfig: {kube_config.kubeconfig}",
+            highlight=[str(kube_config.kubeconfig)],
         )
-    except ContextNotSetError as e:
-        print_error(e, "Failed to get current context from kubeconfig")
-        raise typer.Exit(code=1) from None
 
-    context = context or kube_config.current_context
-    if context is None:
-        console.print(
-            fmt.error(
-                "No active context found in kubeconfig. Please specify a context using the '--context' flag or set a current context in your kubeconfig."
-            )
+    if kube_config.context:
+        out.note(
+            f"Context: {kube_config.context}",
+            highlight=[str(kube_config.context)],
         )
-        raise typer.Exit(code=1) from None
 
-    console.print("Context:", fmt.highlight(context))
+    if kube_config.namespace:
+        out.note(
+            f"Namespace: {kube_config.namespace}",
+            highlight=[str(kube_config.namespace)],
+        )
 
-    namespace = namespace or kube_config.current_namespace or DEFAULT_NAMESPACE
-    console.print("Namespace:", fmt.highlight(namespace))
-
-    kind = kind or ask_for_kind()
+    kind = kind or ask_for_kind()  # type: ignore
 
     if not kind:
         raise typer.Exit(code=0)
 
-    kubectl = KubectlWrapper(
-        namespace=namespace, context=context, kubeconfig=kubeconfig_path
-    )
-
     try:
-        with console.status(
-            fmt.ongoing_status(f"Fetching available {kind.value}s in {namespace}…")
+        with out.progress(
+            f"Fetching available {kind.value}s in {kube_config.namespace}…"
         ):
             if kind == Kind.DEPLOYMENT:
-                resources = kubectl.get_deployments()
+                resources = api.deployment.list()
             else:
-                resources = kubectl.get_workflowtemplates()
-    except KubectlError as e:
-        print_error(
-            e, f"Failed to fetch available {kind.value}s in namespace '{namespace}'"
-        )
+                resources = api.workflowtemplate.list()
+    except Exception as e:
+        out.exception(f"Failed to fetch {kind.value}s: {e}")
         raise typer.Exit(code=1) from None
     if not resources:
-        console.print(fmt.error(f"No {kind.value}s found in namespace '{namespace}'"))
+        out.problem(f"No {kind.value}s found in namespace '{kube_config.namespace}'")
         raise typer.Exit(code=1)
 
     available_names = [r.metadata.name for r in resources]
@@ -179,21 +133,21 @@ def get(
             raise typer.Exit(code=0)
 
     if name not in available_names:
-        console.print(
-            fmt.error(f"{kind.value} '{name}' not found in namespace '{namespace}'")
+        out.problem(
+            f"{kind.value} '{name}' not found in namespace '{kube_config.namespace}'"
         )
         raise typer.Exit(code=1)
 
     try:
-        with console.status(fmt.ongoing_status("Fetching environment variables…")):
+        with out.progress("Fetching environment variables…"):
             if kind == Kind.DEPLOYMENT:
-                vals = get_deployment_envs(name=name, kubectl=kubectl)
+                vals = get_deployment_envs(name=name, api=api)
             elif kind == Kind.WORKFLOWTEMPLATE:
-                vals = get_workflowtemplate_envs(name=name, kubectl=kubectl)
+                vals = get_workflowtemplate_envs(name=name, api=api)
             else:
                 raise BadParameter(f"Unsupported kind: {kind}")
-    except subprocess.CalledProcessError as e:
-        print_error(e, f"Failed to fetch environment variables for '{name}'")
+    except Exception as e:
+        out.exception(f"Failed to fetch environment variables for '{name}': {e}")
         raise typer.Exit(code=1) from None
 
     if output == ExportFormat.JSON:

@@ -6,3 +6,4 @@ class Kind(enum.StrEnum):
     WORKFLOWTEMPLATE = "WorkflowTemplate"
     CONFIG = "Config"
     NAMESPACE = "Namespace"
+    SERVICE = "Service"

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from os import PathLike
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ async def start_port_forward(
     local_port: int,
     remote_port: int,
     context: str | None,
-    kubeconfig: str | None = None,
+    kubeconfig: str | PathLike | None = None,
 ) -> PortForwardProcess:
     """Start a kubectl port-forward process for the specified service and port."""
     args = []

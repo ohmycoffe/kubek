@@ -1,6 +1,5 @@
-from kubek.core.ports import find_free_port, get_deterministic_port, is_port_free
-from kubek.kube.client import KubectlWrapper
-from kubek.kube.schemas import Service
+from kubek.kube import KubeFacade, Service
+from kubek.net import find_free_port, get_deterministic_port, is_port_free
 
 from portfwd.config import (
     PortFwdConfig,
@@ -63,16 +62,16 @@ def resolve_local_port(
 def build_port_forward_plan(
     spec: ServicePortForwardSpec,
     config: PortFwdConfig,
-    kubectl: KubectlWrapper,
+    api: KubeFacade,
 ) -> ServicePortForwardPlan:
     name = spec.target.name
-    ns = spec.target.namespace or kubectl.namespace
+    ns = spec.target.namespace or api.current_config.namespace
     if not ns:
         raise ValueError(
             "error: namespace must be specified either in the service spec or as the current kubectl namespace"
         )
 
-    service = kubectl.get_service(name=name, namespace=ns)
+    service = api.service.get(name=name, namespace=ns)
     if not service:
         raise KubernetesError(f'error: services "{name}" not found in namespace "{ns}"')
 

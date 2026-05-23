@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 
-from kubek.term.logging import setup_logging as _setup_logging
+from kubek.term import setup_logging as _setup_logging
 
 
 def setup_logging(verbose: int) -> None:

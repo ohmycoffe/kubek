@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
-from kubek.kube.schemas.base import Kind
+from kubek.kube.dto.kind import Kind
 
 from .template import (
     ContainerTemplate,

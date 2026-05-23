@@ -5,18 +5,17 @@ import itertools
 import logging
 from collections.abc import Iterable
 from pathlib import Path
+from subprocess import CalledProcessError
 from typing import Annotated
 
 import typer
-from kubek.kube.client import (
-    DEFAULT_NAMESPACE,
-    ContextNotSetError,
-    KubectlError,
-    KubectlWrapper,
+from kubek.kube import (
+    KubeConfig,
+    KubeFacade,
+    Service,
 )
-from kubek.kube.schemas import Service
-from kubek.term import format as fmt
-from kubek.term import get_console, print_error, setup_logging
+from kubek.term import create_output, setup_logging
+from kubek.term.output import CLIOutput
 from pydantic import ValidationError
 
 from portfwd.config import (
@@ -48,8 +47,6 @@ logger = logging.getLogger(__name__)
 
 app = typer.Typer()
 
-console = get_console()
-
 
 def _convert_to_spec(services: Iterable[Service]) -> list[ServicePortForwardSpec]:
     specs = [
@@ -69,16 +66,11 @@ def _convert_to_spec(services: Iterable[Service]) -> list[ServicePortForwardSpec
 
 
 def _fetch_services_for_namespaces(
-    namespaces: list[str], kubectl: KubectlWrapper
+    namespaces: list[str], api: KubeFacade
 ) -> list[ServicePortForwardSpec]:
-    try:
-        raw = itertools.chain.from_iterable(
-            kubectl.get_services(namespace) for namespace in namespaces
-        )
-    except KubectlError as e:
-        print_error(e, "Failed to fetch services using kubectl")
-        raise typer.Exit(code=1) from None
-
+    raw = itertools.chain.from_iterable(
+        api.service.list(namespace=namespace) for namespace in namespaces
+    )
     return _convert_to_spec(raw)
 
 
@@ -100,7 +92,7 @@ def _validate_group(group: str, available: list[GroupSpec]) -> None:
         )
 
 
-def _run_group(group_name: str, cfg: PortFwdConfig, kubectl: KubectlWrapper) -> None:
+def _run_group(group_name: str, cfg: PortFwdConfig, api: KubeFacade) -> None:
     _validate_group(group_name, cfg.groups)
     group_obj = _extract_group(group_name, cfg.groups)
     assert group_obj is not None
@@ -112,54 +104,63 @@ def _run_group(group_name: str, cfg: PortFwdConfig, kubectl: KubectlWrapper) -> 
         )
         for svc in group_obj.services
     ]
-    asyncio.run(manage_port_forwards(plans, kubectl=kubectl))
+    asyncio.run(manage_port_forwards(plans, api=api))
 
 
-def _run_services(
-    service: list[str], cfg: PortFwdConfig, kubectl: KubectlWrapper
-) -> None:
+def _run_services(service: list[str], cfg: PortFwdConfig, api: KubeFacade) -> None:
     plans: list[ServicePortForwardPlan] = []
     for svc in service:
         spec = parse_spec(svc)
-        plans.append(build_port_forward_plan(spec=spec, config=cfg, kubectl=kubectl))
-    asyncio.run(manage_port_forwards(plans, kubectl=kubectl))
+        plans.append(build_port_forward_plan(spec=spec, config=cfg, api=api))
+    asyncio.run(manage_port_forwards(plans, api=api))
 
 
-def _run_interactive(cfg: PortFwdConfig, kubectl: KubectlWrapper) -> None:
-    with console.status(fmt.ongoing_status("Fetching namespaces…")):
-        namespaces = [ns.metadata.name for ns in kubectl.get_namespaces()]
-    selected_namespaces = ask_for_namespace(namespaces, kubectl.namespace)
-    with console.status(fmt.ongoing_status("Fetching services…")):
-        specs = _fetch_services_for_namespaces(selected_namespaces, kubectl)
+def _run_interactive(cfg: PortFwdConfig, api: KubeFacade, out: CLIOutput) -> None:
+    with out.progress("Fetching namespaces…"):
+        namespaces = [ns.metadata.name for ns in api.namespace.list()]
+    selected_namespaces = ask_for_namespace(namespaces, api.current_config.namespace)
+    if not selected_namespaces:
+        out.problem("No namespaces selected. Exiting.")
+        raise typer.Exit(code=0)
+    with out.progress("Fetching services…"):
+        try:
+            specs = _fetch_services_for_namespaces(selected_namespaces, api)
+        except Exception:
+            out.problem("Failed to fetch services.")
+            raise typer.Exit(code=1) from None
     if not specs:
-        console.print(fmt.warn("No services found."))
+        out.problem("No services found.")
         raise typer.Exit(code=0)
 
     selected: list[ServicePortForwardSpec] = ask_for_service(specs)
+    if not selected:
+        out.problem("No services selected. Exiting.")
+        raise typer.Exit(code=0)
     plans: list[ServicePortForwardPlan] = []
     for spec in selected:
-        plans.append(build_port_forward_plan(spec=spec, config=cfg, kubectl=kubectl))
-    asyncio.run(manage_port_forwards(plans=plans, kubectl=kubectl))
+        plans.append(build_port_forward_plan(spec=spec, config=cfg, api=api))
+    asyncio.run(manage_port_forwards(plans=plans, api=api))
 
 
 def _run_port_forwards(
     cfg: PortFwdConfig,
     group: str | None,
     service: list[str] | None,
-    kubectl: KubectlWrapper,
+    api: KubeFacade,
+    out: CLIOutput,
 ) -> None:
     """Run port-forwards for --service, --group, or the interactive picker."""
     if service is not None:
-        _run_services(service, cfg, kubectl)
+        _run_services(service, cfg, api)
         return
     if group is not None:
-        _run_group(group, cfg, kubectl)
+        _run_group(group, cfg, api)
         return
     group_obj = ask_for_group(cfg.groups)
     if group_obj is SpecialGroups.CUSTOM:
-        _run_interactive(cfg, kubectl)
+        _run_interactive(cfg, api, out)
     else:
-        _run_group(group_obj.name, cfg, kubectl)
+        _run_group(group_obj.name, cfg, api)
 
 
 @app.callback(invoke_without_command=True)
@@ -230,7 +231,7 @@ def port_forward(
         kubectl portfwd -s kube-public/auth-service:8080::50000
         kubectl portfwd -s kube-public/auth -s kube-public/api
     """
-
+    out = create_output(verbosity_count=verbose)  #
     setup_logging(verbose, "kubek", "portfwd")
 
     if group is not None and service is not None:
@@ -238,57 +239,49 @@ def port_forward(
 
     kubeconfig_path = str(kubeconfig) if kubeconfig is not None else None
     if kubeconfig_path:
-        console.print("Kubeconfig:", fmt.highlight(kubeconfig_path))
+        out.note(f"Kubeconfig: {kubeconfig_path}", [kubeconfig_path])
 
     try:
-        kube_config = KubectlWrapper.get_config(
-            kubeconfig=kubeconfig_path,
-            context=context,
-            minify=True,
-        )
-    except ContextNotSetError as e:
-        print_error(e, "Failed to get current context from kubeconfig")
-        raise typer.Exit(code=1) from None
-
-    context = context or kube_config.current_context
-
-    if context is None:
-        console.print(
-            fmt.error(
-                "No active context found in kubeconfig. Please specify a context using the '--context' flag or set a current context in your kubeconfig."
+        api = KubeFacade.from_config(
+            config=KubeConfig(
+                context=context,
+                kubeconfig=kubeconfig_path,
             )
         )
+    except Exception:
+        out.exception("Failed to initialize connection to Kubernetes cluster")
         raise typer.Exit(code=1) from None
 
-    console.print("Context:", fmt.highlight(context))
-
-    namespace = kube_config.current_namespace or DEFAULT_NAMESPACE
-    console.print("Namespace:", fmt.highlight(namespace))
+    if api.current_config.context:
+        out.note(f"Context: {api.current_config.context}", [api.current_config.context])
+    if api.current_config.namespace:
+        out.note(
+            f"Namespace: {api.current_config.namespace}", [api.current_config.namespace]
+        )
 
     try:
         cfg = load_config(config)
     except FileNotFoundError as e:
-        console.print(fmt.error(f"Config file not found: {e.filename}"))
+        out.exception(f"Config file not found: {e.filename}")
         raise typer.Exit(code=1) from None
-    except ValidationError as e:
-        console.print(fmt.error(f"Invalid config: {e}"))
+    except ValidationError:
+        out.exception("Invalid configuration.")
         raise typer.Exit(code=1) from None
-    except ValueError as e:
-        console.print(fmt.error(str(e)))
+    except ValueError:
+        out.exception("Unexpected error loading configuration.")
         raise typer.Exit(code=1) from None
 
-    kubectl = KubectlWrapper(
-        context=context, namespace=namespace, kubeconfig=kubeconfig_path
-    )
     try:
-        _run_port_forwards(cfg, group, service, kubectl)
-    except KubernetesError as e:
-        console.print(fmt.error(str(e)))
+        _run_port_forwards(cfg, group, service, api, out)
+    except KubernetesError:
+        out.exception("Failed to set up port-forwards")
         raise typer.Exit(code=1) from None
     except ValidationError as e:
+        out.exception("Invalid configuration.")
         raise typer.BadParameter(str(e)) from None
     except ValueError as e:
+        out.exception("Unexpected error loading configuration.")
         raise typer.BadParameter(str(e)) from None
-    except KubectlError as e:
-        print_error(e, "kubectl call failed")
+    except CalledProcessError:
+        out.exception("kubectl call failed")
         raise typer.Exit(code=1) from None
