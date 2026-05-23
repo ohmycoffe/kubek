@@ -1,12 +1,14 @@
 from unittest.mock import AsyncMock, patch
 
-from portfwd.kube import start_port_forward
+from portfwd.kubectl import start_port_forward
 
 
 def test_start_port_forward_passes_kubeconfig_and_context():
+    """`kubectl port-forward` is invoked with the kubeconfig and context flags."""
+
     async def _run() -> None:
         with patch(
-            "portfwd.kube.asyncio.create_subprocess_exec", new_callable=AsyncMock
+            "portfwd.kubectl.asyncio.create_subprocess_exec", new_callable=AsyncMock
         ) as mock_exec:
             mock_proc = AsyncMock()
             mock_proc.pid = 1

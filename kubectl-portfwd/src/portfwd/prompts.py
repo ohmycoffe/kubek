@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TypeAlias
 
 import questionary
 from kubek.term.style import DEFAULT_QUESTIONARY_THEME
@@ -8,10 +8,6 @@ from kubek.term.style import DEFAULT_QUESTIONARY_THEME
 from portfwd.config import GroupSpec
 from portfwd.constants import SpecialGroups
 from portfwd.models import ServicePortForwardSpec
-
-if TYPE_CHECKING:
-    pass
-
 
 GroupNamesSelection: TypeAlias = GroupSpec | SpecialGroups
 
@@ -22,6 +18,7 @@ def ask_for_namespace(
     all_namespaces: list[str],
     current_namespace: str | None,
 ) -> list[str]:
+    """Prompt the user to pick one or more namespaces."""
     ordered = (
         [current_namespace] + [ns for ns in all_namespaces if ns != current_namespace]
         if current_namespace in all_namespaces
@@ -35,42 +32,40 @@ def ask_for_namespace(
         )
         for ns in ordered
     ]
-    selected: list[str] = questionary.checkbox(
+    return questionary.checkbox(
         "Select namespaces:",
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
     ).ask()
-    return selected
 
 
 def ask_for_service(
     available_services: list[ServicePortForwardSpec],
 ) -> list[ServicePortForwardSpec]:
-    choices: list[questionary.Choice] = []
-    for spec in sorted(
-        available_services,
-        key=lambda x: (x.target.namespace, x.target.name, x.remote_port),
-    ):
-        ns = spec.target.namespace
-        name = spec.target.name
-        port = spec.remote_port
-        title = f"{ns}/{name}  :{port}"
-        choice = questionary.Choice(title=title, value=spec)
-        choices.append(choice)
-
-    selected: list[ServicePortForwardSpec] = questionary.checkbox(
+    """Prompt the user to pick services to forward from a sorted list."""
+    choices = [
+        questionary.Choice(
+            title=f"{s.target.namespace}/{s.target.name}  :{s.remote_port}",
+            value=s,
+        )
+        for s in sorted(
+            available_services,
+            key=lambda x: (x.target.namespace, x.target.name, x.remote_port),
+        )
+    ]
+    return questionary.checkbox(
         "Select services to forward:",
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
     ).ask()
-    return selected
 
 
 def ask_for_group(groups: list[GroupSpec]) -> GroupNamesSelection:
+    """Prompt the user to pick a group, or fall back to the interactive flow."""
     if not groups:
         return SpecialGroups.CUSTOM
 
@@ -82,10 +77,9 @@ def ask_for_group(groups: list[GroupSpec]) -> GroupNamesSelection:
             description="(interactive: select services to forward)",
         ),
     ]
-    selected = questionary.select(
+    return questionary.select(
         "Select a group to run:",
         choices=choices,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
     ).ask()
-    return selected

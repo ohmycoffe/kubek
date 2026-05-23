@@ -13,7 +13,7 @@ class NamespacedServiceNameSpec(BaseModel):
         return self.name
 
 
-class NamespacedServiceName(BaseModel):
+class NamespacedServiceNamePlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(min_length=1)
@@ -36,6 +36,6 @@ class ServicePortForwardSpec(BaseModel):
 class ServicePortForwardPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    target: NamespacedServiceName
+    target: NamespacedServiceNamePlan
     remote_port: int = Field(ge=1, le=65535)
     local_port: int = Field(ge=1, le=65535)

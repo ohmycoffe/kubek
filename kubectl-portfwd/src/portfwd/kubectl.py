@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PortForwardProcess:
+    """A running `kubectl port-forward` subprocess and its parameters."""
+
     process: asyncio.subprocess.Process
     local_port: int
     remote_port: int
@@ -25,10 +27,10 @@ async def start_port_forward(
     context: str | None,
     kubeconfig: str | PathLike | None = None,
 ) -> PortForwardProcess:
-    """Start a kubectl port-forward process for the specified service and port."""
-    args = []
+    """Spawn a `kubectl port-forward` subprocess and return its handle."""
+    args: list[str] = []
     if kubeconfig:
-        args += ["--kubeconfig", kubeconfig]
+        args += ["--kubeconfig", str(kubeconfig)]
     if context:
         args += ["--context", context]
     cmd = [

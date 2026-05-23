@@ -1,8 +1,8 @@
 import json
 
 from kubek.kube.dto import Service, ServiceList
-from portfwd.cli import _convert_to_spec
 from portfwd.models import ServicePortForwardSpec
+from portfwd.use_case import convert_services_to_specs as _convert_to_spec
 
 
 def _service(name: str, namespace: str, ports: list[int]) -> Service:

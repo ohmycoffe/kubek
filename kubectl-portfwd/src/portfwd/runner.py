@@ -8,34 +8,27 @@ from collections.abc import Callable
 from kubek.kube import KubeFacade
 from rich.live import Live
 
-from portfwd.kube import (
-    PortForwardProcess,
-    start_port_forward,
-)
+from portfwd.display import LiveStatusTable
+from portfwd.errors import PortForwardStartError
+from portfwd.kubectl import PortForwardProcess, start_port_forward
 from portfwd.models import ServicePortForwardPlan
-from portfwd.term import make_table
-from portfwd.utils import get_port_forward_status_id
 
 logger = logging.getLogger(__name__)
 
 
 async def watch_processes(
     processes: list[PortForwardProcess],
-    statuses: dict[str, str],
+    table: LiveStatusTable,
     stop_event: asyncio.Event,
-    on_exit: Callable[[], None] = lambda: None,
+    on_change: Callable[[], None] = lambda: None,
 ) -> None:
+    """Await every kubectl port-forward subprocess and update statuses on exit."""
+
     async def _watch(process: PortForwardProcess) -> None:
         await process.process.wait()
         if not stop_event.is_set():
-            statuses[
-                get_port_forward_status_id(
-                    namespace=process.namespace,
-                    service_name=process.service_name,
-                    remote_port=process.remote_port,
-                )
-            ] = f"died (exit {process.process.returncode})"
-            on_exit()
+            table.mark_died(process, process.process.returncode)
+            on_change()
 
     async with asyncio.TaskGroup() as tg:
         for proc in processes:
@@ -46,10 +39,11 @@ async def manage_port_forwards(
     plans: list[ServicePortForwardPlan],
     api: KubeFacade,
 ) -> None:
+    """Start, watch, and tear down all kubectl port-forwards from `plans`."""
     loop = asyncio.get_running_loop()
     stop_event = asyncio.Event()
+    table = LiveStatusTable(context=api.current_config.context)
     processes: list[PortForwardProcess] = []
-    statuses: dict[str, str] = {}
 
     try:
         for plan in plans:
@@ -62,44 +56,25 @@ async def manage_port_forwards(
                 kubeconfig=api.current_config.kubeconfig,
             )
             processes.append(process)
-            statuses[
-                get_port_forward_status_id(
-                    namespace=process.namespace,
-                    service_name=process.service_name,
-                    remote_port=process.remote_port,
-                )
-            ] = "live"
-    except Exception:
-        for proc in processes:
-            try:
-                proc.process.terminate()
-            except ProcessLookupError:
-                pass
-        raise
+            table.track(process)
+    except Exception as e:
+        _terminate_all(processes)
+        raise PortForwardStartError("failed to start kubectl port-forward") from e
 
     if not processes:
         return
 
-    with Live(
-        renderable=make_table(processes, statuses, api.current_config.context),
-        refresh_per_second=1,
-    ) as live:
+    with Live(renderable=table.render(), refresh_per_second=1) as live:
 
         def refresh() -> None:
-            live.update(make_table(processes, statuses, api.current_config.context))
+            live.update(table.render())
 
         def cleanup() -> None:
             stop_event.set()
             for proc in processes:
                 try:
                     proc.process.terminate()
-                    statuses[
-                        get_port_forward_status_id(
-                            namespace=proc.namespace,
-                            service_name=proc.service_name,
-                            remote_port=proc.remote_port,
-                        )
-                    ] = "stopped"
+                    table.mark_stopped(proc)
                 except ProcessLookupError:
                     pass
             refresh()
@@ -109,7 +84,15 @@ async def manage_port_forwards(
 
         await watch_processes(
             processes=processes,
-            statuses=statuses,
+            table=table,
             stop_event=stop_event,
-            on_exit=refresh,
+            on_change=refresh,
         )
+
+
+def _terminate_all(processes: list[PortForwardProcess]) -> None:
+    for proc in processes:
+        try:
+            proc.process.terminate()
+        except ProcessLookupError:
+            pass
