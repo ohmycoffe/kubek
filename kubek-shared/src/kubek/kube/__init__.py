@@ -20,8 +20,8 @@ from kubek.kube.dto import (
     WorkflowTemplateType,
 )
 from kubek.kube.errors import (
-    ClientException,
-    NotFoundException,
+    KubeApiNotFoundError,
+    KubeClientError,
 )
 
 __all__ = [
@@ -36,8 +36,8 @@ __all__ = [
     "ConfigMap",
     "Container",
     "WorkflowTemplateType",
-    "ClientException",
-    "NotFoundException",
+    "KubeClientError",
+    "KubeApiNotFoundError",
     "KubernetesConfigMapRepository",
     "KubernetesDeploymentRepository",
     "KubernetesNamespaceRepository",

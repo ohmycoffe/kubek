@@ -3,7 +3,7 @@ from binascii import Error
 
 from pydantic import BaseModel, ConfigDict
 
-from kubek.kube.errors import ClientException
+from kubek.kube.errors import KubeClientError
 
 
 class SecretMetadata(BaseModel):
@@ -24,7 +24,7 @@ class Secret(BaseModel):
         try:
             return base64.b64decode(self.data[key]).decode("utf-8")
         except (Error, UnicodeDecodeError) as e:
-            raise ClientException(
+            raise KubeClientError(
                 f"secret {self.metadata.name!r} key {key!r} is not valid base64/utf-8",
             ) from e
 

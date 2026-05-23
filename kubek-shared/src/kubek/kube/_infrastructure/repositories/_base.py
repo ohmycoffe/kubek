@@ -4,7 +4,7 @@ from typing import Any, Generic, Protocol, TypeVar, cast
 from pydantic import BaseModel
 
 from kubek.kube.contracts import KubeClient
-from kubek.kube.errors import NotFoundException
+from kubek.kube.errors import KubeApiNotFoundError
 
 T = TypeVar("T", bound=BaseModel)
 L = TypeVar("L", bound=BaseModel)
@@ -32,7 +32,7 @@ class BaseKubernetesRepository(ABC, Generic[T, L]):
     def list(self, *args: Any, **kwargs: Any) -> list[T]:
         try:
             raw = self._fetch_list(*args, **kwargs)
-        except NotFoundException:
+        except KubeApiNotFoundError:
             return []
         model = self.list_model.model_validate(raw)
         return cast("HasItems[T]", model).items
@@ -40,6 +40,6 @@ class BaseKubernetesRepository(ABC, Generic[T, L]):
     def get(self, *args: Any, **kwargs: Any) -> T | None:
         try:
             raw = self._fetch_one(*args, **kwargs)
-        except NotFoundException:
+        except KubeApiNotFoundError:
             return None
         return self.item_model.model_validate(raw)

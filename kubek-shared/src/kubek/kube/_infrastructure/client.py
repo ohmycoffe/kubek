@@ -15,7 +15,13 @@ from kubernetes.config import (
 
 from kubek.kube.config import KubeConfig, ResolvedKubeConfig
 from kubek.kube.contracts.clients import KubeClient
-from kubek.kube.errors import AccessDeniedException, ClientException, NotFoundException
+from kubek.kube.errors import (
+    KubeAccessDeniedError,
+    KubeApiNotFoundError,
+    KubeAuthenticationError,
+    KubeClientError,
+    KubeConfigError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +56,7 @@ class KubeSession:
                 client_configuration=configuration,
             )
         except ConfigException as e:
-            raise ClientException(f"failed to load kubeconfig: {e}") from e
+            raise KubeConfigError(f"failed to load kubeconfig: {e}") from e
 
         api = client.ApiClient(configuration)
         return cls(
@@ -64,7 +70,7 @@ class KubeSession:
     def __resolve_config(cfg: KubeConfig) -> ResolvedKubeConfig:
         _, active = list_kube_config_contexts(config_file=cfg.kubeconfig)
         if not active:
-            raise ClientException("no current context found in kubeconfig")
+            raise KubeConfigError("no current context found in kubeconfig")
 
         ns = (
             cfg.namespace
@@ -97,12 +103,15 @@ def _raise_api_exception(e: client.ApiException) -> NoReturn:
     }
     logger.debug(str(e))
     if e.status == HTTPStatus.NOT_FOUND:
-        raise NotFoundException("resource not found", context=context) from e
+        raise KubeApiNotFoundError("resource not found", context=context) from e
 
     if e.status == HTTPStatus.UNAUTHORIZED:
-        raise AccessDeniedException("access denied", context=context) from e
+        raise KubeAuthenticationError("access unauthorized", context=context) from e
 
-    raise ClientException("client error", context=context) from e
+    if e.status == HTTPStatus.FORBIDDEN:
+        raise KubeAccessDeniedError("access forbidden", context=context) from e
+
+    raise KubeClientError("client error", context=context) from e
 
 
 def safe(fn: Callable[P, R]) -> Callable[P, R]:

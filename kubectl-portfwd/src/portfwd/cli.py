@@ -14,7 +14,7 @@ from kubek.kube import (
     KubeFacade,
     Service,
 )
-from kubek.term import create_output, setup_logging
+from kubek.term import create_output, setup_logging_from_count
 from kubek.term.output import CLIOutput
 from pydantic import ValidationError
 
@@ -232,7 +232,7 @@ def port_forward(
         kubectl portfwd -s kube-public/auth -s kube-public/api
     """
     out = create_output(verbosity_count=verbose)  #
-    setup_logging(verbose, "kubek", "portfwd")
+    setup_logging_from_count(verbose, "kubek", "portfwd")
 
     if group is not None and service is not None:
         raise typer.BadParameter("'--group' and '--service' are mutually exclusive.")

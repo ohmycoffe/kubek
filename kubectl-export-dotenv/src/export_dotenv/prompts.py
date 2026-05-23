@@ -1,3 +1,5 @@
+from typing import Literal
+
 import questionary
 from kubek.kube import Kind
 from kubek.term.style import DEFAULT_QUESTIONARY_THEME
@@ -6,7 +8,7 @@ from questionary import Style
 QUESTIONARY_STYLE = Style(DEFAULT_QUESTIONARY_THEME)
 
 
-def ask_for_kind() -> Kind:
+def ask_for_kind() -> Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE] | None:
     selected = questionary.select(
         "Select a kind:",
         choices=[
@@ -36,4 +38,5 @@ def ask_for_resource(resources: list[str], kind: Kind) -> str:
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
     ).ask()
+
     return selected

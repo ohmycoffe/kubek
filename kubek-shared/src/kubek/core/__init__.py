@@ -1,5 +1,5 @@
-from kubek.core.errors import KubekException
+from kubek.core.errors import KubekError
 
 __all__ = [
-    "KubekException",
+    "KubekError",
 ]
