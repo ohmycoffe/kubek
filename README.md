@@ -18,14 +18,12 @@
 
 ### 🔌 portfwd — Interactive port forwarding
 
-Forwarding ports to Kubernetes services usually means running a separate `kubectl port-forward` command for each service, keeping track of which local port maps to what, and restarting them when they die. **portfwd** (**port** **f**or**w**ar**d**) replaces all of that with a single interactive command — pick your services, and it handles the rest.
+Forwarding ports to Kubernetes services usually means running a separate `kubectl port-forward` command for each service, keeping track of which local port maps to what. **portfwd** (**port** **f**or**w**ar**d**) replaces all of that with a single interactive command — pick your services, and it handles the rest.
 
 - Fuzzy-search namespaces and services interactively
 - Forward multiple services simultaneously in one command
 - Live status table with real-time updates when a process dies
-- Pin preferred local ports per service in a TOML config
-- Fallback to a random free port if the preferred port is taken
-- Inform user which services are currently forwarded and on which ports
+- Deterministic port allocation: same service always gets the same port across multiple runs (either from config pinning or intelligent assignment)
 
 ![portfwd demo](https://github.com/user-attachments/assets/98e91737-8bed-4b2d-a760-4d685ecdb1a9)
 
@@ -35,7 +33,7 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 
 ### 📦 export-dotenv — Export env vars from Kubernetes manifests
 
-Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **export-dotenv** (**env**ironment e**x**porter) does it in one command — pick any Deployment or Argo WorkflowTemplate you have access to and get its env vars exported instantly.
+Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **export-dotenv** does it in one command — pick any Deployment or Argo WorkflowTemplate you have access to and get its env vars exported instantly.
 
 - Fully interactive (fuzzy-search, arrow key navigation)
 - Output as `.env` or JSON

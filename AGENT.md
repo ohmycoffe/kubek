@@ -31,3 +31,7 @@ Run `make help` to see all available commands (test, lint, format, bump, cluster
 make test    # run all tests
 make lint    # ruff check + format check
 ```
+
+### Test and lint targets
+- **make test**: Runs `poetry run pytest` (collects tests from all packages)
+- **make lint**: Runs `poetry run ruff check` and `poetry run ruff format --check` (lint without fixing)
