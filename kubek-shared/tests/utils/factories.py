@@ -9,7 +9,7 @@ def make_deployment(name: str, namespace: str) -> dict:
 def make_secret(name: str, namespace: str) -> dict:
     return {
         "metadata": {"name": name, "namespace": namespace},
-        "data": {"key": "value"},
+        "data": {"key": "cGFzc3dvcmQ="},
         "kind": "Secret",
     }
 
