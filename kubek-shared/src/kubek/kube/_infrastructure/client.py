@@ -14,7 +14,7 @@ from kubernetes.config import (
 )
 
 from kubek.kube.config import KubeConfig, ResolvedKubeConfig
-from kubek.kube.contracts.clients import KubeClient
+from kubek.kube.constants import DEFAULT_NAMESPACE
 from kubek.kube.errors import (
     KubeAccessDeniedError,
     KubeApiNotFoundError,
@@ -24,8 +24,6 @@ from kubek.kube.errors import (
 )
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_NAMESPACE = "default"
 
 
 class KubeSession:
@@ -145,7 +143,7 @@ def as_dict(fn: Callable[P, Any]) -> Callable[P, dict[str, Any]]:
     return wrapper
 
 
-class KubernetesClient(KubeClient):
+class KubernetesClient:
     """Client for Kubernetes API"""
 
     __ARGO_WF_GROUP = "argoproj.io"

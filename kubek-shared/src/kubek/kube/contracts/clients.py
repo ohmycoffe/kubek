@@ -1,8 +1,8 @@
 # contracts/client.py
 
-from typing import Any, Protocol, Self
+from typing import Any, Protocol
 
-from kubek.kube.config import KubeConfig, ResolvedKubeConfig
+from kubek.kube.config import ResolvedKubeConfig
 
 KubeRawResponse = dict[str, Any]
 
@@ -10,9 +10,6 @@ KubeRawResponse = dict[str, Any]
 class KubeClient(Protocol):
     @property
     def current_config(self) -> ResolvedKubeConfig: ...
-
-    @classmethod
-    def from_config(cls, config: KubeConfig | None = None) -> Self: ...
 
     def get_namespaces(self) -> KubeRawResponse: ...
 

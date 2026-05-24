@@ -7,3 +7,5 @@ class Kind(enum.StrEnum):
     CONFIG = "Config"
     NAMESPACE = "Namespace"
     SERVICE = "Service"
+    SECRET = "Secret"
+    CONFIGMAP = "ConfigMap"

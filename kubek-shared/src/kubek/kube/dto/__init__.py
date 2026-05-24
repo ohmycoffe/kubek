@@ -1,4 +1,3 @@
-from .config import Config
 from .configmap import ConfigMap, ConfigMapList
 from .container import Container
 from .deployment import Deployment
@@ -13,8 +12,8 @@ from .workflowtemplate import (
 )
 
 __all__ = [
-    "Config",
     "ConfigMap",
+    "ConfigMapList",
     "Container",
     "Secret",
     "Deployment",
