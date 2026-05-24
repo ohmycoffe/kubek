@@ -19,16 +19,18 @@ logger = logging.getLogger(__name__)
 async def watch_processes(
     processes: list[PortForwardProcess],
     table: LiveStatusTable,
-    stop_event: asyncio.Event,
+    expected_shutdown: asyncio.Event,
     on_change: Callable[[], None] = lambda: None,
 ) -> None:
     """Await every kubectl port-forward subprocess and update statuses on exit."""
 
     async def _watch(process: PortForwardProcess) -> None:
         await process.process.wait()
-        if not stop_event.is_set():
+        if expected_shutdown.is_set():
+            table.mark_stopped(process)
+        else:
             table.mark_died(process, process.process.returncode)
-            on_change()
+        on_change()
 
     async with asyncio.TaskGroup() as tg:
         for proc in processes:
@@ -41,7 +43,7 @@ async def manage_port_forwards(
 ) -> None:
     """Start, watch, and tear down all kubectl port-forwards from `plans`."""
     loop = asyncio.get_running_loop()
-    stop_event = asyncio.Event()
+    expected_shutdown = asyncio.Event()
     table = LiveStatusTable(context=api.current_config.context)
     processes: list[PortForwardProcess] = []
 
@@ -70,11 +72,10 @@ async def manage_port_forwards(
             live.update(table.render())
 
         def cleanup() -> None:
-            stop_event.set()
+            expected_shutdown.set()
             for proc in processes:
                 try:
                     proc.process.terminate()
-                    table.mark_stopped(proc)
                 except ProcessLookupError:
                     pass
             refresh()
@@ -85,7 +86,7 @@ async def manage_port_forwards(
         await watch_processes(
             processes=processes,
             table=table,
-            stop_event=stop_event,
+            expected_shutdown=expected_shutdown,
             on_change=refresh,
         )
 
