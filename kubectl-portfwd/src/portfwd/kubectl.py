@@ -8,6 +8,9 @@ from os import PathLike
 logger = logging.getLogger(__name__)
 
 
+STARTUP_GRACE_SECONDS = 0.5
+
+
 @dataclass
 class PortForwardProcess:
     """A running `kubectl port-forward` subprocess and its parameters."""
@@ -48,6 +51,9 @@ async def start_port_forward(
         stdout=asyncio.subprocess.DEVNULL,
         stderr=None,
     )
+
+    await asyncio.sleep(STARTUP_GRACE_SECONDS)
+
     logger.debug(
         "Started port forward for %s:%d → localhost:%d [PID: %d]",
         service,

@@ -29,16 +29,24 @@ class LiveStatusTable:
 
     def track(self, process: PortForwardProcess) -> None:
         """Register a freshly started subprocess as 'live'."""
-        self.__rows[self.__key(process)] = _Row(process=process, status="live")
+        if process.process.returncode is None:
+            status = "live"
+        else:
+            status = f"died (exit {process.process.returncode})"
+        self.__rows[self.__key(process)] = _Row(process=process, status=status)
 
-    def mark_died(self, process: PortForwardProcess, exit_code: int | None) -> None:
+    def mark_died(self, process: PortForwardProcess) -> None:
         """Mark a tracked subprocess as dead and record its exit code."""
+        if process.process.returncode is None:
+            raise ValueError("Process is still live")
         row = self.__rows.get(self.__key(process))
         if row is not None:
-            row.status = f"died (exit {exit_code})"
+            row.status = f"died (exit {process.process.returncode})"
 
     def mark_stopped(self, process: PortForwardProcess) -> None:
         """Mark a tracked subprocess as cleanly stopped."""
+        if process.process.returncode is None:
+            raise ValueError("Process is still live")
         row = self.__rows.get(self.__key(process))
         if row is not None:
             row.status = "stopped"

@@ -29,7 +29,7 @@ async def watch_processes(
         if expected_shutdown.is_set():
             table.mark_stopped(process)
         else:
-            table.mark_died(process, process.process.returncode)
+            table.mark_died(process)
         on_change()
 
     async with asyncio.TaskGroup() as tg:

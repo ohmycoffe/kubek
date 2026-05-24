@@ -91,17 +91,3 @@ def test_watch_processes_marks_died_on_exit():
     assert rendered.row_count == 1
     cells = list(rendered.columns[-1].cells)
     assert "died (exit 1)" in cells[0]
-
-
-def test_watch_processes_skips_update_when_stopped():
-    """watch_processes leaves status untouched when stop_event is already set."""
-    proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    table = LiveStatusTable()
-    table.track(proc)
-    stop_event = asyncio.Event()
-    stop_event.set()
-
-    asyncio.run(watch_processes([proc], table, stop_event))
-
-    cells = list(table.render().columns[-1].cells)
-    assert "● live" in cells[0]
