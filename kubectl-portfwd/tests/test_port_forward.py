@@ -90,4 +90,4 @@ def test_watch_processes_marks_died_on_exit():
     rendered = table.render()
     assert rendered.row_count == 1
     cells = list(rendered.columns[-1].cells)
-    assert "died (exit 1)" in cells[0]
+    assert "died (exit 1)" in str(cells[0])
