@@ -1,0 +1,84 @@
+[
+  {
+    "metadata": {
+      "name": "api-service",
+      "namespace": "ns-kubectl-export-dotenv"
+    },
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DB_PASSWORD",
+                  "value_from": {
+                    "secret_key_ref": {
+                      "key": "DATABASE_PASSWORD",
+                      "name": "app-secrets"
+                    }
+                  }
+                },
+                {
+                  "name": "LOG_LEVEL_OVERRIDE",
+                  "value_from": {
+                    "config_map_key_ref": {
+                      "key": "LOG_LEVEL",
+                      "name": "app-config"
+                    }
+                  }
+                },
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-api"
+                },
+                {
+                  "name": "API_VERSION",
+                  "value": "v2"
+                },
+                {
+                  "name": "ENABLE_TRACING",
+                  "value": "true"
+                }
+              ],
+              "env_from": [
+                {
+                  "config_map_ref": {
+                    "name": "app-config"
+                  }
+                },
+                {
+                  "secret_ref": {
+                    "name": "app-secrets"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "metadata": {
+      "name": "dummy-service",
+      "namespace": "ns-kubectl-export-dotenv"
+    },
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-dummy"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+]

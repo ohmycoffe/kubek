@@ -1,0 +1,37 @@
+[
+  {
+    "metadata": {
+      "name": "default"
+    }
+  },
+  {
+    "metadata": {
+      "name": "kube-node-lease"
+    }
+  },
+  {
+    "metadata": {
+      "name": "kube-public"
+    }
+  },
+  {
+    "metadata": {
+      "name": "kube-system"
+    }
+  },
+  {
+    "metadata": {
+      "name": "local-path-storage"
+    }
+  },
+  {
+    "metadata": {
+      "name": "ns-kubectl-export-dotenv"
+    }
+  },
+  {
+    "metadata": {
+      "name": "ns-kubectl-portfwd"
+    }
+  }
+]

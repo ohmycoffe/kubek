@@ -10,7 +10,7 @@ class ExportFormat(enum.StrEnum):
     JSON = "json"
 
 
-def export_as_dotenv(vals: dict[str, str], name: str | None = None) -> str:
+def export_as_dotenv(vals: dict[str, str], name: str | None) -> str:
     sorted_list = sorted(vals.items(), key=lambda x: x[0])
     res = []
     if name:
@@ -22,7 +22,9 @@ def export_as_dotenv(vals: dict[str, str], name: str | None = None) -> str:
 
 
 def format_environment_values(
-    values: dict[str, str], name: str, output: ExportFormat
+    values: dict[str, str],
+    output: ExportFormat,
+    name: str | None = None,
 ) -> str:
     """Format environment values for output.
 
