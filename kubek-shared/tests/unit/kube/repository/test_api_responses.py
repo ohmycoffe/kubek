@@ -1,0 +1,153 @@
+import json
+
+import pytest
+from conftest import RESOURCES_DIR
+from kubek.kube._infrastructure.repositories.configmap import (
+    KubernetesConfigMapRepository,
+)
+from kubek.kube._infrastructure.repositories.deployment import (
+    KubernetesDeploymentRepository,
+)
+from kubek.kube._infrastructure.repositories.namespace import (
+    KubernetesNamespaceRepository,
+)
+from kubek.kube._infrastructure.repositories.secret import KubernetesSecretRepository
+from kubek.kube._infrastructure.repositories.workflowtemplate import (
+    KubernetesWorkflowTemplateRepository,
+)
+from kubek.kube.dto.kind import Kind
+from kubek_test_utils.fakes import FakeKubeClient
+
+
+def _strip_inline_comment(line: str) -> str:
+    """Strip inline comments from JSON lines."""
+    in_string = False
+    escaped = False
+
+    for index, char in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+
+        if char == "\\":
+            escaped = True
+            continue
+
+        if char == '"':
+            in_string = not in_string
+            continue
+
+        if not in_string and line[index : index + 2] == "//":
+            return line[:index].rstrip()
+
+    return line
+
+
+def _load_json(filename: str) -> list[dict]:
+    """Load JSON file from resources directory, stripping inline comments."""
+    path = RESOURCES_DIR / "k8s" / "api-responses" / filename
+    content = path.read_text()
+    cleaned_content = "\n".join(
+        _strip_inline_comment(line) for line in content.splitlines()
+    )
+    return json.loads(cleaned_content)
+
+
+@pytest.fixture
+def real_data_client():
+    """Fixture that loads real API responses from JSON and populates FakeKubeClient."""
+    client = FakeKubeClient()
+
+    # Add deployments
+    for item in _load_json("Deployment.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.DEPLOYMENT, name, item, namespace=ns)
+
+    # Add services
+    for item in _load_json("Service.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.SERVICE, name, item, namespace=ns)
+
+    # Add secrets
+    for item in _load_json("Secret.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.SECRET, name, item, namespace=ns)
+
+    # Add configmaps
+    for item in _load_json("ConfigMap.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.CONFIGMAP, name, item, namespace=ns)
+
+    # Add workflow templates
+    for item in _load_json("WorkflowTemplate.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.WORKFLOWTEMPLATE, name, item, namespace=ns)
+
+    # Add namespaces
+    for item in _load_json("Namespace.json"):
+        name = item["metadata"]["name"]
+        client.add_namespace(name, item)
+
+    return client
+
+
+class TestRepositoriesWithRealData:
+    NS = "ns-kubek-shared"
+
+    def test_deployment_names(self, real_data_client):
+        repo = KubernetesDeploymentRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        assert {d.metadata.name for d in result} == {
+            "api-service",
+            "dummy-service",
+        }
+
+    def test_deployment_env_parsing(self, real_data_client):
+        repo = KubernetesDeploymentRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        api = next(d for d in result if d.metadata.name == "api-service")
+        container = api.spec.template.spec.containers[0]
+
+        assert container.env_from
+        assert any(e.config_map_ref for e in container.env_from)
+        assert any(e.secret_ref for e in container.env_from)
+
+        assert container.env
+        assert any(e.name == "DB_PASSWORD" for e in container.env)
+        assert any(e.name == "DIRECT_VALUE" for e in container.env)
+
+    def test_secret_decoding(self, real_data_client):
+        repo = KubernetesSecretRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        s = next(s for s in result if s.metadata.name == "app-secrets")
+        assert s.decoded("API_KEY") == "myapikey123"
+
+    def test_configmap_data(self, real_data_client):
+        repo = KubernetesConfigMapRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        c = next(c for c in result if c.metadata.name == "app-config")
+        assert c.data["APP_ENV"] == "local"
+
+    def test_workflow_names(self, real_data_client):
+        repo = KubernetesWorkflowTemplateRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        assert {w.metadata.name for w in result} == {
+            "data-processor",
+            "dummy-worker",
+        }
+
+    def test_namespace_list(self, real_data_client):
+        repo = KubernetesNamespaceRepository(real_data_client)
+
+        names = {n.metadata.name for n in repo.list()}
+        assert self.NS in names

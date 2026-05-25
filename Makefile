@@ -27,7 +27,7 @@ bump: ## Bump version (v=patch|minor|major)
 	scripts/bump_version.sh $(v)
 
 cluster: ## Create local Kind cluster
-	scripts/run-local-cluster.sh kubectl-portfwd kubectl-export-dotenv
+	scripts/run-local-cluster.sh kubectl-portfwd kubectl-export-dotenv kubek-shared
 
 demo: ## Regenerate VHS demo GIFs
 	vhs kubectl-portfwd/docs/tapes/demo.tape

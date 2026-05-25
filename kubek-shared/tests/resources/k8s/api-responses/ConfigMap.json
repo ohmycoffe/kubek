@@ -1,0 +1,63 @@
+[
+  {
+    "api_version": null,
+    "binary_data": null,
+    "data": {
+      "APP_ENV": "local",
+      "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+      "DATABASE_PORT": "5432",
+      "FEATURE_FLAG_NEW_UI": "true",
+      "LOG_LEVEL": "debug",
+      "MAX_CONNECTIONS": "20",
+      "SERVICE_TIMEOUT_MS": "3000"
+    },
+    "immutable": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"data\":{\"APP_ENV\":\"local\",\"DATABASE_HOST\":\"postgres.demo.svc.cluster.local\",\"DATABASE_PORT\":\"5432\",\"FEATURE_FLAG_NEW_UI\":\"true\",\"LOG_LEVEL\":\"debug\",\"MAX_CONNECTIONS\":\"20\",\"SERVICE_TIMEOUT_MS\":\"3000\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":{},\"name\":\"app-config\",\"namespace\":\"ns-kubek-shared\"}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:25+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": null,
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:data": {
+              ".": {},
+              "f:APP_ENV": {},
+              "f:DATABASE_HOST": {},
+              "f:DATABASE_PORT": {},
+              "f:FEATURE_FLAG_NEW_UI": {},
+              "f:LOG_LEVEL": {},
+              "f:MAX_CONNECTIONS": {},
+              "f:SERVICE_TIMEOUT_MS": {}
+            },
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:25+00:00"
+        }
+      ],
+      "name": "app-config",
+      "namespace": "ns-kubek-shared",
+      "owner_references": null,
+      "resource_version": "615",
+      "self_link": null,
+      "uid": "f7c5e61e-ed6f-4a83-8af8-1f14099ace59"
+    }
+  }
+]

@@ -38,7 +38,7 @@ def _clean_key(key: str) -> str:
 
 def get_deployment_envs(name: str, api: KubeFacade) -> dict[str, str]:
     ns = api.current_config.namespace
-    deployment = api.deployment.get(name=name)
+    deployment = api.deployment.get(name=name, namespace=ns)
     if not deployment:
         raise ResourceNotFoundError(f"Deployment {name} not found in namespace {ns}")
     containers = deployment.spec.template.spec.containers
@@ -53,7 +53,7 @@ def get_deployment_envs(name: str, api: KubeFacade) -> dict[str, str]:
 
 def get_workflowtemplate_envs(name: str, api: KubeFacade) -> dict[str, str]:
     ns = api.current_config.namespace
-    workflowtemplate = api.workflowtemplate.get(name=name)
+    workflowtemplate = api.workflowtemplate.get(name=name, namespace=ns)
     if not workflowtemplate:
         raise ResourceNotFoundError(
             f"WorkflowTemplate {name} not found in namespace {ns}"
@@ -87,11 +87,11 @@ def extract_envs_from_container(
 ) -> dict[str, str]:
     @lru_cache
     def get_secret(name: str) -> Secret | None:
-        return api.secret.get(name=name)
+        return api.secret.get(name=name, namespace=api.current_config.namespace)
 
     @lru_cache
     def get_configmap(name: str) -> ConfigMap | None:
-        return api.configmap.get(name=name)
+        return api.configmap.get(name=name, namespace=api.current_config.namespace)
 
     if fallback_keys is None:
         fallback_keys = {}

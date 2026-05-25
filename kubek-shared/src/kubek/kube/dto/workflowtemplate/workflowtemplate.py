@@ -14,7 +14,12 @@ from .template import (
 Template = DagTemplate | StepsTemplate | ScriptTemplate | ContainerTemplate
 
 
-def parse_template(data: dict) -> Template:
+def parse_template(data: dict | Template) -> Template:
+    if isinstance(
+        data, DagTemplate | StepsTemplate | ScriptTemplate | ContainerTemplate
+    ):
+        return data
+
     keys = ["dag", "steps", "script", "container"]
     found = [k for k in keys if k in data]
 

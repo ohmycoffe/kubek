@@ -1,0 +1,418 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "creation_timestamp": "2026-05-25T22:22:00+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "default"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kube-apiserver",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:00+00:00"
+        }
+      ],
+      "name": "default",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "19",
+      "self_link": null,
+      "uid": "e8c5d508-b38f-42c2-b81b-02c936074fc7"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "creation_timestamp": "2026-05-25T22:22:00+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "kube-node-lease"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kube-apiserver",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:00+00:00"
+        }
+      ],
+      "name": "kube-node-lease",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "30",
+      "self_link": null,
+      "uid": "e1006e9c-7723-46ea-9601-6b48dfd57c87"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "creation_timestamp": "2026-05-25T22:22:00+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "kube-public"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kube-apiserver",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:00+00:00"
+        }
+      ],
+      "name": "kube-public",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "9",
+      "self_link": null,
+      "uid": "b9a4dc1b-9b93-465d-bcdf-292bb489d3c5"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": null,
+      "creation_timestamp": "2026-05-25T22:22:00+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "kube-system"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kube-apiserver",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:00+00:00"
+        }
+      ],
+      "name": "kube-system",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "4",
+      "self_link": null,
+      "uid": "e3e96974-5e39-4d2c-9f85-639116d6ddbd"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"name\":\"local-path-storage\"}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:03+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "local-path-storage"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              },
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:03+00:00"
+        }
+      ],
+      "name": "local-path-storage",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "315",
+      "self_link": null,
+      "uid": "6eac2a90-b5ba-4b0a-90e0-20583fec0b49"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"name\":\"ns-kubectl-export-dotenv\"},\"spec\":{},\"status\":{}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:23+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "ns-kubectl-export-dotenv"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              },
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:23+00:00"
+        }
+      ],
+      "name": "ns-kubectl-export-dotenv",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "565",
+      "self_link": null,
+      "uid": "ca946576-deee-415f-af77-ab41406f9044"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"name\":\"ns-kubectl-portfwd\"},\"spec\":{},\"status\":{}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:22+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "ns-kubectl-portfwd"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              },
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:22+00:00"
+        }
+      ],
+      "name": "ns-kubectl-portfwd",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "525",
+      "self_link": null,
+      "uid": "e82cadd1-e89b-4c54-b28f-07eea096be08"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"name\":\"ns-kubek-shared\"},\"spec\":{},\"status\":{}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:25+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "ns-kubek-shared"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              },
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:25+00:00"
+        }
+      ],
+      "name": "ns-kubek-shared",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "612",
+      "self_link": null,
+      "uid": "141acab5-a308-416d-b9f7-6a308658ba8e"
+    },
+    "spec": {
+      "finalizers": [
+        "kubernetes"
+      ]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  }
+]
