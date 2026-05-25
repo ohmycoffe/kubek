@@ -185,9 +185,6 @@ def build_workflow():
     )
 
 
-# ----------------------------
-# API
-# ----------------------------
 @pytest.fixture
 def api():
     return KubeFacade(
@@ -201,9 +198,6 @@ def api():
     )
 
 
-# ----------------------------
-# Tests (FULL assertions)
-# ----------------------------
 def test_workflowtemplate_env_vars(api):
     result = fetch_environment_values(
         kind=Kind.WORKFLOWTEMPLATE,
