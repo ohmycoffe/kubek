@@ -10,6 +10,7 @@ class SecretMetadata(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
+    namespace: str
 
 
 class Secret(BaseModel):

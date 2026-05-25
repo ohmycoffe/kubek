@@ -40,6 +40,7 @@ class Metadata(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
+    namespace: str
 
 
 class WorkflowSpec(BaseModel):

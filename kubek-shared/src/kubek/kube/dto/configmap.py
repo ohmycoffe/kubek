@@ -5,6 +5,7 @@ class ConfigMapMetadata(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
+    namespace: str
 
 
 class ConfigMap(BaseModel):

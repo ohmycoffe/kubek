@@ -12,7 +12,7 @@ def _encoded(value: str) -> str:
 def _make_secret(name: str, plain_data: dict[str, str]) -> Secret:
     return Secret.model_validate(
         {
-            "metadata": {"name": name},
+            "metadata": {"name": name, "namespace": "default"},
             "data": {key: _encoded(value) for key, value in plain_data.items()},
         }
     )
@@ -50,7 +50,7 @@ def test_decoded_raises_kube_client_error_for_invalid_encoded_value(
 ) -> None:
     secret = Secret.model_validate(
         {
-            "metadata": {"name": "bad"},
+            "metadata": {"name": "bad", "namespace": "default"},
             "data": {"key": encoded_value},
         }
     )
@@ -68,7 +68,7 @@ def test_decoded_dict_returns_all_keys_decoded() -> None:
 def test_decoded_dict_returns_empty_dict_when_no_data() -> None:
     secret = Secret.model_validate(
         {
-            "metadata": {"name": "empty"},
+            "metadata": {"name": "empty", "namespace": "default"},
             "data": {},
         }
     )
@@ -79,8 +79,14 @@ def test_decoded_dict_returns_empty_dict_when_no_data() -> None:
 def test_secret_list_parses_multiple_secrets() -> None:
     raw = {
         "items": [
-            {"metadata": {"name": "a"}, "data": {"k": _encoded("v1")}},
-            {"metadata": {"name": "b"}, "data": {"k": _encoded("v2")}},
+            {
+                "metadata": {"name": "a", "namespace": "default"},
+                "data": {"k": _encoded("v1")},
+            },
+            {
+                "metadata": {"name": "b", "namespace": "default"},
+                "data": {"k": _encoded("v2")},
+            },
         ]
     }
 

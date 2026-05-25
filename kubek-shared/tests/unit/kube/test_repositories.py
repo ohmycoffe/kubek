@@ -16,8 +16,7 @@ from kubek.kube._infrastructure.repositories.workflowtemplate import (
     KubernetesWorkflowTemplateRepository,
 )
 from kubek.kube.dto.kind import Kind
-
-from tests.utils.factories import (
+from kubek_test_utils.factories import (
     make_configmap,
     make_deployment,
     make_namespace,
@@ -25,7 +24,7 @@ from tests.utils.factories import (
     make_service,
     make_workflowtemplate,
 )
-from tests.utils.fakes import FakeKubeClient
+from kubek_test_utils.fakes import FakeKubeClient
 
 _TEST_NAMESPACE = "test-namespace-1"
 

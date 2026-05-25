@@ -9,21 +9,51 @@ from kubek.kube._infrastructure import (
     KubernetesServiceRepository,
     KubernetesWorkflowTemplateRepository,
 )
-from kubek.kube.config import KubeConfig
-from kubek.kube.contracts import KubeClient
+from kubek.kube.config import KubeConfig, ResolvedKubeConfig
+from kubek.kube.contracts import (
+    ConfigMapRepository,
+    DeploymentRepository,
+    KubeClient,
+    NamespaceRepository,
+    SecretRepository,
+    ServiceRepository,
+    WorkflowTemplateRepository,
+)
 
 
 class KubeFacade:
-    def __init__(self, client: KubeClient):
-        self.namespace = KubernetesNamespaceRepository(client)
-        self.deployment = KubernetesDeploymentRepository(client)
-        self.service = KubernetesServiceRepository(client)
-        self.workflowtemplate = KubernetesWorkflowTemplateRepository(client)
-        self.secret = KubernetesSecretRepository(client)
-        self.configmap = KubernetesConfigMapRepository(client)
+    def __init__(
+        self,
+        current_config: ResolvedKubeConfig,
+        namespace: NamespaceRepository,
+        deployment: DeploymentRepository,
+        service: ServiceRepository,
+        workflowtemplate: WorkflowTemplateRepository,
+        secret: SecretRepository,
+        configmap: ConfigMapRepository,
+    ):
+        self.namespace = namespace
+        self.deployment = deployment
+        self.service = service
+        self.workflowtemplate = workflowtemplate
+        self.secret = secret
+        self.configmap = configmap
 
-        self.current_config = client.current_config
+        self.current_config = current_config
 
     @classmethod
     def from_config(cls, config: KubeConfig | None = None) -> Self:
-        return cls(KubernetesClient.from_config(config))
+        client = KubernetesClient.from_config(config)
+        return cls.from_client(client)
+
+    @classmethod
+    def from_client(cls, client: KubeClient) -> Self:
+        return cls(
+            current_config=client.current_config,
+            namespace=KubernetesNamespaceRepository(client),
+            deployment=KubernetesDeploymentRepository(client),
+            service=KubernetesServiceRepository(client),
+            workflowtemplate=KubernetesWorkflowTemplateRepository(client),
+            secret=KubernetesSecretRepository(client),
+            configmap=KubernetesConfigMapRepository(client),
+        )
