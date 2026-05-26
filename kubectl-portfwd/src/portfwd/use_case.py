@@ -42,20 +42,20 @@ def run_port_forwards(
     - Otherwise prompt the user to pick a group (or 'custom' interactive flow).
     """
     if service is not None:
-        _run_services(service=service, cfg=cfg, api=api)
+        run_services(service=service, cfg=cfg, api=api)
         return
     if group is not None:
-        _run_group(group_name=group, cfg=cfg, api=api)
+        run_group(group_name=group, cfg=cfg, api=api)
         return
 
     selection = ask_for_group(cfg.groups)
     if selection is SpecialGroups.CUSTOM:
-        _run_interactive(cfg=cfg, api=api, out=out)
+        run_interactive(cfg=cfg, api=api, out=out)
     else:
-        _run_group(group_name=selection.name, cfg=cfg, api=api)
+        run_group(group_name=selection.name, cfg=cfg, api=api)
 
 
-def _run_group(*, group_name: str, cfg: PortFwdConfig, api: KubeFacade) -> None:
+def run_group(*, group_name: str, cfg: PortFwdConfig, api: KubeFacade) -> None:
     group = _resolve_group(group_name, cfg.groups)
     plans = [
         ServicePortForwardPlan(
@@ -68,7 +68,7 @@ def _run_group(*, group_name: str, cfg: PortFwdConfig, api: KubeFacade) -> None:
     asyncio.run(manage_port_forwards(plans=plans, api=api))
 
 
-def _run_services(*, service: list[str], cfg: PortFwdConfig, api: KubeFacade) -> None:
+def run_services(*, service: list[str], cfg: PortFwdConfig, api: KubeFacade) -> None:
     plans = [
         build_port_forward_plan(spec=parse_spec(s), config=cfg, api=api)
         for s in service
@@ -76,7 +76,7 @@ def _run_services(*, service: list[str], cfg: PortFwdConfig, api: KubeFacade) ->
     asyncio.run(manage_port_forwards(plans=plans, api=api))
 
 
-def _run_interactive(*, cfg: PortFwdConfig, api: KubeFacade, out: CLIOutput) -> None:
+def run_interactive(*, cfg: PortFwdConfig, api: KubeFacade, out: CLIOutput) -> None:
     with out.progress("Fetching namespaces…"):
         namespaces = [ns.metadata.name for ns in api.namespace.list()]
     selected_namespaces = ask_for_namespace(namespaces, api.current_config.namespace)
