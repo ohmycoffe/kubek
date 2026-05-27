@@ -4,16 +4,29 @@ import asyncio
 import logging
 import signal
 from collections.abc import Callable
+from dataclasses import dataclass
+from os import PathLike
 
 from kubek.kube import KubeFacade
 from rich.live import Live
 
+from portfwd.application.ports import PortForwardRunner
 from portfwd.domain.errors import PortForwardStartError
 from portfwd.domain.models import ServicePortForwardPlan
-from portfwd.infrastructure.kubectl import PortForwardProcess, start_port_forward
 from portfwd.presentation.display import LiveStatusTable
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PortForwardProcess:
+    """A running `kubectl port-forward` subprocess and its parameters."""
+
+    process: asyncio.subprocess.Process
+    local_port: int
+    remote_port: int
+    service_name: str
+    namespace: str
 
 
 async def watch_processes(
@@ -35,6 +48,57 @@ async def watch_processes(
     async with asyncio.TaskGroup() as tg:
         for proc in processes:
             tg.create_task(_watch(proc))
+
+
+STARTUP_GRACE_SECONDS = 0.5
+
+
+async def start_port_forward(
+    namespace: str,
+    service: str,
+    local_port: int,
+    remote_port: int,
+    context: str | None,
+    kubeconfig: str | PathLike | None = None,
+) -> PortForwardProcess:
+    """Spawn a `kubectl port-forward` subprocess and return its handle."""
+    args: list[str] = []
+    if kubeconfig:
+        args += ["--kubeconfig", str(kubeconfig)]
+    if context:
+        args += ["--context", context]
+    cmd = [
+        "kubectl",
+        *args,
+        "port-forward",
+        f"svc/{service}",
+        f"{local_port}:{remote_port}",
+        "--namespace",
+        namespace,
+    ]
+    logger.debug(" ".join(cmd))
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=None,
+    )
+
+    await asyncio.sleep(STARTUP_GRACE_SECONDS)
+
+    logger.debug(
+        "Started port forward for %s:%d → localhost:%d [PID: %d]",
+        service,
+        remote_port,
+        local_port,
+        process.pid,
+    )
+    return PortForwardProcess(
+        process=process,
+        local_port=local_port,
+        remote_port=remote_port,
+        service_name=service,
+        namespace=namespace,
+    )
 
 
 async def manage_port_forwards(
@@ -97,3 +161,14 @@ def _terminate_all(processes: list[PortForwardProcess]) -> None:
             proc.process.terminate()
         except ProcessLookupError:
             pass
+
+
+class KubectlPortForwardRunner(PortForwardRunner):
+    def __init__(self, api: KubeFacade) -> None:
+        self._api = api
+
+    async def run(self, plans: list[ServicePortForwardPlan]) -> None:
+        await manage_port_forwards(
+            plans=plans,
+            api=self._api,
+        )

@@ -17,8 +17,7 @@ from portfwd.domain.errors import (
     ServiceNotFoundError,
 )
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
-from portfwd.infrastructure.kubectl import PortForwardProcess
-from portfwd.infrastructure.runner import watch_processes
+from portfwd.infrastructure.runner import PortForwardProcess, watch_processes
 from portfwd.presentation.display import LiveStatusTable
 
 

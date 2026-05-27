@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Protocol
 
 from rich.table import Table
 
-from portfwd.infrastructure.kubectl import PortForwardProcess
+
+class ProcessLike(Protocol):
+    pid: int
+    returncode: int | None
+
+
+class PortForwardProcessLike(Protocol):
+    process: ProcessLike
+    local_port: int
+    remote_port: int
+    service_name: str
+    namespace: str
 
 
 @dataclass
 class _Row:
-    process: PortForwardProcess
+    process: PortForwardProcessLike
     status: str = "notset"
 
 
@@ -24,10 +36,10 @@ class LiveStatusTable:
         self.__rows: dict[str, _Row] = {}
 
     @staticmethod
-    def __key(p: PortForwardProcess) -> str:
+    def __key(p: PortForwardProcessLike) -> str:
         return f"{p.namespace}/{p.service_name}:{p.remote_port}"
 
-    def track(self, process: PortForwardProcess) -> None:
+    def track(self, process: PortForwardProcessLike) -> None:
         """Register a freshly started subprocess as 'live'."""
         if process.process.returncode is None:
             status = "live"
@@ -35,7 +47,7 @@ class LiveStatusTable:
             status = f"died (exit {process.process.returncode})"
         self.__rows[self.__key(process)] = _Row(process=process, status=status)
 
-    def mark_died(self, process: PortForwardProcess) -> None:
+    def mark_died(self, process: PortForwardProcessLike) -> None:
         """Mark a tracked subprocess as dead and record its exit code."""
         if process.process.returncode is None:
             raise ValueError("Process is still live")
@@ -43,7 +55,7 @@ class LiveStatusTable:
         if row is not None:
             row.status = f"died (exit {process.process.returncode})"
 
-    def mark_stopped(self, process: PortForwardProcess) -> None:
+    def mark_stopped(self, process: PortForwardProcessLike) -> None:
         """Mark a tracked subprocess as cleanly stopped."""
         if process.process.returncode is None:
             raise ValueError("Process is still live")
