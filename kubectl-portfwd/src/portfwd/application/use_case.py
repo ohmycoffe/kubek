@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 import itertools
 from collections.abc import Iterable
 
 from kubek.kube import KubeFacade, Service
-from kubek.term.output import CLIOutput
 from portfwd.application.plan import build_port_forward_plan
-from portfwd.domain.config import GroupSpec, PortFwdConfig, SpecialGroups
+from portfwd.application.ports import PortForwardRunner
+from portfwd.domain.config import GroupSpec, PortFwdConfig
 from portfwd.domain.errors import (
     NoGroupsDefinedError,
-    NoSelectionError,
-    NoServicesFoundError,
     UnknownGroupError,
 )
 from portfwd.domain.models import (
@@ -20,82 +17,6 @@ from portfwd.domain.models import (
     ServicePortForwardPlan,
     ServicePortForwardSpec,
 )
-from portfwd.infrastructure.runner import manage_port_forwards
-from portfwd.presentation.parser import parse_spec
-from portfwd.presentation.prompts import (
-    ask_for_group,
-    ask_for_namespace,
-    ask_for_service,
-)
-
-
-def run_port_forwards(
-    *,
-    cfg: PortFwdConfig,
-    group: str | None,
-    service: list[str] | None,
-    api: KubeFacade,
-    out: CLIOutput,
-) -> None:
-    """Dispatch to the correct port-forward flow based on CLI flags.
-
-    - `--service` wins outright.
-    - `--group` runs that group.
-    - Otherwise prompt the user to pick a group (or 'custom' interactive flow).
-    """
-    if service is not None:
-        run_services(service=service, cfg=cfg, api=api)
-        return
-    if group is not None:
-        run_group(group_name=group, cfg=cfg, api=api)
-        return
-
-    selection = ask_for_group(cfg.groups)
-    if selection is SpecialGroups.CUSTOM:
-        run_interactive(cfg=cfg, api=api, out=out)
-    else:
-        run_group(group_name=selection.name, cfg=cfg, api=api)
-
-
-def run_group(*, group_name: str, cfg: PortFwdConfig, api: KubeFacade) -> None:
-    group = _resolve_group(group_name, cfg.groups)
-    plans = [
-        ServicePortForwardPlan(
-            target=NamespacedServiceNamePlan(name=svc.name, namespace=svc.namespace),
-            remote_port=svc.remote_port,
-            local_port=svc.local_port,
-        )
-        for svc in group.services
-    ]
-    asyncio.run(manage_port_forwards(plans=plans, api=api))
-
-
-def run_services(*, service: list[str], cfg: PortFwdConfig, api: KubeFacade) -> None:
-    plans = [
-        build_port_forward_plan(spec=parse_spec(s), config=cfg, api=api)
-        for s in service
-    ]
-    asyncio.run(manage_port_forwards(plans=plans, api=api))
-
-
-def run_interactive(*, cfg: PortFwdConfig, api: KubeFacade, out: CLIOutput) -> None:
-    with out.progress("Fetching namespaces…"):
-        namespaces = [ns.metadata.name for ns in api.namespace.list()]
-    selected_namespaces = ask_for_namespace(namespaces, api.current_config.namespace)
-    if not selected_namespaces:
-        raise NoSelectionError("no namespaces selected")
-
-    with out.progress("Fetching services…"):
-        specs = _fetch_services_for_namespaces(selected_namespaces, api)
-    if not specs:
-        raise NoServicesFoundError("no services found in the selected namespaces")
-
-    selected = ask_for_service(specs)
-    if not selected:
-        raise NoSelectionError("no services selected")
-
-    plans = [build_port_forward_plan(spec=s, config=cfg, api=api) for s in selected]
-    asyncio.run(manage_port_forwards(plans=plans, api=api))
 
 
 def _resolve_group(name: str, available: list[GroupSpec]) -> GroupSpec:
@@ -134,3 +55,54 @@ def _fetch_services_for_namespaces(
         api.service.list(namespace=ns) for ns in namespaces
     )
     return convert_services_to_specs(raw)
+
+
+class PortForwardUseCase:
+    def __init__(
+        self,
+        config: PortFwdConfig,
+        runner: PortForwardRunner,
+        api: KubeFacade,
+    ) -> None:
+        self._config = config
+        self._runner = runner
+        self._api = api
+
+    @property
+    def groups(self) -> list[GroupSpec]:
+        return self._config.groups
+
+    async def run_specs(self, specs: list[ServicePortForwardSpec]) -> None:
+        plans = [
+            build_port_forward_plan(spec=spec, config=self._config, api=self._api)
+            for spec in specs
+        ]
+
+        await self._runner.run(plans)
+
+    async def run_group(self, group_name: str) -> None:
+        group = self._resolve_group(group_name)
+        plans = [
+            ServicePortForwardPlan(
+                target=NamespacedServiceNamePlan(
+                    name=svc.name, namespace=svc.namespace
+                ),
+                remote_port=svc.remote_port,
+                local_port=svc.local_port,
+            )
+            for svc in group.services
+        ]
+        await self._runner.run(plans)
+
+    def _resolve_group(self, name: str) -> GroupSpec:
+        groups = self._config.groups
+
+        if not groups:
+            raise NoGroupsDefinedError("no groups defined in config file")
+
+        for group in groups:
+            if group.name == name:
+                return group
+
+        names = ", ".join(sorted(group.name for group in groups))
+        raise UnknownGroupError(f'unknown group "{name}" (available: {names})')

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Annotated
@@ -12,9 +13,27 @@ from kubek.term import create_output, setup_logging_from_count
 from kubek.term.output import CLIOutput
 from pydantic import ValidationError
 
-from portfwd.application.use_case import run_port_forwards
-from portfwd.domain.errors import ConfigLoadError, PortForwardError
+from portfwd.application.ports import PortForwardRunner
+from portfwd.application.use_case import (
+    PortForwardUseCase,
+    _fetch_services_for_namespaces,
+)
+from portfwd.domain.config import PortFwdConfig, SpecialGroups
+from portfwd.domain.errors import (
+    ConfigLoadError,
+    NoSelectionError,
+    NoServicesFoundError,
+    PortForwardError,
+)
+from portfwd.domain.models import ServicePortForwardSpec
 from portfwd.infrastructure.load_config import DEFAULT_CONFIG_PATH, load_config
+from portfwd.infrastructure.runner import KubectlPortForwardRunner
+from portfwd.presentation.parser import parse_spec
+from portfwd.presentation.prompts import (
+    ask_for_group,
+    ask_for_namespace,
+    ask_for_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,13 +122,20 @@ def port_forward(
         _print_kubeconfig(out, api.current_config)
 
         cfg = _load_config(config)
-
-        run_port_forwards(
+        port_forward_runner = KubectlPortForwardRunner(api=api)
+        use_case = PortForwardUseCase(
+            config=cfg,
+            runner=port_forward_runner,
+            api=api,
+        )
+        run_port_forwards_from_cli(
             cfg=cfg,
             group=group,
             service=service,
             api=api,
             out=out,
+            port_forward_runner=port_forward_runner,
+            use_case=use_case,
         )
     except (PortForwardError, KubeClientError) as e:
         out.exception(str(e))
@@ -142,3 +168,68 @@ def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
         out.note(
             f"Namespace: {kube_config.namespace}", highlight=[kube_config.namespace]
         )
+
+
+def run_port_forwards_from_cli(
+    *,
+    cfg: PortFwdConfig,
+    group: str | None,
+    service: list[str] | None,
+    api: KubeFacade,
+    out: CLIOutput,
+    port_forward_runner: PortForwardRunner,
+    use_case: PortForwardUseCase,
+) -> None:
+    """Dispatch to the correct port-forward flow based on CLI flags.
+
+    - `--service` wins outright.
+    - `--group` runs that group.
+    - Otherwise prompt the user to pick a group (or 'custom' interactive flow).
+    """
+    if service is not None:
+        specs = [parse_spec(value) for value in service]
+        asyncio.run(use_case.run_specs(specs))
+
+        return
+    if group is not None:
+        asyncio.run(use_case.run_group(group_name=group))
+        return
+
+    selection = ask_for_group(cfg.groups)
+    if selection is SpecialGroups.CUSTOM:
+        specs = _ask_for_custom_services(api=api, out=out)
+        asyncio.run(use_case.run_specs(specs))
+    else:
+        asyncio.run(use_case.run_group(group_name=selection.name))
+
+
+def _ask_for_custom_services(
+    api: KubeFacade,
+    out: CLIOutput,
+) -> list[ServicePortForwardSpec]:
+    with out.progress("Fetching namespaces…"):
+        namespaces = [ns.metadata.name for ns in api.namespace.list()]
+
+    selected_namespaces = ask_for_namespace(
+        all_namespaces=namespaces,
+        current_namespace=api.current_config.namespace,
+    )
+
+    if not selected_namespaces:
+        raise NoSelectionError("no namespaces selected")
+
+    with out.progress("Fetching services…"):
+        specs = _fetch_services_for_namespaces(
+            api=api,
+            namespaces=selected_namespaces,
+        )
+
+    if not specs:
+        raise NoServicesFoundError("no services found in the selected namespaces")
+
+    selected_services = ask_for_service(specs)
+
+    if not selected_services:
+        raise NoSelectionError("no services selected")
+
+    return selected_services
