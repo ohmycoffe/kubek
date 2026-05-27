@@ -12,9 +12,9 @@ from kubek.term import create_output, setup_logging_from_count
 from kubek.term.output import CLIOutput
 from pydantic import ValidationError
 
-from portfwd.config import DEFAULT_CONFIG_PATH, load_config
+from portfwd.application.use_case import run_port_forwards
 from portfwd.domain.errors import ConfigLoadError, PortForwardError
-from portfwd.use_case import run_port_forwards
+from portfwd.infrastructure.load_config import DEFAULT_CONFIG_PATH, load_config
 
 logger = logging.getLogger(__name__)
 

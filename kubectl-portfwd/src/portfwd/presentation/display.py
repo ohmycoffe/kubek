@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from rich.table import Table
 
-from portfwd.kubectl import PortForwardProcess
+from portfwd.infrastructure.kubectl import PortForwardProcess
 
 
 @dataclass

@@ -1,7 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from portfwd.kubectl import start_port_forward
+from portfwd.infrastructure.kubectl import start_port_forward
 
 
 def _run_start(**kwargs) -> tuple:
@@ -10,9 +10,12 @@ def _run_start(**kwargs) -> tuple:
     async def _inner():
         with (
             patch(
-                "portfwd.kubectl.asyncio.create_subprocess_exec", new_callable=AsyncMock
+                "portfwd.infrastructure.kubectl.asyncio.create_subprocess_exec",
+                new_callable=AsyncMock,
             ) as mock_exec,
-            patch("portfwd.kubectl.asyncio.sleep", new_callable=AsyncMock),
+            patch(
+                "portfwd.infrastructure.kubectl.asyncio.sleep", new_callable=AsyncMock
+            ),
         ):
             mock_proc = AsyncMock()
             mock_proc.pid = 1

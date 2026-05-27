@@ -1,7 +1,5 @@
 from kubek.kube import KubeFacade, Service
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
-
-from portfwd.config import get_default_service
 from portfwd.domain.config import PortFwdConfig
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
@@ -14,6 +12,7 @@ from portfwd.domain.models import (
     ServicePortForwardPlan,
     ServicePortForwardSpec,
 )
+from portfwd.infrastructure.load_config import get_default_service
 
 
 def resolve_remote_port(service: Service) -> int:

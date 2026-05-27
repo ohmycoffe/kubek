@@ -1,12 +1,12 @@
 from pathlib import Path
 
-import portfwd.config as config_module
+import portfwd.infrastructure.load_config as config_module
 import pytest
-from portfwd.config import (
+from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
+from portfwd.infrastructure.load_config import (
     get_default_service,
     load_config,
 )
-from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
 from pydantic import ValidationError
 
 EXAMPLE_CONFIG = Path(__file__).parent.parent / "docs" / "example_config.yaml"

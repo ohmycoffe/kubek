@@ -6,7 +6,7 @@ from collections.abc import Iterable
 
 from kubek.kube import KubeFacade, Service
 from kubek.term.output import CLIOutput
-
+from portfwd.application.plan import build_port_forward_plan
 from portfwd.domain.config import GroupSpec, PortFwdConfig, SpecialGroups
 from portfwd.domain.errors import (
     NoGroupsDefinedError,
@@ -20,10 +20,13 @@ from portfwd.domain.models import (
     ServicePortForwardPlan,
     ServicePortForwardSpec,
 )
-from portfwd.parser import parse_spec
-from portfwd.plan import build_port_forward_plan
-from portfwd.prompts import ask_for_group, ask_for_namespace, ask_for_service
-from portfwd.runner import manage_port_forwards
+from portfwd.infrastructure.runner import manage_port_forwards
+from portfwd.presentation.parser import parse_spec
+from portfwd.presentation.prompts import (
+    ask_for_group,
+    ask_for_namespace,
+    ask_for_service,
+)
 
 
 def run_port_forwards(

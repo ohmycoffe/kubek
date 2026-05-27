@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from kubek.kube.dto.service import Service
-from portfwd.display import LiveStatusTable
+from portfwd.application.plan import (
+    build_port_forward_plan,
+    resolve_local_port,
+    resolve_remote_port,
+)
 from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
@@ -13,13 +17,9 @@ from portfwd.domain.errors import (
     ServiceNotFoundError,
 )
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
-from portfwd.kubectl import PortForwardProcess
-from portfwd.plan import (
-    build_port_forward_plan,
-    resolve_local_port,
-    resolve_remote_port,
-)
-from portfwd.runner import watch_processes
+from portfwd.infrastructure.kubectl import PortForwardProcess
+from portfwd.infrastructure.runner import watch_processes
+from portfwd.presentation.display import LiveStatusTable
 
 
 def _make_process(
@@ -54,8 +54,8 @@ def test_resolve_local_port_uses_deterministic_port_when_free():
     """Returns the deterministic port when no config match and the port is free."""
     config = PortFwdConfig()
     with (
-        patch("portfwd.plan.get_deterministic_port", return_value=55000),
-        patch("portfwd.plan.is_port_free", return_value=True),
+        patch("portfwd.application.plan.get_deterministic_port", return_value=55000),
+        patch("portfwd.application.plan.is_port_free", return_value=True),
     ):
         assert resolve_local_port("svc", "ns", 80, config) == 55000
 
@@ -64,9 +64,9 @@ def test_resolve_local_port_falls_back_to_free_port_when_deterministic_taken():
     """Falls back to find_free_port when the deterministic port is already in use."""
     config = PortFwdConfig()
     with (
-        patch("portfwd.plan.get_deterministic_port", return_value=55000),
-        patch("portfwd.plan.is_port_free", return_value=False),
-        patch("portfwd.plan.find_free_port", return_value=50000),
+        patch("portfwd.application.plan.get_deterministic_port", return_value=55000),
+        patch("portfwd.application.plan.is_port_free", return_value=False),
+        patch("portfwd.application.plan.find_free_port", return_value=50000),
     ):
         assert resolve_local_port("svc", "ns", 80, config) == 50000
 
@@ -78,9 +78,9 @@ def test_resolve_local_port_ignores_config_from_other_namespace():
     )
     config = PortFwdConfig(defaults=[other_ns])
     with (
-        patch("portfwd.plan.get_deterministic_port", return_value=55000),
-        patch("portfwd.plan.is_port_free", return_value=False),
-        patch("portfwd.plan.find_free_port", return_value=50000),
+        patch("portfwd.application.plan.get_deterministic_port", return_value=55000),
+        patch("portfwd.application.plan.is_port_free", return_value=False),
+        patch("portfwd.application.plan.find_free_port", return_value=50000),
     ):
         assert resolve_local_port("svc", "ns", 80, config) == 50000
 

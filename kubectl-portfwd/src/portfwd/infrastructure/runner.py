@@ -8,10 +8,10 @@ from collections.abc import Callable
 from kubek.kube import KubeFacade
 from rich.live import Live
 
-from portfwd.display import LiveStatusTable
 from portfwd.domain.errors import PortForwardStartError
 from portfwd.domain.models import ServicePortForwardPlan
-from portfwd.kubectl import PortForwardProcess, start_port_forward
+from portfwd.infrastructure.kubectl import PortForwardProcess, start_port_forward
+from portfwd.presentation.display import LiveStatusTable
 
 logger = logging.getLogger(__name__)
 
