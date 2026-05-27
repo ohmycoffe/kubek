@@ -13,7 +13,6 @@ from kubek.term import create_output, setup_logging_from_count
 from kubek.term.output import CLIOutput
 from pydantic import ValidationError
 
-from portfwd.application.ports import PortForwardRunner
 from portfwd.application.use_case import (
     PortForwardUseCase,
     _fetch_services_for_namespaces,
@@ -134,7 +133,6 @@ def port_forward(
             service=service,
             api=api,
             out=out,
-            port_forward_runner=port_forward_runner,
             use_case=use_case,
         )
     except (PortForwardError, KubeClientError) as e:
@@ -177,7 +175,6 @@ def run_port_forwards_from_cli(
     service: list[str] | None,
     api: KubeFacade,
     out: CLIOutput,
-    port_forward_runner: PortForwardRunner,
     use_case: PortForwardUseCase,
 ) -> None:
     """Dispatch to the correct port-forward flow based on CLI flags.
