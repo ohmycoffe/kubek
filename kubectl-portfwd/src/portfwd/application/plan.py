@@ -12,7 +12,6 @@ from portfwd.domain.models import (
     ServicePortForwardPlan,
     ServicePortForwardSpec,
 )
-from portfwd.infrastructure.load_config import get_default_service
 
 
 def resolve_remote_port(service: Service) -> int:
@@ -37,8 +36,8 @@ def resolve_local_port(
     config: PortFwdConfig,
 ) -> int:
     """Pick a local port: config default → deterministic → OS-assigned."""
-    default = get_default_service(
-        config=config, name=name, namespace=namespace, remote_port=remote_port
+    default = config.get_default_service(
+        name=name, namespace=namespace, remote_port=remote_port
     )
     if default is not None:
         return int(default.local_port)

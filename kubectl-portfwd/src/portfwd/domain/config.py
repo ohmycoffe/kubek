@@ -36,3 +36,21 @@ class PortFwdConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     defaults: list[ServicePortForwardDefaults] = Field(default_factory=list)
     groups: list[GroupSpec] = Field(default_factory=list)
+
+    def get_default_service(
+        self,
+        name: str,
+        namespace: str,
+        remote_port: int,
+    ) -> ServicePortForwardDefaults | None:
+        candidates = [
+            entry
+            for entry in self.defaults
+            if (
+                entry.name == name
+                and entry.namespace == namespace
+                and entry.remote_port == remote_port
+            )
+        ]
+        # if multiple defaults match, use the last one.
+        return candidates[-1] if candidates else None
