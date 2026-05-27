@@ -4,16 +4,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from kubek.kube.dto.service import Service
-from portfwd.config import PortFwdConfig, ServicePortForwardDefaults
 from portfwd.display import LiveStatusTable
-from portfwd.errors import (
+from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
+from portfwd.domain.errors import (
     AmbiguousServicePortError,
     MissingNamespaceError,
     NoServicePortsError,
     ServiceNotFoundError,
 )
+from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 from portfwd.kubectl import PortForwardProcess
-from portfwd.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 from portfwd.plan import (
     build_port_forward_plan,
     resolve_local_port,

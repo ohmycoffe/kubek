@@ -1,14 +1,15 @@
 from kubek.kube import KubeFacade, Service
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 
-from portfwd.config import PortFwdConfig, get_default_service
-from portfwd.errors import (
+from portfwd.config import get_default_service
+from portfwd.domain.config import PortFwdConfig
+from portfwd.domain.errors import (
     AmbiguousServicePortError,
     MissingNamespaceError,
     NoServicePortsError,
     ServiceNotFoundError,
 )
-from portfwd.models import (
+from portfwd.domain.models import (
     NamespacedServiceNamePlan,
     ServicePortForwardPlan,
     ServicePortForwardSpec,

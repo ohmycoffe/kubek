@@ -5,9 +5,8 @@ from typing import TypeAlias
 import questionary
 from kubek.term.style import DEFAULT_QUESTIONARY_THEME
 
-from portfwd.config import GroupSpec
-from portfwd.constants import SpecialGroups
-from portfwd.models import ServicePortForwardSpec
+from portfwd.domain.config import GroupSpec, SpecialGroups
+from portfwd.domain.models import ServicePortForwardSpec
 
 GroupNamesSelection: TypeAlias = GroupSpec | SpecialGroups
 

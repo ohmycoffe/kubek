@@ -2,9 +2,9 @@ import json
 
 import pytest
 from kubek.kube.dto import Service, ServiceList
-from portfwd.config import GroupSpec
-from portfwd.errors import NoGroupsDefinedError, UnknownGroupError
-from portfwd.models import ServicePortForwardSpec
+from portfwd.domain.config import GroupSpec
+from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError
+from portfwd.domain.models import ServicePortForwardSpec
 from portfwd.use_case import (
     _resolve_group,
 )

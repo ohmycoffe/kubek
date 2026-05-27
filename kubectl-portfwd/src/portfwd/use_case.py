@@ -7,15 +7,14 @@ from collections.abc import Iterable
 from kubek.kube import KubeFacade, Service
 from kubek.term.output import CLIOutput
 
-from portfwd.config import GroupSpec, PortFwdConfig
-from portfwd.constants import SpecialGroups
-from portfwd.errors import (
+from portfwd.domain.config import GroupSpec, PortFwdConfig, SpecialGroups
+from portfwd.domain.errors import (
     NoGroupsDefinedError,
     NoSelectionError,
     NoServicesFoundError,
     UnknownGroupError,
 )
-from portfwd.models import (
+from portfwd.domain.models import (
     NamespacedServiceNamePlan,
     NamespacedServiceNameSpec,
     ServicePortForwardPlan,

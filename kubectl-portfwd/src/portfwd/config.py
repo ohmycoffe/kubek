@@ -3,45 +3,14 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import ValidationError
 from ruamel.yaml import YAML, YAMLError
 
-from portfwd.constants import SpecialGroups
+from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = Path.home() / ".kube" / "portfwd"
-
-
-class ServicePortForwardDefaults(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str = Field(min_length=1)
-    namespace: str = Field(min_length=1)
-    remote_port: int = Field(ge=1, le=65535)
-    local_port: int = Field(ge=1, le=65535)
-
-
-class GroupSpec(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    services: list[ServicePortForwardDefaults] = Field(default_factory=list)
-
-    @field_validator("name")
-    @classmethod
-    def name_not_reserved(cls, value: str) -> str:
-        if value.lower() == SpecialGroups.CUSTOM:
-            raise ValueError(
-                f'error: invalid group name "{value}": name is reserved for interactive mode'
-            )
-        return value
-
-
-class PortFwdConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    defaults: list[ServicePortForwardDefaults] = Field(default_factory=list)
-    groups: list[GroupSpec] = Field(default_factory=list)
 
 
 def get_default_service(

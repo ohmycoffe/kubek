@@ -1,6 +1,6 @@
 import re
 
-from portfwd.models import NamespacedServiceNameSpec, ServicePortForwardSpec
+from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 
 REGEXP_PORT_FORWARD_SPEC = re.compile(
     r"""

@@ -9,9 +9,9 @@ from kubek.kube import KubeFacade
 from rich.live import Live
 
 from portfwd.display import LiveStatusTable
-from portfwd.errors import PortForwardStartError
+from portfwd.domain.errors import PortForwardStartError
+from portfwd.domain.models import ServicePortForwardPlan
 from portfwd.kubectl import PortForwardProcess, start_port_forward
-from portfwd.models import ServicePortForwardPlan
 
 logger = logging.getLogger(__name__)
 

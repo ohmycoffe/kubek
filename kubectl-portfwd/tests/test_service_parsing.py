@@ -1,5 +1,5 @@
 import pytest
-from portfwd.models import NamespacedServiceNameSpec, ServicePortForwardSpec
+from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 from portfwd.parser import parse_spec
 
 
