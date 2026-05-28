@@ -4,6 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from kubek.kube.dto.service import Service
+from portfwd.application.port_forwarding.events import (
+    PortForwardEvents,
+    PortForwardProcessSnapshot,
+)
 from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
     resolve_local_port,
@@ -21,7 +25,6 @@ from portfwd.infrastructure.kubectl_port_forward_runner import (
     PortForwardProcess,
     watch_processes,
 )
-from portfwd.presentation.display import _PortForwardStatusTable
 
 
 def _make_process(
@@ -111,45 +114,48 @@ def test_resolve_local_port_ignores_config_from_other_namespace():
         assert resolve_local_port("svc", "ns", 80, config) == 50000
 
 
-def test_live_status_table_has_one_row_per_tracked_process():
-    """LiveStatusTable.render() returns one row per tracked process."""
-    table = _PortForwardStatusTable(context=None)
-    table.track(_make_process("svc-a", remote_port=80, local_port=9000))
-    table.track(_make_process("svc-b", remote_port=8080, local_port=9001))
-    assert table.render().row_count == 2
+def _make_snapshot(
+    service_name: str,
+    remote_port: int = 80,
+    local_port: int = 9000,
+    pid: int = 1234,
+    returncode: int | None = None,
+) -> PortForwardProcessSnapshot:
+    return PortForwardProcessSnapshot(
+        namespace="ns",
+        service_name=service_name,
+        remote_port=remote_port,
+        local_port=local_port,
+        pid=pid,
+        returncode=returncode,
+    )
 
 
-def test_watch_processes_marks_died_on_exit():
-    """watch_processes marks a tracked process as 'died (exit N)' when it exits."""
+def test_watch_processes_emits_on_died_when_process_exits_unexpectedly():
+    """on_died is called when the process exits and shutdown was not expected."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    table = _PortForwardStatusTable()
-    table.track(proc)
+    died: list[PortForwardProcessSnapshot] = []
+    events = PortForwardEvents(on_died=lambda s: died.append(s))
 
-    asyncio.run(watch_processes([proc], table, asyncio.Event()))
+    asyncio.run(watch_processes([proc], asyncio.Event(), events))
 
-    rendered = table.render()
-    assert rendered.row_count == 1
-    cells = list(rendered.columns[-1].cells)
-    assert "died (exit 1)" in str(cells[0])
+    assert len(died) == 1
+    assert died[0].service_name == "svc"
+    assert died[0].returncode == 1
 
 
-def test_watch_processes_marks_stopped_on_expected_shutdown():
-    """watch_processes marks a process 'stopped' when the shutdown event was set."""
+def test_watch_processes_emits_on_stopped_when_shutdown_expected():
+    """on_stopped is called when the process exits and shutdown was expected."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=0)
-    table = _PortForwardStatusTable()
-    table.track(proc)
+    stopped: list[PortForwardProcessSnapshot] = []
+    events = PortForwardEvents(on_stopped=lambda s: stopped.append(s))
 
     shutdown = asyncio.Event()
     shutdown.set()
-    asyncio.run(watch_processes([proc], table, shutdown))
+    asyncio.run(watch_processes([proc], shutdown, events))
 
-    cells = list(table.render().columns[-1].cells)
-    assert "stopped" in str(cells[0])
-
-
-# ---------------------------------------------------------------------------
-# resolve_remote_port
-# ---------------------------------------------------------------------------
+    assert len(stopped) == 1
+    assert stopped[0].service_name == "svc"
 
 
 def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
@@ -179,11 +185,6 @@ def test_resolve_remote_port_raises_when_multiple_ports():
     service = _make_service("svc", "ns", [80, 8080])
     with pytest.raises(AmbiguousServicePortError):
         resolve_remote_port(service)
-
-
-# ---------------------------------------------------------------------------
-# build_port_forward_plan – fake API helper
-# ---------------------------------------------------------------------------
 
 
 def _make_api(namespace=None, services=None):

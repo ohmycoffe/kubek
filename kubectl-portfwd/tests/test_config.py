@@ -3,6 +3,8 @@ from pathlib import Path
 import portfwd.infrastructure.config_loader as config_module
 import pytest
 from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
+from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError
+from portfwd.domain.models import ServicePortForwardPlan
 from portfwd.infrastructure.config_loader import (
     get_default_service,
     load_config,
@@ -137,3 +139,45 @@ def test_load_config_non_mapping_yaml_raises(tmp_path):
     bad.write_text("- item1\n- item2\n")
     with pytest.raises(ValueError, match="must be a YAML mapping"):
         load_config(bad)
+
+
+def test_get_group_returns_matching_group():
+    """get_group returns the GroupSpec whose name matches."""
+    group = GroupSpec(name="backend", services=[])
+    config = PortFwdConfig(groups=[group])
+    assert config.get_group("backend") == group
+
+
+def test_get_group_raises_no_groups_defined_when_config_has_none():
+    """get_group raises NoGroupsDefinedError when the config has no groups."""
+    config = PortFwdConfig()
+    with pytest.raises(NoGroupsDefinedError):
+        config.get_group("any")
+
+
+def test_get_group_raises_unknown_group_with_available_names():
+    """get_group raises UnknownGroupError listing available names when the group is missing."""
+    config = PortFwdConfig(
+        groups=[
+            GroupSpec(name="alpha", services=[]),
+            GroupSpec(name="beta", services=[]),
+        ]
+    )
+    with pytest.raises(UnknownGroupError, match="available: alpha, beta"):
+        config.get_group("missing")
+
+
+def test_to_plan_produces_correct_service_port_forward_plan():
+    """to_plan() converts a defaults entry to a ServicePortForwardPlan."""
+    defaults = ServicePortForwardDefaults(
+        name="auth",
+        namespace="kube-public",
+        remote_port=80,
+        local_port=9000,
+    )
+    plan = defaults.to_plan()
+    assert isinstance(plan, ServicePortForwardPlan)
+    assert plan.target.name == "auth"
+    assert plan.target.namespace == "kube-public"
+    assert plan.remote_port == 80
+    assert plan.local_port == 9000

@@ -1,4 +1,5 @@
 import pytest
+from portfwd.domain.errors import InvalidServiceSpecError
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 from portfwd.presentation.service_parser import parse_spec
 
@@ -54,7 +55,7 @@ def test_from_string_valid(tested, expected):
 def test_from_string_invalid_syntax(tested):
     """Rejects malformed --service values before Pydantic port validation."""
     with pytest.raises(
-        ValueError,
+        InvalidServiceSpecError,
         match=(
             r'error: invalid value ".*": '
             r'expected format "\[namespace/\]name\[:remote_port\]\[::local_port\]"'
@@ -75,5 +76,5 @@ def test_from_string_invalid_syntax(tested):
 def test_from_string_invalid_port_range(tested):
     from pydantic import ValidationError
 
-    with pytest.raises((ValueError, ValidationError)):
+    with pytest.raises((InvalidServiceSpecError, ValidationError)):
         parse_spec(tested)

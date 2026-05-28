@@ -1,5 +1,6 @@
 import re
 
+from portfwd.domain.errors import InvalidServiceSpecError
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 
 REGEXP_PORT_FORWARD_SPEC = re.compile(
@@ -25,7 +26,7 @@ def parse_spec(value: str) -> ServicePortForwardSpec:
     argument = value.strip()
     match = REGEXP_PORT_FORWARD_SPEC.match(argument) if argument else None
     if not match:
-        raise ValueError(
+        raise InvalidServiceSpecError(
             f'error: invalid value "{value}": expected format "[namespace/]name[:remote_port][::local_port]"'
         )
 

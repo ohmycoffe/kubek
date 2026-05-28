@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import pytest
 from kubek.kube.dto import Service, ServiceList
@@ -7,6 +8,7 @@ from portfwd.application.queries import (
 )
 from portfwd.application.queries import (
     _resolve_group,
+    fetch_services_for_namespaces,
 )
 from portfwd.domain.config import GroupSpec
 from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError
@@ -93,3 +95,31 @@ def test_resolve_group_raises_no_groups_defined_when_config_has_none():
     """NoGroupsDefinedError is raised when the config contains no groups at all."""
     with pytest.raises(NoGroupsDefinedError):
         _resolve_group("any", [])
+
+
+def test_fetch_services_for_namespaces_combines_services_from_each_namespace():
+    """Services from all requested namespaces are returned, sorted and flattened."""
+    svc_a = _service("alpha", "ns-1", [80])
+    svc_b = _service("beta", "ns-2", [443])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc_a], "ns-2": [svc_b]}.get(namespace, [])
+
+    api = SimpleNamespace(service=FakeServiceRepo())
+    specs = fetch_services_for_namespaces(["ns-1", "ns-2"], api)
+
+    keys = [(s.target.namespace, s.target.name, s.remote_port) for s in specs]
+    assert ("ns-1", "alpha", 80) in keys
+    assert ("ns-2", "beta", 443) in keys
+
+
+def test_fetch_services_for_namespaces_returns_empty_for_empty_namespaces():
+    """Returns an empty list when no namespaces are provided."""
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return []
+
+    api = SimpleNamespace(service=FakeServiceRepo())
+    assert fetch_services_for_namespaces([], api) == []
