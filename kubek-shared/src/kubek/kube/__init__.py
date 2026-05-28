@@ -7,7 +7,7 @@ from kubek.kube._infrastructure import (
     KubernetesWorkflowTemplateRepository,
 )
 from kubek.kube.api import KubeFacade
-from kubek.kube.config import KubeConfig
+from kubek.kube.config import KubeConfig, ResolvedKubeConfig
 from kubek.kube.dto import (
     ConfigMap,
     Container,
@@ -28,6 +28,7 @@ __all__ = [
     "KubeFacade",
     "KubeConfig",
     "Kind",
+    "ResolvedKubeConfig",
     "Service",
     "WorkflowTemplate",
     "Namespace",

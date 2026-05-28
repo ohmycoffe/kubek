@@ -2,7 +2,7 @@ from typing import Literal
 
 import questionary
 from kubek.kube import Kind
-from kubek.term.style import DEFAULT_QUESTIONARY_THEME
+from kubek.term import DEFAULT_QUESTIONARY_THEME
 from questionary import Style
 
 QUESTIONARY_STYLE = Style(DEFAULT_QUESTIONARY_THEME)

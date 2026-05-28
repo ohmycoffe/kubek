@@ -2,8 +2,8 @@ import base64
 
 import pytest
 from export_dotenv.use_case import fetch_environment_values
+from kubek.kube import ResolvedKubeConfig
 from kubek.kube.api import KubeFacade
-from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.dto.configmap import ConfigMap, ConfigMapMetadata
 from kubek.kube.dto.container import (
     ConfigMapKeyRef,

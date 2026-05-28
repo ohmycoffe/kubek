@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TypeAlias
 
 import questionary
-from kubek.term.style import DEFAULT_QUESTIONARY_THEME
+from kubek.term import DEFAULT_QUESTIONARY_THEME
 
 from portfwd.domain.config import GroupSpec, SpecialGroups
 from portfwd.domain.models import ServicePortForwardSpec

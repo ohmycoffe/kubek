@@ -6,13 +6,11 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from kubek.kube import KubeConfig, KubeFacade
-from kubek.kube.config import ResolvedKubeConfig
-from kubek.kube.errors import KubeClientError
-from kubek.term import create_output, setup_logging_from_count
-from kubek.term.output import CLIOutput
+from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConfig
+from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from pydantic import ValidationError
 
+from portfwd.application.port_forwarding.events import PortForwardEvents
 from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
@@ -123,19 +121,12 @@ def port_forward(
 
         cfg = _load_config(config)
 
-        display = PortForwardLiveDisplay(
-            context=api.current_config.context,
-        )
+        display = PortForwardLiveDisplay(context=api.current_config.context)
 
-        port_forward_runner = KubectlPortForwardRunner(
-            api=api,
-            events=display.events(),
-        )
-        use_case = PortForwardUseCase(
-            config=cfg,
-            runner=port_forward_runner,
-            api=api,
-        )
+        events: PortForwardEvents = display.events()
+        port_forward_runner = KubectlPortForwardRunner(api=api, events=events)
+
+        use_case = PortForwardUseCase(config=cfg, runner=port_forward_runner, api=api)
         run_port_forwards_from_cli(
             cfg=cfg,
             group=group,
