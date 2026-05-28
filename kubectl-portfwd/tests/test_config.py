@@ -1,9 +1,9 @@
 from pathlib import Path
 
-import portfwd.infrastructure.load_config as config_module
+import portfwd.infrastructure.config_loader as config_module
 import pytest
 from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
-from portfwd.infrastructure.load_config import (
+from portfwd.infrastructure.config_loader import (
     get_default_service,
     load_config,
 )

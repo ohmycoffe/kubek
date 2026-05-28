@@ -2,11 +2,11 @@ import json
 
 import pytest
 from kubek.kube.dto import Service, ServiceList
-from portfwd.application.use_case import (
-    _resolve_group,
+from portfwd.application.queries import (
+    _convert_services_to_specs as _convert_to_spec,
 )
-from portfwd.application.use_case import (
-    convert_services_to_specs as _convert_to_spec,
+from portfwd.application.queries import (
+    _resolve_group,
 )
 from portfwd.domain.config import GroupSpec
 from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError

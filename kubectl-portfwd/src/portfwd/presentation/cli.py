@@ -13,9 +13,9 @@ from kubek.term import create_output, setup_logging_from_count
 from kubek.term.output import CLIOutput
 from pydantic import ValidationError
 
+from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
-    _fetch_services_for_namespaces,
 )
 from portfwd.domain.config import PortFwdConfig, SpecialGroups
 from portfwd.domain.errors import (
@@ -25,14 +25,14 @@ from portfwd.domain.errors import (
     PortForwardError,
 )
 from portfwd.domain.models import ServicePortForwardSpec
-from portfwd.infrastructure.load_config import DEFAULT_CONFIG_PATH, load_config
-from portfwd.infrastructure.runner import KubectlPortForwardRunner
-from portfwd.presentation.parser import parse_spec
+from portfwd.infrastructure.config_loader import DEFAULT_CONFIG_PATH, load_config
+from portfwd.infrastructure.kubectl_port_forward_runner import KubectlPortForwardRunner
 from portfwd.presentation.prompts import (
     ask_for_group,
     ask_for_namespace,
     ask_for_service,
 )
+from portfwd.presentation.service_parser import parse_spec
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ def _ask_for_custom_services(
         raise NoSelectionError("no namespaces selected")
 
     with out.progress("Fetching services…"):
-        specs = _fetch_services_for_namespaces(
+        specs = fetch_services_for_namespaces(
             api=api,
             namespaces=selected_namespaces,
         )
