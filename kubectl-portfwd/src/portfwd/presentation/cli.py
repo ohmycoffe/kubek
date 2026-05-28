@@ -25,7 +25,7 @@ from portfwd.domain.errors import (
 from portfwd.domain.models import ServicePortForwardSpec
 from portfwd.infrastructure.config_loader import DEFAULT_CONFIG_PATH, load_config
 from portfwd.infrastructure.kubectl_port_forward_runner import KubectlPortForwardRunner
-from portfwd.presentation.live_display import PortForwardLiveDisplay
+from portfwd.presentation.display import PortForwardLiveDisplay
 from portfwd.presentation.prompts import (
     ask_for_group,
     ask_for_namespace,
@@ -187,21 +187,21 @@ def run_port_forwards_from_cli(
     """
     if service is not None:
         specs = [parse_spec(value) for value in service]
-        with display:
+        with display.live():
             asyncio.run(use_case.run_specs(specs))
         return
     if group is not None:
-        with display:
+        with display.live():
             asyncio.run(use_case.run_group(group_name=group))
         return
 
     selection = ask_for_group(cfg.groups)
     if selection is SpecialGroups.CUSTOM:
         specs = _ask_for_custom_services(api=api, out=out)
-        with display:
+        with display.live():
             asyncio.run(use_case.run_specs(specs))
     else:
-        with display:
+        with display.live():
             asyncio.run(use_case.run_group(group_name=selection.name))
 
 

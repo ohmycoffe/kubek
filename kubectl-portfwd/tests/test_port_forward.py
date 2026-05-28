@@ -21,7 +21,7 @@ from portfwd.infrastructure.kubectl_port_forward_runner import (
     PortForwardProcess,
     watch_processes,
 )
-from portfwd.presentation.display import LiveStatusTable
+from portfwd.presentation.display import _PortForwardStatusTable
 
 
 def _make_process(
@@ -57,11 +57,12 @@ def test_resolve_local_port_uses_deterministic_port_when_free():
     config = PortFwdConfig()
     with (
         patch(
-            "portfwd.application.port_forward_planner.get_deterministic_port",
+            "portfwd.application.port_forwarding.planner.get_deterministic_port",
             return_value=55000,
         ),
         patch(
-            "portfwd.application.port_forward_planner.is_port_free", return_value=True
+            "portfwd.application.port_forwarding.planner.is_port_free",
+            return_value=True,
         ),
     ):
         assert resolve_local_port("svc", "ns", 80, config) == 55000
@@ -72,14 +73,15 @@ def test_resolve_local_port_falls_back_to_free_port_when_deterministic_taken():
     config = PortFwdConfig()
     with (
         patch(
-            "portfwd.application.port_forward_planner.get_deterministic_port",
+            "portfwd.application.port_forwarding.planner.get_deterministic_port",
             return_value=55000,
         ),
         patch(
-            "portfwd.application.port_forward_planner.is_port_free", return_value=False
+            "portfwd.application.port_forwarding.planner.is_port_free",
+            return_value=False,
         ),
         patch(
-            "portfwd.application.port_forward_planner.find_free_port",
+            "portfwd.application.port_forwarding.planner.find_free_port",
             return_value=50000,
         ),
     ):
@@ -94,14 +96,15 @@ def test_resolve_local_port_ignores_config_from_other_namespace():
     config = PortFwdConfig(defaults=[other_ns])
     with (
         patch(
-            "portfwd.application.port_forward_planner.get_deterministic_port",
+            "portfwd.application.port_forwarding.planner.get_deterministic_port",
             return_value=55000,
         ),
         patch(
-            "portfwd.application.port_forward_planner.is_port_free", return_value=False
+            "portfwd.application.port_forwarding.planner.is_port_free",
+            return_value=False,
         ),
         patch(
-            "portfwd.application.port_forward_planner.find_free_port",
+            "portfwd.application.port_forwarding.planner.find_free_port",
             return_value=50000,
         ),
     ):
@@ -110,7 +113,7 @@ def test_resolve_local_port_ignores_config_from_other_namespace():
 
 def test_live_status_table_has_one_row_per_tracked_process():
     """LiveStatusTable.render() returns one row per tracked process."""
-    table = LiveStatusTable(context=None)
+    table = _PortForwardStatusTable(context=None)
     table.track(_make_process("svc-a", remote_port=80, local_port=9000))
     table.track(_make_process("svc-b", remote_port=8080, local_port=9001))
     assert table.render().row_count == 2
@@ -119,7 +122,7 @@ def test_live_status_table_has_one_row_per_tracked_process():
 def test_watch_processes_marks_died_on_exit():
     """watch_processes marks a tracked process as 'died (exit N)' when it exits."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    table = LiveStatusTable()
+    table = _PortForwardStatusTable()
     table.track(proc)
 
     asyncio.run(watch_processes([proc], table, asyncio.Event()))
@@ -133,7 +136,7 @@ def test_watch_processes_marks_died_on_exit():
 def test_watch_processes_marks_stopped_on_expected_shutdown():
     """watch_processes marks a process 'stopped' when the shutdown event was set."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=0)
-    table = LiveStatusTable()
+    table = _PortForwardStatusTable()
     table.track(proc)
 
     shutdown = asyncio.Event()

@@ -1,21 +1,28 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 
+from rich.live import Live
 from rich.table import Table
+from rich.text import Text
 
-from portfwd.application.port_forwarding.events import PortForwardProcessSnapshot
+from portfwd.application.port_forwarding.events import (
+    PortForwardEvents,
+    PortForwardProcessSnapshot,
+)
 
 
-class PortForwardStatus(StrEnum):
+class _Status(StrEnum):
     LIVE = "live"
     STOPPED = "stopped"
     DIED = "died"
 
 
 @dataclass(frozen=True)
-class PortForwardRowKey:
+class _RowKey:
     namespace: str
     service_name: str
     remote_port: int
@@ -26,7 +33,7 @@ class PortForwardRowKey:
     def from_snapshot(
         cls,
         snapshot: PortForwardProcessSnapshot,
-    ) -> PortForwardRowKey:
+    ) -> _RowKey:
         return cls(
             namespace=snapshot.namespace,
             service_name=snapshot.service_name,
@@ -37,13 +44,12 @@ class PortForwardRowKey:
 
 
 @dataclass
-class _Row:
-    key: PortForwardRowKey
-    status: PortForwardStatus
+class _RowState:
+    status: _Status
     returncode: int | None = None
 
 
-class LiveStatusTable:
+class _PortForwardStatusTable:
     """Owns per-process status state and renders it as a Rich `Table`.
 
     Encapsulates the row-key scheme so callers never deal with strings.
@@ -51,37 +57,36 @@ class LiveStatusTable:
 
     def __init__(self, context: str | None = None) -> None:
         self.__context = context
-        self.__rows: dict[PortForwardRowKey, _Row] = {}
+        self.__rows: dict[_RowKey, _RowState] = {}
 
     def track(self, snapshot: PortForwardProcessSnapshot) -> None:
-        key = PortForwardRowKey.from_snapshot(snapshot)
+        key = _RowKey.from_snapshot(snapshot)
 
-        self.__rows[key] = _Row(
-            key=key,
-            status=PortForwardStatus.LIVE,
+        self.__rows[key] = _RowState(
+            status=_Status.LIVE,
             returncode=snapshot.returncode,
         )
 
     def mark_stopped(self, snapshot: PortForwardProcessSnapshot) -> None:
         self.__ensure_finished(snapshot)
-        key = PortForwardRowKey.from_snapshot(snapshot)
+        key = _RowKey.from_snapshot(snapshot)
         row = self.__rows.get(key)
 
         if row is None:
             raise ValueError(f"Process is not tracked: {key}")
 
-        row.status = PortForwardStatus.STOPPED
+        row.status = _Status.STOPPED
         row.returncode = snapshot.returncode
 
     def mark_died(self, snapshot: PortForwardProcessSnapshot) -> None:
         self.__ensure_finished(snapshot)
-        key = PortForwardRowKey.from_snapshot(snapshot)
+        key = _RowKey.from_snapshot(snapshot)
         row = self.__rows.get(key)
 
         if row is None:
             raise ValueError(f"Process is not tracked: {key}")
 
-        row.status = PortForwardStatus.DIED
+        row.status = _Status.DIED
         row.returncode = snapshot.returncode
 
     def render(self) -> Table:
@@ -99,24 +104,24 @@ class LiveStatusTable:
         table.add_column("Local", style="cyan", justify="right")
         table.add_column("PID", style="dim", justify="right")
         table.add_column("Status")
-        for row in self.__rows.values():
-            key = row.key
+        for row_key, row_state in self.__rows.items():
+            key = row_key
             table.add_row(
                 key.namespace,
                 key.service_name,
                 f":{key.remote_port}",
                 f"localhost:{key.local_port}",
                 str(key.pid),
-                self.__format_status(row),
+                self.__format_status(row_state),
             )
         return table
 
     @staticmethod
-    def __format_status(row: _Row) -> str:
-        if row.status == PortForwardStatus.LIVE:
+    def __format_status(row: _RowState) -> str:
+        if row.status == _Status.LIVE:
             return "[green]● live[/green]"
 
-        if row.status == PortForwardStatus.STOPPED:
+        if row.status == _Status.STOPPED:
             return "[yellow]■ stopped[/yellow]"
 
         return f"[red]✗ died (exit {row.returncode})[/red]"
@@ -125,3 +130,46 @@ class LiveStatusTable:
     def __ensure_finished(snapshot: PortForwardProcessSnapshot) -> None:
         if snapshot.returncode is None:
             raise ValueError("Process is still live")
+
+
+class PortForwardLiveDisplay:
+    """Connects runner callbacks to Rich LiveStatusTable."""
+
+    def __init__(self, context: str | None) -> None:
+        self._table = _PortForwardStatusTable(context=context)
+        self._live: Live | None = None
+
+    def events(self) -> PortForwardEvents:
+        return PortForwardEvents(
+            on_started=self.started,
+            on_stopped=self.stopped,
+            on_died=self.died,
+        )
+
+    @contextmanager
+    def live(self) -> Iterator[None]:
+        with Live(
+            renderable=Text("Starting port forwards…", style="dim"),
+            refresh_per_second=1,
+        ) as live:
+            self._live = live
+            try:
+                yield
+            finally:
+                self._live = None
+
+    def started(self, snapshot: PortForwardProcessSnapshot) -> None:
+        self._table.track(snapshot)
+        self._refresh()
+
+    def stopped(self, snapshot: PortForwardProcessSnapshot) -> None:
+        self._table.mark_stopped(snapshot)
+        self._refresh()
+
+    def died(self, snapshot: PortForwardProcessSnapshot) -> None:
+        self._table.mark_died(snapshot)
+        self._refresh()
+
+    def _refresh(self) -> None:
+        if self._live is not None:
+            self._live.update(self._table.render())
