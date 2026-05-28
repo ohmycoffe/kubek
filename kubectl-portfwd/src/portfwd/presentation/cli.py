@@ -27,6 +27,7 @@ from portfwd.domain.errors import (
 from portfwd.domain.models import ServicePortForwardSpec
 from portfwd.infrastructure.config_loader import DEFAULT_CONFIG_PATH, load_config
 from portfwd.infrastructure.kubectl_port_forward_runner import KubectlPortForwardRunner
+from portfwd.presentation.live_display import PortForwardLiveDisplay
 from portfwd.presentation.prompts import (
     ask_for_group,
     ask_for_namespace,
@@ -121,7 +122,15 @@ def port_forward(
         _print_kubeconfig(out, api.current_config)
 
         cfg = _load_config(config)
-        port_forward_runner = KubectlPortForwardRunner(api=api)
+
+        display = PortForwardLiveDisplay(
+            context=api.current_config.context,
+        )
+
+        port_forward_runner = KubectlPortForwardRunner(
+            api=api,
+            events=display.events(),
+        )
         use_case = PortForwardUseCase(
             config=cfg,
             runner=port_forward_runner,
@@ -134,6 +143,7 @@ def port_forward(
             api=api,
             out=out,
             use_case=use_case,
+            display=display,
         )
     except (PortForwardError, KubeClientError) as e:
         out.exception(str(e))
@@ -176,6 +186,7 @@ def run_port_forwards_from_cli(
     api: KubeFacade,
     out: CLIOutput,
     use_case: PortForwardUseCase,
+    display: PortForwardLiveDisplay,
 ) -> None:
     """Dispatch to the correct port-forward flow based on CLI flags.
 
@@ -185,19 +196,22 @@ def run_port_forwards_from_cli(
     """
     if service is not None:
         specs = [parse_spec(value) for value in service]
-        asyncio.run(use_case.run_specs(specs))
-
+        with display:
+            asyncio.run(use_case.run_specs(specs))
         return
     if group is not None:
-        asyncio.run(use_case.run_group(group_name=group))
+        with display:
+            asyncio.run(use_case.run_group(group_name=group))
         return
 
     selection = ask_for_group(cfg.groups)
     if selection is SpecialGroups.CUSTOM:
         specs = _ask_for_custom_services(api=api, out=out)
-        asyncio.run(use_case.run_specs(specs))
+        with display:
+            asyncio.run(use_case.run_specs(specs))
     else:
-        asyncio.run(use_case.run_group(group_name=selection.name))
+        with display:
+            asyncio.run(use_case.run_group(group_name=selection.name))
 
 
 def _ask_for_custom_services(

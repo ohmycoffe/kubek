@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from kubek.kube import KubeFacade
-from portfwd.application.port_forward_planner import build_port_forward_plan
+from portfwd.application.port_forwarding.planner import build_port_forward_plan
 from portfwd.application.ports import PortForwardRunner
 from portfwd.domain.config import GroupSpec, PortFwdConfig
 from portfwd.domain.models import (

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from kubek.kube.dto.service import Service
-from portfwd.application.port_forward_planner import (
+from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
     resolve_local_port,
     resolve_remote_port,

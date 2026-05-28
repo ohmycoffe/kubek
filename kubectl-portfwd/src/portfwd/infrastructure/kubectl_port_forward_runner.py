@@ -3,17 +3,18 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
-from collections.abc import Callable
 from dataclasses import dataclass
 from os import PathLike
 
 from kubek.kube import KubeFacade
-from rich.live import Live
 
+from portfwd.application.port_forwarding.events import (
+    PortForwardEvents,
+    PortForwardProcessSnapshot,
+)
 from portfwd.application.ports import PortForwardRunner
 from portfwd.domain.errors import PortForwardStartError
 from portfwd.domain.models import ServicePortForwardPlan
-from portfwd.presentation.display import LiveStatusTable
 
 logger = logging.getLogger(__name__)
 
@@ -28,29 +29,34 @@ class PortForwardProcess:
     service_name: str
     namespace: str
 
+    def snapshot(self) -> PortForwardProcessSnapshot:
+        return PortForwardProcessSnapshot(
+            namespace=self.namespace,
+            service_name=self.service_name,
+            remote_port=self.remote_port,
+            local_port=self.local_port,
+            pid=self.process.pid,
+            returncode=self.process.returncode,
+        )
+
 
 async def watch_processes(
     processes: list[PortForwardProcess],
-    table: LiveStatusTable,
     expected_shutdown: asyncio.Event,
-    on_change: Callable[[], None] = lambda: None,
+    events: PortForwardEvents,
 ) -> None:
     """Await every kubectl port-forward subprocess and update statuses on exit."""
 
-    async def _watch(process: PortForwardProcess) -> None:
+    async def watch(process: PortForwardProcess) -> None:
         await process.process.wait()
         if expected_shutdown.is_set():
-            table.mark_stopped(process)
+            events.on_stopped(process.snapshot())
         else:
-            table.mark_died(process)
-        on_change()
+            events.on_died(process.snapshot())
 
     async with asyncio.TaskGroup() as tg:
         for proc in processes:
-            tg.create_task(_watch(proc))
-
-
-STARTUP_GRACE_SECONDS = 0.5
+            tg.create_task(watch(proc))
 
 
 async def start_port_forward(
@@ -83,8 +89,6 @@ async def start_port_forward(
         stderr=None,
     )
 
-    await asyncio.sleep(STARTUP_GRACE_SECONDS)
-
     logger.debug(
         "Started port forward for %s:%d → localhost:%d [PID: %d]",
         service,
@@ -101,14 +105,31 @@ async def start_port_forward(
     )
 
 
+class KubectlPortForwardRunner(PortForwardRunner):
+    def __init__(
+        self,
+        api: KubeFacade,
+        events: PortForwardEvents | None = None,
+    ) -> None:
+        self._api = api
+        self._events = events or PortForwardEvents()
+
+    async def run(self, plans: list[ServicePortForwardPlan]) -> None:
+        await manage_port_forwards(
+            plans=plans,
+            api=self._api,
+            events=self._events,
+        )
+
+
 async def manage_port_forwards(
     plans: list[ServicePortForwardPlan],
     api: KubeFacade,
+    events: PortForwardEvents,
 ) -> None:
     """Start, watch, and tear down all kubectl port-forwards from `plans`."""
     loop = asyncio.get_running_loop()
     expected_shutdown = asyncio.Event()
-    table = LiveStatusTable(context=api.current_config.context)
     processes: list[PortForwardProcess] = []
 
     try:
@@ -122,7 +143,7 @@ async def manage_port_forwards(
                 kubeconfig=api.current_config.kubeconfig,
             )
             processes.append(process)
-            table.track(process)
+            events.on_started(process.snapshot())
     except Exception as e:
         _terminate_all(processes)
         raise PortForwardStartError("failed to start kubectl port-forward") from e
@@ -130,29 +151,18 @@ async def manage_port_forwards(
     if not processes:
         return
 
-    with Live(renderable=table.render(), refresh_per_second=1) as live:
+    def cleanup() -> None:
+        expected_shutdown.set()
+        _terminate_all(processes)
 
-        def refresh() -> None:
-            live.update(table.render())
+    loop.add_signal_handler(signal.SIGINT, cleanup)
+    loop.add_signal_handler(signal.SIGTERM, cleanup)
 
-        def cleanup() -> None:
-            expected_shutdown.set()
-            for proc in processes:
-                try:
-                    proc.process.terminate()
-                except ProcessLookupError:
-                    pass
-            refresh()
-
-        loop.add_signal_handler(signal.SIGINT, cleanup)
-        loop.add_signal_handler(signal.SIGTERM, cleanup)
-
-        await watch_processes(
-            processes=processes,
-            table=table,
-            expected_shutdown=expected_shutdown,
-            on_change=refresh,
-        )
+    await watch_processes(
+        processes=processes,
+        expected_shutdown=expected_shutdown,
+        events=events,
+    )
 
 
 def _terminate_all(processes: list[PortForwardProcess]) -> None:
@@ -161,14 +171,3 @@ def _terminate_all(processes: list[PortForwardProcess]) -> None:
             proc.process.terminate()
         except ProcessLookupError:
             pass
-
-
-class KubectlPortForwardRunner(PortForwardRunner):
-    def __init__(self, api: KubeFacade) -> None:
-        self._api = api
-
-    async def run(self, plans: list[ServicePortForwardPlan]) -> None:
-        await manage_port_forwards(
-            plans=plans,
-            api=self._api,
-        )
