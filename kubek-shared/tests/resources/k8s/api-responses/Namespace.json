@@ -1,0 +1,55 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"name\":\"ns-kubek-shared\"},\"spec\":{},\"status\":{}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:25+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": null,
+      "labels": {
+        "kubernetes.io/metadata.name": "ns-kubek-shared"
+      },
+      "managed_fields": [
+        {
+          "api_version": "v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              },
+              "f:labels": {
+                ".": {},
+                "f:kubernetes.io/metadata.name": {}
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:25+00:00"
+        }
+      ],
+      "name": "ns-kubek-shared",
+      "namespace": null,
+      "owner_references": null,
+      "resource_version": "612",
+      "self_link": null,
+      "uid": "141acab5-a308-416d-b9f7-6a308658ba8e"
+    },
+    "spec": {
+      "finalizers": ["kubernetes"]
+    },
+    "status": {
+      "conditions": null,
+      "phase": "Active"
+    }
+  }
+]

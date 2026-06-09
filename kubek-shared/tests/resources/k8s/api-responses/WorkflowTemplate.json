@@ -1,0 +1,152 @@
+[
+  {
+    "apiVersion": "argoproj.io/v1alpha1",
+    "kind": "WorkflowTemplate",
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"argoproj.io/v1alpha1\",\"kind\":\"WorkflowTemplate\",\"metadata\":{\"annotations\":{},\"name\":\"data-processor\",\"namespace\":\"ns-kubek-shared\"},\"spec\":{\"templates\":[{\"container\":{\"env\":[{\"name\":\"BATCH_SIZE\",\"value\":\"{{inputs.parameters.batch_size}}\"},{\"name\":\"SOURCE_BUCKET\",\"value\":\"{{inputs.parameters.source_bucket}}\"},{\"name\":\"DB_HOST\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"DATABASE_HOST\",\"name\":\"app-config\"}}},{\"name\":\"API_KEY\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"API_KEY\",\"name\":\"app-secrets\"}}}],\"envFrom\":[{\"configMapRef\":{\"name\":\"app-config\"}},{\"secretRef\":{\"name\":\"app-secrets\"}}],\"image\":\"python:3.10-slim\"},\"inputs\":{\"parameters\":[{\"default\":\"100\",\"name\":\"batch_size\"},{\"default\":\"my-bucket\",\"name\":\"source_bucket\"}]},\"name\":\"main\"}]}}\n"
+      },
+      "creationTimestamp": "2026-05-25T22:22:25Z",
+      "generation": 1,
+      "managedFields": [
+        {
+          "apiVersion": "argoproj.io/v1alpha1",
+          "fieldsType": "FieldsV1",
+          "fieldsV1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              }
+            },
+            "f:spec": {
+              ".": {},
+              "f:templates": {}
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "time": "2026-05-25T22:22:25Z"
+        }
+      ],
+      "name": "data-processor",
+      "namespace": "ns-kubek-shared",
+      "resourceVersion": "629",
+      "uid": "3c97ce9b-b034-4f9f-9710-37b87043be69"
+    },
+    "spec": {
+      "templates": [
+        {
+          "container": {
+            "env": [
+              {
+                "name": "BATCH_SIZE",
+                "value": "{{inputs.parameters.batch_size}}"
+              },
+              {
+                "name": "SOURCE_BUCKET",
+                "value": "{{inputs.parameters.source_bucket}}"
+              },
+              {
+                "name": "DB_HOST",
+                "valueFrom": {
+                  "configMapKeyRef": {
+                    "key": "DATABASE_HOST",
+                    "name": "app-config"
+                  }
+                }
+              },
+              {
+                "name": "API_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "API_KEY",
+                    "name": "app-secrets"
+                  }
+                }
+              }
+            ],
+            "envFrom": [
+              {
+                "configMapRef": {
+                  "name": "app-config"
+                }
+              },
+              {
+                "secretRef": {
+                  "name": "app-secrets"
+                }
+              }
+            ],
+            "image": "python:3.10-slim"
+          },
+          "inputs": {
+            "parameters": [
+              {
+                "default": "100",
+                "name": "batch_size"
+              },
+              {
+                "default": "my-bucket",
+                "name": "source_bucket"
+              }
+            ]
+          },
+          "name": "main"
+        }
+      ]
+    }
+  },
+  {
+    "apiVersion": "argoproj.io/v1alpha1",
+    "kind": "WorkflowTemplate",
+    "metadata": {
+      "annotations": {
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"argoproj.io/v1alpha1\",\"kind\":\"WorkflowTemplate\",\"metadata\":{\"annotations\":{},\"name\":\"dummy-worker\",\"namespace\":\"ns-kubek-shared\"},\"spec\":{\"templates\":[{\"container\":{\"env\":[{\"name\":\"DIRECT_VALUE\",\"value\":\"hello-from-dummy-worker\"}],\"image\":\"python:3.10-slim\"},\"name\":\"main\"}]}}\n"
+      },
+      "creationTimestamp": "2026-05-25T22:22:25Z",
+      "generation": 1,
+      "managedFields": [
+        {
+          "apiVersion": "argoproj.io/v1alpha1",
+          "fieldsType": "FieldsV1",
+          "fieldsV1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              }
+            },
+            "f:spec": {
+              ".": {},
+              "f:templates": {}
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "time": "2026-05-25T22:22:25Z"
+        }
+      ],
+      "name": "dummy-worker",
+      "namespace": "ns-kubek-shared",
+      "resourceVersion": "642",
+      "uid": "58164cc4-fec7-4981-8f0b-b6714bd815a5"
+    },
+    "spec": {
+      "templates": [
+        {
+          "container": {
+            "env": [
+              {
+                "name": "DIRECT_VALUE",
+                "value": "hello-from-dummy-worker"
+              }
+            ],
+            "image": "python:3.10-slim"
+          },
+          "name": "main"
+        }
+      ]
+    }
+  }
+]

@@ -40,6 +40,8 @@ spec:
       containers:
         - name: api-service
           image: nginx:alpine
+          ports:
+            - containerPort: 80
           envFrom:
             - configMapRef:
                 name: app-config
@@ -80,6 +82,8 @@ spec:
       containers:
         - name: dummy-service
           image: nginx:alpine
+          ports:
+            - containerPort: 80
           env:
             - name: DIRECT_VALUE
               value: "hello-from-dummy"
@@ -132,3 +136,31 @@ spec:
         env:
           - name: DIRECT_VALUE
             value: "hello-from-dummy-worker"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-service
+spec:
+  selector:
+    app: api-service
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dummy-service
+spec:
+  selector:
+    app: dummy-service
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP

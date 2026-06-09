@@ -1,17 +1,36 @@
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from portfwd.config import PortFwdConfig, ServicePortForwardDefaults
-from portfwd.kube import PortForwardProcess
-from portfwd.plan import resolve_local_port
-from portfwd.runner import watch_processes
-from portfwd.term.display import make_table
-from portfwd.utils import get_port_forward_status_id
+import pytest
+from kubek.kube.dto.service import Service
+from portfwd.application.port_forwarding.events import (
+    PortForwardEvents,
+    PortForwardProcessSnapshot,
+)
+from portfwd.application.port_forwarding.planner import (
+    build_port_forward_plan,
+    resolve_local_port,
+    resolve_remote_port,
+)
+from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
+from portfwd.domain.errors import (
+    AmbiguousServicePortError,
+    MissingNamespaceError,
+    NoServicePortsError,
+    ServiceNotFoundError,
+)
+from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
+from portfwd.infrastructure.kubectl_port_forward_runner import (
+    PortForwardProcess,
+    watch_processes,
+)
 
 
 def _make_process(
     service_name: str, remote_port: int, local_port: int, returncode: int = 0
 ) -> PortForwardProcess:
+    """Build a PortForwardProcess wrapping a mocked asyncio subprocess."""
     proc = MagicMock()
     proc.pid = 1234
     proc.returncode = returncode
@@ -33,31 +52,43 @@ _SVC_CONFIG = ServicePortForwardDefaults(
 def test_resolve_local_port_uses_configured_port():
     """Returns the configured local_port when a matching config entry exists."""
     config = PortFwdConfig(defaults=[_SVC_CONFIG])
-    result = resolve_local_port("svc", "ns", 80, config)
-    assert result == 9000
+    assert resolve_local_port("svc", "ns", 80, config) == 9000
 
 
 def test_resolve_local_port_uses_deterministic_port_when_free():
     """Returns the deterministic port when no config match and the port is free."""
     config = PortFwdConfig()
     with (
-        patch("portfwd.plan.get_deterministic_port", return_value=55000),
-        patch("portfwd.plan.is_port_free", return_value=True),
+        patch(
+            "portfwd.application.port_forwarding.planner.get_deterministic_port",
+            return_value=55000,
+        ),
+        patch(
+            "portfwd.application.port_forwarding.planner.is_port_free",
+            return_value=True,
+        ),
     ):
-        result = resolve_local_port("svc", "ns", 80, config)
-    assert result == 55000
+        assert resolve_local_port("svc", "ns", 80, config) == 55000
 
 
 def test_resolve_local_port_falls_back_to_free_port_when_deterministic_taken():
     """Falls back to find_free_port when the deterministic port is already in use."""
     config = PortFwdConfig()
     with (
-        patch("portfwd.plan.get_deterministic_port", return_value=55000),
-        patch("portfwd.plan.is_port_free", return_value=False),
-        patch("portfwd.plan.find_free_port", return_value=50000),
+        patch(
+            "portfwd.application.port_forwarding.planner.get_deterministic_port",
+            return_value=55000,
+        ),
+        patch(
+            "portfwd.application.port_forwarding.planner.is_port_free",
+            return_value=False,
+        ),
+        patch(
+            "portfwd.application.port_forwarding.planner.find_free_port",
+            return_value=50000,
+        ),
     ):
-        result = resolve_local_port("svc", "ns", 80, config)
-    assert result == 50000
+        assert resolve_local_port("svc", "ns", 80, config) == 50000
 
 
 def test_resolve_local_port_ignores_config_from_other_namespace():
@@ -67,55 +98,170 @@ def test_resolve_local_port_ignores_config_from_other_namespace():
     )
     config = PortFwdConfig(defaults=[other_ns])
     with (
-        patch("portfwd.plan.get_deterministic_port", return_value=55000),
-        patch("portfwd.plan.is_port_free", return_value=False),
-        patch("portfwd.plan.find_free_port", return_value=50000),
+        patch(
+            "portfwd.application.port_forwarding.planner.get_deterministic_port",
+            return_value=55000,
+        ),
+        patch(
+            "portfwd.application.port_forwarding.planner.is_port_free",
+            return_value=False,
+        ),
+        patch(
+            "portfwd.application.port_forwarding.planner.find_free_port",
+            return_value=50000,
+        ),
     ):
-        result = resolve_local_port("svc", "ns", 80, config)
-    assert result == 50000
+        assert resolve_local_port("svc", "ns", 80, config) == 50000
 
 
-def test_make_table_has_one_row_per_process():
-    """Returns a table with one row per process."""
-    procs = [
-        _make_process("svc-a", remote_port=80, local_port=9000),
-        _make_process("svc-b", remote_port=8080, local_port=9001),
-    ]
-    statuses = {
-        get_port_forward_status_id(
-            namespace="ns", service_name="svc-a", remote_port=80
-        ): "live",
-        get_port_forward_status_id(
-            namespace="ns", service_name="svc-b", remote_port=8080
-        ): "live",
-    }
-    table = make_table(procs, statuses, context=None)
-    assert table.row_count == 2
-
-
-def test_watch_processes_updates_status_on_exit():
-    """Updates the status dict to 'died (exit N)' when a process exits."""
-    proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    row_id = get_port_forward_status_id(
-        namespace="ns", service_name="svc", remote_port=80
+def _make_snapshot(
+    service_name: str,
+    remote_port: int = 80,
+    local_port: int = 9000,
+    pid: int = 1234,
+    returncode: int | None = None,
+) -> PortForwardProcessSnapshot:
+    return PortForwardProcessSnapshot(
+        namespace="ns",
+        service_name=service_name,
+        remote_port=remote_port,
+        local_port=local_port,
+        pid=pid,
+        returncode=returncode,
     )
-    statuses: dict[str, str] = {row_id: "live"}
-
-    asyncio.run(watch_processes([proc], statuses, asyncio.Event()))
-
-    assert statuses[row_id] == "died (exit 1)"
 
 
-def test_watch_processes_skips_update_when_stopped():
-    """Does not update status when stop_event is already set."""
+def test_watch_processes_emits_on_died_when_process_exits_unexpectedly():
+    """on_died is called when the process exits and shutdown was not expected."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    row_id = get_port_forward_status_id(
-        namespace="ns", service_name="svc", remote_port=80
+    died: list[PortForwardProcessSnapshot] = []
+    events = PortForwardEvents(on_died=lambda s: died.append(s))
+
+    asyncio.run(watch_processes([proc], asyncio.Event(), events))
+
+    assert len(died) == 1
+    assert died[0].service_name == "svc"
+    assert died[0].returncode == 1
+
+
+def test_watch_processes_emits_on_stopped_when_shutdown_expected():
+    """on_stopped is called when the process exits and shutdown was expected."""
+    proc = _make_process("svc", remote_port=80, local_port=9000, returncode=0)
+    stopped: list[PortForwardProcessSnapshot] = []
+    events = PortForwardEvents(on_stopped=lambda s: stopped.append(s))
+
+    shutdown = asyncio.Event()
+    shutdown.set()
+    asyncio.run(watch_processes([proc], shutdown, events))
+
+    assert len(stopped) == 1
+    assert stopped[0].service_name == "svc"
+
+
+def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
+    return Service.model_validate(
+        {
+            "metadata": {"name": name, "namespace": namespace},
+            "spec": {"ports": [{"port": p, "protocol": "TCP"} for p in ports]},
+        }
     )
-    statuses: dict[str, str] = {row_id: "live"}
-    stop_event = asyncio.Event()
-    stop_event.set()
 
-    asyncio.run(watch_processes([proc], statuses, stop_event))
 
-    assert statuses[row_id] == "live"
+def test_resolve_remote_port_returns_single_port():
+    """Returns the port number when the service has exactly one port."""
+    service = _make_service("svc", "ns", [8080])
+    assert resolve_remote_port(service) == 8080
+
+
+def test_resolve_remote_port_raises_when_no_ports():
+    """NoServicePortsError is raised for services with no declared ports."""
+    service = _make_service("svc", "ns", [])
+    with pytest.raises(NoServicePortsError):
+        resolve_remote_port(service)
+
+
+def test_resolve_remote_port_raises_when_multiple_ports():
+    """AmbiguousServicePortError is raised when the service exposes more than one port."""
+    service = _make_service("svc", "ns", [80, 8080])
+    with pytest.raises(AmbiguousServicePortError):
+        resolve_remote_port(service)
+
+
+def _make_api(namespace=None, services=None):
+    """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
+    services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
+
+    class FakeServiceRepo:
+        def get(self, name, namespace=None):
+            return services_map.get((namespace, name))
+
+    return SimpleNamespace(
+        current_config=SimpleNamespace(namespace=namespace, context=None),
+        service=FakeServiceRepo(),
+    )
+
+
+def test_build_port_forward_plan_uses_spec_ports_directly():
+    """Ports declared in the spec are forwarded unchanged; no Service lookup needed."""
+    svc = _make_service("auth", "ns", [80])
+    api = _make_api(namespace="ns", services={("ns", "auth"): svc})
+    spec = ServicePortForwardSpec(
+        target=NamespacedServiceNameSpec(name="auth", namespace="ns"),
+        remote_port=443,
+        local_port=9443,
+    )
+    plan = build_port_forward_plan(spec, PortFwdConfig(), api)
+    assert plan.remote_port == 443
+    assert plan.local_port == 9443
+    assert plan.target.namespace == "ns"
+    assert plan.target.name == "auth"
+
+
+def test_build_port_forward_plan_uses_api_namespace_when_absent_in_spec():
+    """api.current_config.namespace is used when the spec has no namespace."""
+    svc = _make_service("auth", "kube-public", [80])
+    api = _make_api(namespace="kube-public", services={("kube-public", "auth"): svc})
+    spec = ServicePortForwardSpec(
+        target=NamespacedServiceNameSpec(name="auth"),
+        remote_port=80,
+        local_port=9000,
+    )
+    plan = build_port_forward_plan(spec, PortFwdConfig(), api)
+    assert plan.target.namespace == "kube-public"
+
+
+def test_build_port_forward_plan_raises_when_namespace_missing():
+    """MissingNamespaceError is raised when neither spec nor api supplies a namespace."""
+    svc = _make_service("auth", "ns", [80])
+    api = _make_api(namespace=None, services={("ns", "auth"): svc})
+    spec = ServicePortForwardSpec(
+        target=NamespacedServiceNameSpec(name="auth"),
+        remote_port=80,
+        local_port=9000,
+    )
+    with pytest.raises(MissingNamespaceError):
+        build_port_forward_plan(spec, PortFwdConfig(), api)
+
+
+def test_build_port_forward_plan_raises_when_service_not_found():
+    """ServiceNotFoundError is raised when the Service does not exist in the namespace."""
+    api = _make_api(namespace="ns")
+    spec = ServicePortForwardSpec(
+        target=NamespacedServiceNameSpec(name="missing", namespace="ns"),
+        remote_port=80,
+        local_port=9000,
+    )
+    with pytest.raises(ServiceNotFoundError):
+        build_port_forward_plan(spec, PortFwdConfig(), api)
+
+
+def test_build_port_forward_plan_resolves_remote_port_from_service():
+    """When spec has no remote_port, it is read from the service's single declared port."""
+    svc = _make_service("auth", "ns", [8080])
+    api = _make_api(namespace="ns", services={("ns", "auth"): svc})
+    spec = ServicePortForwardSpec(
+        target=NamespacedServiceNameSpec(name="auth", namespace="ns"),
+        local_port=9000,
+    )
+    plan = build_port_forward_plan(spec, PortFwdConfig(), api)
+    assert plan.remote_port == 8080

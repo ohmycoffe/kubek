@@ -5,8 +5,19 @@ import re
 from collections.abc import Callable
 from functools import lru_cache
 
-from kubek.kube.client import KubectlWrapper
-from kubek.kube.schemas import ConfigMap, Container, Secret, TemplateType
+from kubek.kube import (
+    ConfigMap,
+    Container,
+    KubeFacade,
+    Secret,
+    WorkflowTemplateType,
+)
+
+from export_dotenv.errors import (
+    AmbiguousResourceError,
+    ResourceNotFoundError,
+    UnsupportedFormatError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,21 +36,32 @@ def _clean_key(key: str) -> str:
     return key
 
 
-def get_deployment_envs(name: str, kubectl: KubectlWrapper) -> dict[str, str]:
-    deployment = kubectl.get_deployment(name=name)
+def get_deployment_envs(name: str, api: KubeFacade) -> dict[str, str]:
+    ns = api.current_config.namespace
+    deployment = api.deployment.get(name=name, namespace=ns)
+    if not deployment:
+        raise ResourceNotFoundError(f"Deployment {name} not found in namespace {ns}")
     containers = deployment.spec.template.spec.containers
     if len(containers) != 1:
-        raise ValueError(f"Expected 1 container, got {len(containers)}")
+        raise AmbiguousResourceError(
+            f"Deployment {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for deployments with a single container."
+        )
     container = containers[0]
-    return extract_envs_from_container(kubectl=kubectl, container=container)
+    return extract_envs_from_container(api=api, container=container)
 
 
-def get_workflowtemplate_envs(name: str, kubectl: KubectlWrapper) -> dict[str, str]:
-    workflowtemplate = kubectl.get_workflowtemplate(name=name)
+def get_workflowtemplate_envs(name: str, api: KubeFacade) -> dict[str, str]:
+    ns = api.current_config.namespace
+    workflowtemplate = api.workflowtemplate.get(name=name, namespace=ns)
+    if not workflowtemplate:
+        raise ResourceNotFoundError(
+            f"WorkflowTemplate {name} not found in namespace {ns}"
+        )
 
     all_envs = {}
     for template in workflowtemplate.spec.templates:
-        if template.kind != TemplateType.CONTAINER:
+        if template.kind != WorkflowTemplateType.CONTAINER:
             # keep only container templates
             continue
         fallback_keys = {}
@@ -51,7 +73,7 @@ def get_workflowtemplate_envs(name: str, kubectl: KubectlWrapper) -> dict[str, s
             }
 
         template_envs = extract_envs_from_container(
-            kubectl=kubectl, container=template.container, fallback_keys=fallback_keys
+            api=api, container=template.container, fallback_keys=fallback_keys
         )
         all_envs.update(template_envs)
 
@@ -59,32 +81,39 @@ def get_workflowtemplate_envs(name: str, kubectl: KubectlWrapper) -> dict[str, s
 
 
 def extract_envs_from_container(
-    kubectl: KubectlWrapper,
+    api: KubeFacade,
     container: Container,
     fallback_keys: dict[str, str] | None = None,
 ) -> dict[str, str]:
     @lru_cache
-    def get_secret(name: str) -> Secret:
-        return kubectl.get_secret(name=name)
+    def get_secret(name: str) -> Secret | None:
+        return api.secret.get(name=name, namespace=api.current_config.namespace)
 
     @lru_cache
-    def get_configmap(name: str) -> ConfigMap:
-        return kubectl.get_configmap(name=name)
+    def get_configmap(name: str) -> ConfigMap | None:
+        return api.configmap.get(name=name, namespace=api.current_config.namespace)
 
     if fallback_keys is None:
         fallback_keys = {}
     result = {}
-    if container.envFrom:
-        for env_from in container.envFrom:
-            if env_from.configMapRef:
-                configmap = get_configmap(env_from.configMapRef.name)
+    if container.env_from:
+        for env_from in container.env_from:
+            if env_from.config_map_ref:
+                configmap = get_configmap(env_from.config_map_ref.name)
+                if not configmap:
+                    cfg_map_name = env_from.config_map_ref.name
+                    logger.warning(f"ConfigMap {cfg_map_name} not found, skipping.")
+                    continue
                 result.update(configmap.data)
-            elif env_from.secretRef:
-                secret_name = env_from.secretRef.name
+            elif env_from.secret_ref:
+                secret_name = env_from.secret_ref.name
                 secret = get_secret(secret_name)
-                result.update(secret.decoded_data)
+                if not secret:
+                    logger.warning(f"Secret {secret_name} not found, skipping.")
+                    continue
+                result.update(secret.decoded_dict())
             else:
-                raise ValueError(f"Unknown envFrom format: {env_from}")
+                raise UnsupportedFormatError(f"Unknown envFrom format: {env_from}")
 
     if container.env:
         for env in container.env:
@@ -92,25 +121,32 @@ def extract_envs_from_container(
             if env.value:
                 value = env.value
                 result[name] = value
-            elif env.valueFrom:
-                value_from = env.valueFrom
-                if value_from.configMapKeyRef:
-                    configmap = get_configmap(value_from.configMapKeyRef.name)
-                    key = value_from.configMapKeyRef.key
+            elif env.value_from:
+                value_from = env.value_from
+                if value_from.config_map_key_ref:
+                    configmap = get_configmap(value_from.config_map_key_ref.name)
+                    if configmap is None:
+                        cfg_map_name = value_from.config_map_key_ref.name
+                        logger.warning(f"ConfigMap {cfg_map_name} not found, skipping.")
+                        continue
+                    key = value_from.config_map_key_ref.key
                     if key not in configmap.data:
                         key = fallback_keys.get(_clean_key(key), key)
                     if key not in configmap.data:
                         logger.warning(
-                            f"{name} won't be set: key {key} not found in ConfigMap {value_from.configMapKeyRef.name}"
+                            f"{name} won't be set: key {key} not found in ConfigMap {value_from.config_map_key_ref.name}"
                         )
                         value = ""
                     else:
                         value = configmap.data[key]
                     result[name] = value
-                elif value_from.secretKeyRef:
-                    secret_name = value_from.secretKeyRef.name
+                elif value_from.secret_key_ref:
+                    secret_name = value_from.secret_key_ref.name
                     secret = get_secret(secret_name)
-                    key = value_from.secretKeyRef.key
+                    if secret is None:
+                        logger.warning(f"Secret {secret_name} not found, skipping.")
+                        continue
+                    key = value_from.secret_key_ref.key
                     if key not in secret.data:
                         key = fallback_keys.get(_clean_key(key), key)
                     if key not in secret.data:
@@ -119,7 +155,7 @@ def extract_envs_from_container(
                         )
                         value = ""
                     else:
-                        value = secret.decoded_data[key]
+                        value = secret.decoded(key)
                     result[name] = value
                 else:
                     logger.warning(

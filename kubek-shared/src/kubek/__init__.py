@@ -1,5 +1,10 @@
 """Kubek shared utilities for Kubernetes CLI extensions."""
 
-from kubek import kube, term
+from kubek import core, kube, net, term
 
-__all__ = ["kube", "term"]
+__all__ = [
+    "kube",
+    "term",
+    "net",
+    "core",
+]

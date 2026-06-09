@@ -1,5 +1,7 @@
 # kubectl export-dotenv
 
+Export environment variables from Kubernetes Deployments and Argo WorkflowTemplates into a `.env` file or JSON format.
+
 ## Usage
 
 Run without arguments for fully interactive mode:

@@ -1,0 +1,714 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "deployment.kubernetes.io/revision": "1",
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"name\":\"api-service\",\"namespace\":\"ns-kubek-shared\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app\":\"api-service\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"api-service\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"DB_PASSWORD\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"DATABASE_PASSWORD\",\"name\":\"app-secrets\"}}},{\"name\":\"LOG_LEVEL_OVERRIDE\",\"valueFrom\":{\"configMapKeyRef\":{\"key\":\"LOG_LEVEL\",\"name\":\"app-config\"}}},{\"name\":\"DIRECT_VALUE\",\"value\":\"hello-from-api\"},{\"name\":\"API_VERSION\",\"value\":\"v2\"},{\"name\":\"ENABLE_TRACING\",\"value\":\"true\"}],\"envFrom\":[{\"configMapRef\":{\"name\":\"app-config\"}},{\"secretRef\":{\"name\":\"app-secrets\"}}],\"image\":\"nginx:alpine\",\"name\":\"api-service\",\"ports\":[{\"containerPort\":80}]}]}}}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:25+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": 1,
+      "labels": null,
+      "managed_fields": [
+        {
+          "api_version": "apps/v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              }
+            },
+            "f:spec": {
+              "f:progressDeadlineSeconds": {},
+              "f:replicas": {},
+              "f:revisionHistoryLimit": {},
+              "f:selector": {},
+              "f:strategy": {
+                "f:rollingUpdate": {
+                  ".": {},
+                  "f:maxSurge": {},
+                  "f:maxUnavailable": {}
+                },
+                "f:type": {}
+              },
+              "f:template": {
+                "f:metadata": {
+                  "f:labels": {
+                    ".": {},
+                    "f:app": {}
+                  }
+                },
+                "f:spec": {
+                  "f:containers": {
+                    "k:{\"name\":\"api-service\"}": {
+                      ".": {},
+                      "f:env": {
+                        ".": {},
+                        "k:{\"name\":\"API_VERSION\"}": {
+                          ".": {},
+                          "f:name": {},
+                          "f:value": {}
+                        },
+                        "k:{\"name\":\"DB_PASSWORD\"}": {
+                          ".": {},
+                          "f:name": {},
+                          "f:valueFrom": {
+                            ".": {},
+                            "f:secretKeyRef": {}
+                          }
+                        },
+                        "k:{\"name\":\"DIRECT_VALUE\"}": {
+                          ".": {},
+                          "f:name": {},
+                          "f:value": {}
+                        },
+                        "k:{\"name\":\"ENABLE_TRACING\"}": {
+                          ".": {},
+                          "f:name": {},
+                          "f:value": {}
+                        },
+                        "k:{\"name\":\"LOG_LEVEL_OVERRIDE\"}": {
+                          ".": {},
+                          "f:name": {},
+                          "f:valueFrom": {
+                            ".": {},
+                            "f:configMapKeyRef": {}
+                          }
+                        }
+                      },
+                      "f:envFrom": {},
+                      "f:image": {},
+                      "f:imagePullPolicy": {},
+                      "f:name": {},
+                      "f:ports": {
+                        ".": {},
+                        "k:{\"containerPort\":80,\"protocol\":\"TCP\"}": {
+                          ".": {},
+                          "f:containerPort": {},
+                          "f:protocol": {}
+                        }
+                      },
+                      "f:resources": {},
+                      "f:terminationMessagePath": {},
+                      "f:terminationMessagePolicy": {}
+                    }
+                  },
+                  "f:dnsPolicy": {},
+                  "f:restartPolicy": {},
+                  "f:schedulerName": {},
+                  "f:securityContext": {},
+                  "f:terminationGracePeriodSeconds": {}
+                }
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:25+00:00"
+        },
+        {
+          "api_version": "apps/v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                "f:deployment.kubernetes.io/revision": {}
+              }
+            },
+            "f:status": {
+              "f:availableReplicas": {},
+              "f:conditions": {
+                ".": {},
+                "k:{\"type\":\"Available\"}": {
+                  ".": {},
+                  "f:lastTransitionTime": {},
+                  "f:lastUpdateTime": {},
+                  "f:message": {},
+                  "f:reason": {},
+                  "f:status": {},
+                  "f:type": {}
+                },
+                "k:{\"type\":\"Progressing\"}": {
+                  ".": {},
+                  "f:lastTransitionTime": {},
+                  "f:lastUpdateTime": {},
+                  "f:message": {},
+                  "f:reason": {},
+                  "f:status": {},
+                  "f:type": {}
+                }
+              },
+              "f:observedGeneration": {},
+              "f:readyReplicas": {},
+              "f:replicas": {},
+              "f:terminatingReplicas": {},
+              "f:updatedReplicas": {}
+            }
+          },
+          "manager": "kube-controller-manager",
+          "operation": "Update",
+          "subresource": "status",
+          "time": "2026-05-25T22:22:33+00:00"
+        }
+      ],
+      "name": "api-service",
+      "namespace": "ns-kubek-shared",
+      "owner_references": null,
+      "resource_version": "714",
+      "self_link": null,
+      "uid": "5955cf82-854f-422b-b0a9-5974091b3b80"
+    },
+    "spec": {
+      "min_ready_seconds": null,
+      "paused": null,
+      "progress_deadline_seconds": 600,
+      "replicas": 1,
+      "revision_history_limit": 10,
+      "selector": {
+        "match_expressions": null,
+        "match_labels": {
+          "app": "api-service"
+        }
+      },
+      "strategy": {
+        "rolling_update": {
+          "max_surge": "25%",
+          "max_unavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "annotations": null,
+          "creation_timestamp": null,
+          "deletion_grace_period_seconds": null,
+          "deletion_timestamp": null,
+          "finalizers": null,
+          "generate_name": null,
+          "generation": null,
+          "labels": {
+            "app": "api-service"
+          },
+          "managed_fields": null,
+          "name": null,
+          "namespace": null,
+          "owner_references": null,
+          "resource_version": null,
+          "self_link": null,
+          "uid": null
+        },
+        "spec": {
+          "active_deadline_seconds": null,
+          "affinity": null,
+          "automount_service_account_token": null,
+          "containers": [
+            {
+              "args": null,
+              "command": null,
+              "env": [
+                {
+                  "name": "DB_PASSWORD",
+                  "value": null,
+                  "value_from": {
+                    "config_map_key_ref": null,
+                    "field_ref": null,
+                    "file_key_ref": null,
+                    "resource_field_ref": null,
+                    "secret_key_ref": {
+                      "key": "DATABASE_PASSWORD",
+                      "name": "app-secrets",
+                      "optional": null
+                    }
+                  }
+                },
+                {
+                  "name": "LOG_LEVEL_OVERRIDE",
+                  "value": null,
+                  "value_from": {
+                    "config_map_key_ref": {
+                      "key": "LOG_LEVEL",
+                      "name": "app-config",
+                      "optional": null
+                    },
+                    "field_ref": null,
+                    "file_key_ref": null,
+                    "resource_field_ref": null,
+                    "secret_key_ref": null
+                  }
+                },
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-api",
+                  "value_from": null
+                },
+                {
+                  "name": "API_VERSION",
+                  "value": "v2",
+                  "value_from": null
+                },
+                {
+                  "name": "ENABLE_TRACING",
+                  "value": "true",
+                  "value_from": null
+                }
+              ],
+              "env_from": [
+                {
+                  "config_map_ref": {
+                    "name": "app-config",
+                    "optional": null
+                  },
+                  "prefix": null,
+                  "secret_ref": null
+                },
+                {
+                  "config_map_ref": null,
+                  "prefix": null,
+                  "secret_ref": {
+                    "name": "app-secrets",
+                    "optional": null
+                  }
+                }
+              ],
+              "image": "nginx:alpine",
+              "image_pull_policy": "IfNotPresent",
+              "lifecycle": null,
+              "liveness_probe": null,
+              "name": "api-service",
+              "ports": [
+                {
+                  "container_port": 80,
+                  "host_ip": null,
+                  "host_port": null,
+                  "name": null,
+                  "protocol": "TCP"
+                }
+              ],
+              "readiness_probe": null,
+              "resize_policy": null,
+              "resources": {
+                "claims": null,
+                "limits": null,
+                "requests": null
+              },
+              "restart_policy": null,
+              "restart_policy_rules": null,
+              "security_context": null,
+              "startup_probe": null,
+              "stdin": null,
+              "stdin_once": null,
+              "termination_message_path": "/dev/termination-log",
+              "termination_message_policy": "File",
+              "tty": null,
+              "volume_devices": null,
+              "volume_mounts": null,
+              "working_dir": null
+            }
+          ],
+          "dns_config": null,
+          "dns_policy": "ClusterFirst",
+          "enable_service_links": null,
+          "ephemeral_containers": null,
+          "host_aliases": null,
+          "host_ipc": null,
+          "host_network": null,
+          "host_pid": null,
+          "host_users": null,
+          "hostname": null,
+          "hostname_override": null,
+          "image_pull_secrets": null,
+          "init_containers": null,
+          "node_name": null,
+          "node_selector": null,
+          "os": null,
+          "overhead": null,
+          "preemption_policy": null,
+          "priority": null,
+          "priority_class_name": null,
+          "readiness_gates": null,
+          "resource_claims": null,
+          "resources": null,
+          "restart_policy": "Always",
+          "runtime_class_name": null,
+          "scheduler_name": "default-scheduler",
+          "scheduling_gates": null,
+          "security_context": {
+            "app_armor_profile": null,
+            "fs_group": null,
+            "fs_group_change_policy": null,
+            "run_as_group": null,
+            "run_as_non_root": null,
+            "run_as_user": null,
+            "se_linux_change_policy": null,
+            "se_linux_options": null,
+            "seccomp_profile": null,
+            "supplemental_groups": null,
+            "supplemental_groups_policy": null,
+            "sysctls": null,
+            "windows_options": null
+          },
+          "service_account": null,
+          "service_account_name": null,
+          "set_hostname_as_fqdn": null,
+          "share_process_namespace": null,
+          "subdomain": null,
+          "termination_grace_period_seconds": 30,
+          "tolerations": null,
+          "topology_spread_constraints": null,
+          "volumes": null,
+          "workload_ref": null
+        }
+      }
+    },
+    "status": {
+      "available_replicas": 1,
+      "collision_count": null,
+      "conditions": [
+        {
+          "last_transition_time": "2026-05-25T22:22:33+00:00",
+          "last_update_time": "2026-05-25T22:22:33+00:00",
+          "message": "Deployment has minimum availability.",
+          "reason": "MinimumReplicasAvailable",
+          "status": "True",
+          "type": "Available"
+        },
+        {
+          "last_transition_time": "2026-05-25T22:22:25+00:00",
+          "last_update_time": "2026-05-25T22:22:33+00:00",
+          "message": "ReplicaSet \"api-service-64fcdfb75d\" has successfully progressed.",
+          "reason": "NewReplicaSetAvailable",
+          "status": "True",
+          "type": "Progressing"
+        }
+      ],
+      "observed_generation": 1,
+      "ready_replicas": 1,
+      "replicas": 1,
+      "terminating_replicas": 0,
+      "unavailable_replicas": null,
+      "updated_replicas": 1
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "annotations": {
+        "deployment.kubernetes.io/revision": "1",
+        "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"name\":\"dummy-service\",\"namespace\":\"ns-kubek-shared\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app\":\"dummy-service\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"dummy-service\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"DIRECT_VALUE\",\"value\":\"hello-from-dummy\"}],\"image\":\"nginx:alpine\",\"name\":\"dummy-service\",\"ports\":[{\"containerPort\":80}]}]}}}}\n"
+      },
+      "creation_timestamp": "2026-05-25T22:22:25+00:00",
+      "deletion_grace_period_seconds": null,
+      "deletion_timestamp": null,
+      "finalizers": null,
+      "generate_name": null,
+      "generation": 1,
+      "labels": null,
+      "managed_fields": [
+        {
+          "api_version": "apps/v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                ".": {},
+                "f:kubectl.kubernetes.io/last-applied-configuration": {}
+              }
+            },
+            "f:spec": {
+              "f:progressDeadlineSeconds": {},
+              "f:replicas": {},
+              "f:revisionHistoryLimit": {},
+              "f:selector": {},
+              "f:strategy": {
+                "f:rollingUpdate": {
+                  ".": {},
+                  "f:maxSurge": {},
+                  "f:maxUnavailable": {}
+                },
+                "f:type": {}
+              },
+              "f:template": {
+                "f:metadata": {
+                  "f:labels": {
+                    ".": {},
+                    "f:app": {}
+                  }
+                },
+                "f:spec": {
+                  "f:containers": {
+                    "k:{\"name\":\"dummy-service\"}": {
+                      ".": {},
+                      "f:env": {
+                        ".": {},
+                        "k:{\"name\":\"DIRECT_VALUE\"}": {
+                          ".": {},
+                          "f:name": {},
+                          "f:value": {}
+                        }
+                      },
+                      "f:image": {},
+                      "f:imagePullPolicy": {},
+                      "f:name": {},
+                      "f:ports": {
+                        ".": {},
+                        "k:{\"containerPort\":80,\"protocol\":\"TCP\"}": {
+                          ".": {},
+                          "f:containerPort": {},
+                          "f:protocol": {}
+                        }
+                      },
+                      "f:resources": {},
+                      "f:terminationMessagePath": {},
+                      "f:terminationMessagePolicy": {}
+                    }
+                  },
+                  "f:dnsPolicy": {},
+                  "f:restartPolicy": {},
+                  "f:schedulerName": {},
+                  "f:securityContext": {},
+                  "f:terminationGracePeriodSeconds": {}
+                }
+              }
+            }
+          },
+          "manager": "kubectl-client-side-apply",
+          "operation": "Update",
+          "subresource": null,
+          "time": "2026-05-25T22:22:25+00:00"
+        },
+        {
+          "api_version": "apps/v1",
+          "fields_type": "FieldsV1",
+          "fields_v1": {
+            "f:metadata": {
+              "f:annotations": {
+                "f:deployment.kubernetes.io/revision": {}
+              }
+            },
+            "f:status": {
+              "f:availableReplicas": {},
+              "f:conditions": {
+                ".": {},
+                "k:{\"type\":\"Available\"}": {
+                  ".": {},
+                  "f:lastTransitionTime": {},
+                  "f:lastUpdateTime": {},
+                  "f:message": {},
+                  "f:reason": {},
+                  "f:status": {},
+                  "f:type": {}
+                },
+                "k:{\"type\":\"Progressing\"}": {
+                  ".": {},
+                  "f:lastTransitionTime": {},
+                  "f:lastUpdateTime": {},
+                  "f:message": {},
+                  "f:reason": {},
+                  "f:status": {},
+                  "f:type": {}
+                }
+              },
+              "f:observedGeneration": {},
+              "f:readyReplicas": {},
+              "f:replicas": {},
+              "f:terminatingReplicas": {},
+              "f:updatedReplicas": {}
+            }
+          },
+          "manager": "kube-controller-manager",
+          "operation": "Update",
+          "subresource": "status",
+          "time": "2026-05-25T22:22:33+00:00"
+        }
+      ],
+      "name": "dummy-service",
+      "namespace": "ns-kubek-shared",
+      "owner_references": null,
+      "resource_version": "709",
+      "self_link": null,
+      "uid": "8fdc4e21-38c8-457c-a15e-a56e37e9f50f"
+    },
+    "spec": {
+      "min_ready_seconds": null,
+      "paused": null,
+      "progress_deadline_seconds": 600,
+      "replicas": 1,
+      "revision_history_limit": 10,
+      "selector": {
+        "match_expressions": null,
+        "match_labels": {
+          "app": "dummy-service"
+        }
+      },
+      "strategy": {
+        "rolling_update": {
+          "max_surge": "25%",
+          "max_unavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "annotations": null,
+          "creation_timestamp": null,
+          "deletion_grace_period_seconds": null,
+          "deletion_timestamp": null,
+          "finalizers": null,
+          "generate_name": null,
+          "generation": null,
+          "labels": {
+            "app": "dummy-service"
+          },
+          "managed_fields": null,
+          "name": null,
+          "namespace": null,
+          "owner_references": null,
+          "resource_version": null,
+          "self_link": null,
+          "uid": null
+        },
+        "spec": {
+          "active_deadline_seconds": null,
+          "affinity": null,
+          "automount_service_account_token": null,
+          "containers": [
+            {
+              "args": null,
+              "command": null,
+              "env": [
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-dummy",
+                  "value_from": null
+                }
+              ],
+              "env_from": null,
+              "image": "nginx:alpine",
+              "image_pull_policy": "IfNotPresent",
+              "lifecycle": null,
+              "liveness_probe": null,
+              "name": "dummy-service",
+              "ports": [
+                {
+                  "container_port": 80,
+                  "host_ip": null,
+                  "host_port": null,
+                  "name": null,
+                  "protocol": "TCP"
+                }
+              ],
+              "readiness_probe": null,
+              "resize_policy": null,
+              "resources": {
+                "claims": null,
+                "limits": null,
+                "requests": null
+              },
+              "restart_policy": null,
+              "restart_policy_rules": null,
+              "security_context": null,
+              "startup_probe": null,
+              "stdin": null,
+              "stdin_once": null,
+              "termination_message_path": "/dev/termination-log",
+              "termination_message_policy": "File",
+              "tty": null,
+              "volume_devices": null,
+              "volume_mounts": null,
+              "working_dir": null
+            }
+          ],
+          "dns_config": null,
+          "dns_policy": "ClusterFirst",
+          "enable_service_links": null,
+          "ephemeral_containers": null,
+          "host_aliases": null,
+          "host_ipc": null,
+          "host_network": null,
+          "host_pid": null,
+          "host_users": null,
+          "hostname": null,
+          "hostname_override": null,
+          "image_pull_secrets": null,
+          "init_containers": null,
+          "node_name": null,
+          "node_selector": null,
+          "os": null,
+          "overhead": null,
+          "preemption_policy": null,
+          "priority": null,
+          "priority_class_name": null,
+          "readiness_gates": null,
+          "resource_claims": null,
+          "resources": null,
+          "restart_policy": "Always",
+          "runtime_class_name": null,
+          "scheduler_name": "default-scheduler",
+          "scheduling_gates": null,
+          "security_context": {
+            "app_armor_profile": null,
+            "fs_group": null,
+            "fs_group_change_policy": null,
+            "run_as_group": null,
+            "run_as_non_root": null,
+            "run_as_user": null,
+            "se_linux_change_policy": null,
+            "se_linux_options": null,
+            "seccomp_profile": null,
+            "supplemental_groups": null,
+            "supplemental_groups_policy": null,
+            "sysctls": null,
+            "windows_options": null
+          },
+          "service_account": null,
+          "service_account_name": null,
+          "set_hostname_as_fqdn": null,
+          "share_process_namespace": null,
+          "subdomain": null,
+          "termination_grace_period_seconds": 30,
+          "tolerations": null,
+          "topology_spread_constraints": null,
+          "volumes": null,
+          "workload_ref": null
+        }
+      }
+    },
+    "status": {
+      "available_replicas": 1,
+      "collision_count": null,
+      "conditions": [
+        {
+          "last_transition_time": "2026-05-25T22:22:33+00:00",
+          "last_update_time": "2026-05-25T22:22:33+00:00",
+          "message": "Deployment has minimum availability.",
+          "reason": "MinimumReplicasAvailable",
+          "status": "True",
+          "type": "Available"
+        },
+        {
+          "last_transition_time": "2026-05-25T22:22:25+00:00",
+          "last_update_time": "2026-05-25T22:22:33+00:00",
+          "message": "ReplicaSet \"dummy-service-c788fc9c8\" has successfully progressed.",
+          "reason": "NewReplicaSetAvailable",
+          "status": "True",
+          "type": "Progressing"
+        }
+      ],
+      "observed_generation": 1,
+      "ready_replicas": 1,
+      "replicas": 1,
+      "terminating_replicas": 0,
+      "unavailable_replicas": null,
+      "updated_replicas": 1
+    }
+  }
+]

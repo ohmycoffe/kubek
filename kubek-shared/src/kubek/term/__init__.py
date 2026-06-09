@@ -1,29 +1,13 @@
-from kubek.term.console import get_console
-from kubek.term.errors import print_error
-from kubek.term.format import (
-    error,
-    fatal,
-    highlight,
-    info,
-    mute,
-    ongoing_status,
-    success,
-    warn,
+from kubek.term._logging import (
+    setup_logging_from_count,
 )
-from kubek.term.logging import setup_logging
-from kubek.term.style import STYLE_QUESTIONARY
+from kubek.term.output import CLIOutput, create_output
+from kubek.term.style import DEFAULT_QUESTIONARY_THEME
 
 __all__ = [
-    "fatal",
-    "error",
-    "get_console",
-    "highlight",
-    "info",
-    "mute",
-    "ongoing_status",
-    "print_error",
-    "setup_logging",
-    "success",
-    "STYLE_QUESTIONARY",
-    "warn",
+    "create_output",
+    "setup_logging_from_count",
+    "CLIOutput",
+    "DEFAULT_QUESTIONARY_THEME",
+    "setup_logging_from_count",
 ]

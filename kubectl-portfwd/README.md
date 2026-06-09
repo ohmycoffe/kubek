@@ -27,7 +27,6 @@ kubectl portfwd -g backend --context staging
 
 That flag is passed to every `kubectl` call the plugin makes (list/get and each `port-forward` subprocess).
 
-`kubectl --context my-cluster portfwd` is kubectl’s global flag. Depending on your kubectl version it may or may not reach the plugin executable; prefer `kubectl portfwd --context …` for predictable behavior.
 
 ### Kubeconfig
 
@@ -62,8 +61,6 @@ groups:
         namespace: kube-public
         remote_port: 80
         local_port: 50010
-
-
 ```
 
 When a config is present the CLI shows a group picker in interactive mode:
