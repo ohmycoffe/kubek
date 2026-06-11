@@ -1,12 +1,16 @@
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 
+from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.domain.models import ServicePortForwardPlan
 
 
 class PortForwardRunner(ABC):
-    """Execute port forwarding"""
+    """Execute port forwarding."""
 
     @abstractmethod
-    async def run(self, plans: list[ServicePortForwardPlan]) -> None:
-        """Given a list of port-forward plans, execute them and manage their lifecycle."""
+    def stream(
+        self, plans: list[ServicePortForwardPlan]
+    ) -> AsyncIterator[PortForwardEvent]:
+        """Start port-forwards from `plans` and yield lifecycle events until all exit."""
         raise NotImplementedError

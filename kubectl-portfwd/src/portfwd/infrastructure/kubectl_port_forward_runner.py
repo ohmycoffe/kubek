@@ -3,13 +3,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from os import PathLike
 
 from kubek.kube import KubeFacade
 
 from portfwd.application.port_forwarding.events import (
-    PortForwardEvents,
+    PortForwardEvent,
+    PortForwardEventType,
     PortForwardProcessSnapshot,
 )
 from portfwd.application.ports import PortForwardRunner
@@ -38,25 +40,6 @@ class PortForwardProcess:
             pid=self.process.pid,
             returncode=self.process.returncode,
         )
-
-
-async def watch_processes(
-    processes: list[PortForwardProcess],
-    expected_shutdown: asyncio.Event,
-    events: PortForwardEvents,
-) -> None:
-    """Await every kubectl port-forward subprocess and update statuses on exit."""
-
-    async def watch(process: PortForwardProcess) -> None:
-        await process.process.wait()
-        if expected_shutdown.is_set():
-            events.on_stopped(process.snapshot())
-        else:
-            events.on_died(process.snapshot())
-
-    async with asyncio.TaskGroup() as tg:
-        for proc in processes:
-            tg.create_task(watch(proc))
 
 
 async def start_port_forward(
@@ -106,68 +89,84 @@ async def start_port_forward(
 
 
 class KubectlPortForwardRunner(PortForwardRunner):
-    def __init__(
-        self,
-        api: KubeFacade,
-        events: PortForwardEvents | None = None,
-    ) -> None:
+    def __init__(self, api: KubeFacade) -> None:
         self._api = api
-        self._events = events or PortForwardEvents()
 
-    async def run(self, plans: list[ServicePortForwardPlan]) -> None:
-        await manage_port_forwards(
-            plans=plans,
-            api=self._api,
-            events=self._events,
-        )
+    def stream(
+        self, plans: list[ServicePortForwardPlan]
+    ) -> AsyncIterator[PortForwardEvent]:
+        return self.stream_port_forwards(plans=plans)
 
+    async def stream_port_forwards(
+        self,
+        plans: list[ServicePortForwardPlan],
+    ) -> AsyncIterator[PortForwardEvent]:
+        """Start kubectl port-forwards from `plans` and yield lifecycle events until all exit."""
+        loop = asyncio.get_running_loop()
+        expected_shutdown = asyncio.Event()
+        processes: list[PortForwardProcess] = []
+        event_queue: asyncio.Queue[PortForwardEvent] = asyncio.Queue()
+        running = 0
 
-async def manage_port_forwards(
-    plans: list[ServicePortForwardPlan],
-    api: KubeFacade,
-    events: PortForwardEvents,
-) -> None:
-    """Start, watch, and tear down all kubectl port-forwards from `plans`."""
-    loop = asyncio.get_running_loop()
-    expected_shutdown = asyncio.Event()
-    processes: list[PortForwardProcess] = []
-
-    try:
-        for plan in plans:
-            process = await start_port_forward(
-                namespace=plan.target.namespace,
-                service=plan.target.name,
-                local_port=plan.local_port,
-                remote_port=plan.remote_port,
-                context=api.current_config.context,
-                kubeconfig=api.current_config.kubeconfig,
-            )
-            processes.append(process)
-            events.on_started(process.snapshot())
-    except Exception as e:
-        _terminate_all(processes)
-        raise PortForwardStartError("failed to start kubectl port-forward") from e
-
-    if not processes:
-        return
-
-    def cleanup() -> None:
-        expected_shutdown.set()
-        _terminate_all(processes)
-
-    loop.add_signal_handler(signal.SIGINT, cleanup)
-    loop.add_signal_handler(signal.SIGTERM, cleanup)
-
-    await watch_processes(
-        processes=processes,
-        expected_shutdown=expected_shutdown,
-        events=events,
-    )
-
-
-def _terminate_all(processes: list[PortForwardProcess]) -> None:
-    for proc in processes:
         try:
-            proc.process.terminate()
-        except ProcessLookupError:
-            pass
+            for plan in plans:
+                process = await start_port_forward(
+                    namespace=plan.target.namespace,
+                    service=plan.target.name,
+                    local_port=plan.local_port,
+                    remote_port=plan.remote_port,
+                    context=self._api.current_config.context,
+                    kubeconfig=self._api.current_config.kubeconfig,
+                )
+                processes.append(process)
+                event_queue.put_nowait(
+                    PortForwardEvent(
+                        type=PortForwardEventType.STARTED,
+                        snapshot=process.snapshot(),
+                    )
+                )
+                running += 1
+        except Exception as e:
+            self._terminate_all(processes)
+            raise PortForwardStartError("failed to start kubectl port-forward") from e
+
+        if not processes:
+            return
+
+        def cleanup() -> None:
+            expected_shutdown.set()
+            self._terminate_all(processes)
+
+        loop.add_signal_handler(signal.SIGINT, cleanup)
+        loop.add_signal_handler(signal.SIGTERM, cleanup)
+
+        async def watch(process: PortForwardProcess) -> None:
+            await process.process.wait()
+            if expected_shutdown.is_set():
+                event_type = PortForwardEventType.STOPPED
+            else:
+                event_type = PortForwardEventType.DIED
+            event_queue.put_nowait(
+                PortForwardEvent(type=event_type, snapshot=process.snapshot())
+            )
+
+        try:
+            async with asyncio.TaskGroup() as tg:
+                for proc in processes:
+                    tg.create_task(watch(proc))
+
+                while running > 0:
+                    event = await event_queue.get()
+                    if event.exited:
+                        running -= 1
+                    yield event
+        finally:
+            loop.remove_signal_handler(signal.SIGINT)
+            loop.remove_signal_handler(signal.SIGTERM)
+
+    def _terminate_all(self, processes: list[PortForwardProcess]) -> None:
+        for proc in processes:
+            try:
+                proc.process.terminate()
+            except ProcessLookupError:
+                pass

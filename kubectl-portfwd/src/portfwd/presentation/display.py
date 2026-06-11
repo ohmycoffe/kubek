@@ -10,7 +10,8 @@ from rich.table import Table
 from rich.text import Text
 
 from portfwd.application.port_forwarding.events import (
-    PortForwardEvents,
+    PortForwardEvent,
+    PortForwardEventType,
     PortForwardProcessSnapshot,
 )
 
@@ -133,18 +134,11 @@ class _PortForwardStatusTable:
 
 
 class PortForwardLiveDisplay:
-    """Connects runner callbacks to Rich LiveStatusTable."""
+    """Applies port-forward lifecycle events to a Rich live status table."""
 
     def __init__(self, context: str | None) -> None:
         self._table = _PortForwardStatusTable(context=context)
         self._live: Live | None = None
-
-    def events(self) -> PortForwardEvents:
-        return PortForwardEvents(
-            on_started=self.started,
-            on_stopped=self.stopped,
-            on_died=self.died,
-        )
 
     @contextmanager
     def live(self) -> Iterator[None]:
@@ -158,16 +152,14 @@ class PortForwardLiveDisplay:
             finally:
                 self._live = None
 
-    def started(self, snapshot: PortForwardProcessSnapshot) -> None:
-        self._table.track(snapshot)
-        self._refresh()
-
-    def stopped(self, snapshot: PortForwardProcessSnapshot) -> None:
-        self._table.mark_stopped(snapshot)
-        self._refresh()
-
-    def died(self, snapshot: PortForwardProcessSnapshot) -> None:
-        self._table.mark_died(snapshot)
+    def apply(self, event: PortForwardEvent) -> None:
+        """Update the status table from a port-forward lifecycle event."""
+        if event.type == PortForwardEventType.STARTED:
+            self._table.track(event.snapshot)
+        elif event.type == PortForwardEventType.STOPPED:
+            self._table.mark_stopped(event.snapshot)
+        elif event.type == PortForwardEventType.DIED:
+            self._table.mark_died(event.snapshot)
         self._refresh()
 
     def _refresh(self) -> None:

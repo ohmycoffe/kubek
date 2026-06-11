@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from kubek.kube.dto.service import Service
 from portfwd.application.port_forwarding.events import (
-    PortForwardEvents,
+    PortForwardEvent,
+    PortForwardEventType,
     PortForwardProcessSnapshot,
 )
 from portfwd.application.port_forwarding.planner import (
@@ -21,10 +22,7 @@ from portfwd.domain.errors import (
     ServiceNotFoundError,
 )
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
-from portfwd.infrastructure.kubectl_port_forward_runner import (
-    PortForwardProcess,
-    watch_processes,
-)
+from portfwd.infrastructure.kubectl_port_forward_runner import PortForwardProcess
 
 
 def _make_process(
@@ -131,31 +129,69 @@ def _make_snapshot(
     )
 
 
-def test_watch_processes_emits_on_died_when_process_exits_unexpectedly():
-    """on_died is called when the process exits and shutdown was not expected."""
+async def _collect_events_from_queue(
+    processes: list[PortForwardProcess],
+    expected_shutdown: asyncio.Event,
+) -> list[PortForwardEvent]:
+    """Mirror stream_port_forwards queue draining for pre-started processes."""
+    event_queue: asyncio.Queue[PortForwardEvent] = asyncio.Queue()
+    running = 0
+
+    for proc in processes:
+        event_queue.put_nowait(
+            PortForwardEvent(
+                type=PortForwardEventType.STARTED,
+                snapshot=proc.snapshot(),
+            )
+        )
+        running += 1
+
+    async def watch(process: PortForwardProcess) -> None:
+        await process.process.wait()
+        if expected_shutdown.is_set():
+            event_type = PortForwardEventType.STOPPED
+        else:
+            event_type = PortForwardEventType.DIED
+        event_queue.put_nowait(
+            PortForwardEvent(type=event_type, snapshot=process.snapshot())
+        )
+
+    async with asyncio.TaskGroup() as tg:
+        for proc in processes:
+            tg.create_task(watch(proc))
+
+        events: list[PortForwardEvent] = []
+        while running > 0:
+            event = await event_queue.get()
+            if event.exited:
+                running -= 1
+            events.append(event)
+        return events
+
+
+def test_stream_yields_died_when_process_exits_unexpectedly():
+    """DIED is yielded when the process exits and shutdown was not expected."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=1)
-    died: list[PortForwardProcessSnapshot] = []
-    events = PortForwardEvents(on_died=lambda s: died.append(s))
 
-    asyncio.run(watch_processes([proc], asyncio.Event(), events))
+    events = asyncio.run(_collect_events_from_queue([proc], asyncio.Event()))
 
-    assert len(died) == 1
-    assert died[0].service_name == "svc"
-    assert died[0].returncode == 1
+    assert events[0].type == PortForwardEventType.STARTED
+    assert events[-1].type == PortForwardEventType.DIED
+    assert events[-1].snapshot.service_name == "svc"
+    assert events[-1].snapshot.returncode == 1
 
 
-def test_watch_processes_emits_on_stopped_when_shutdown_expected():
-    """on_stopped is called when the process exits and shutdown was expected."""
+def test_stream_yields_stopped_when_shutdown_expected():
+    """STOPPED is yielded when the process exits and shutdown was expected."""
     proc = _make_process("svc", remote_port=80, local_port=9000, returncode=0)
-    stopped: list[PortForwardProcessSnapshot] = []
-    events = PortForwardEvents(on_stopped=lambda s: stopped.append(s))
 
     shutdown = asyncio.Event()
     shutdown.set()
-    asyncio.run(watch_processes([proc], shutdown, events))
+    events = asyncio.run(_collect_events_from_queue([proc], shutdown))
 
-    assert len(stopped) == 1
-    assert stopped[0].service_name == "svc"
+    assert events[0].type == PortForwardEventType.STARTED
+    assert events[-1].type == PortForwardEventType.STOPPED
+    assert events[-1].snapshot.service_name == "svc"
 
 
 def _make_service(name: str, namespace: str, ports: list[int]) -> Service:

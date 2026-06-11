@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated
 
@@ -10,7 +11,7 @@ from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConf
 from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from pydantic import ValidationError
 
-from portfwd.application.port_forwarding.events import PortForwardEvents
+from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
@@ -122,10 +123,7 @@ def port_forward(
         cfg = _load_config(config)
 
         display = PortForwardLiveDisplay(context=api.current_config.context)
-
-        events: PortForwardEvents = display.events()
-        port_forward_runner = KubectlPortForwardRunner(api=api, events=events)
-
+        port_forward_runner = KubectlPortForwardRunner(api=api)
         use_case = PortForwardUseCase(config=cfg, runner=port_forward_runner, api=api)
         run_port_forwards_from_cli(
             cfg=cfg,
@@ -169,6 +167,15 @@ def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
         )
 
 
+async def _run_event_stream(
+    display: PortForwardLiveDisplay,
+    event_stream: AsyncIterator[PortForwardEvent],
+) -> None:
+    with display.live():
+        async for event in event_stream:
+            display.apply(event)
+
+
 def run_port_forwards_from_cli(
     *,
     cfg: PortFwdConfig,
@@ -187,22 +194,20 @@ def run_port_forwards_from_cli(
     """
     if service is not None:
         specs = [parse_spec(value) for value in service]
-        with display.live():
-            asyncio.run(use_case.run_specs(specs))
+        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
         return
     if group is not None:
-        with display.live():
-            asyncio.run(use_case.run_group(group_name=group))
+        asyncio.run(_run_event_stream(display, use_case.stream_group(group_name=group)))
         return
 
     selection = ask_for_group(cfg.groups)
     if selection is SpecialGroups.CUSTOM:
         specs = _ask_for_custom_services(api=api, out=out)
-        with display.live():
-            asyncio.run(use_case.run_specs(specs))
+        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
     else:
-        with display.live():
-            asyncio.run(use_case.run_group(group_name=selection.name))
+        asyncio.run(
+            _run_event_stream(display, use_case.stream_group(group_name=selection.name))
+        )
 
 
 def _ask_for_custom_services(

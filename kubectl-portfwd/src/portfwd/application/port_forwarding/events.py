@@ -1,5 +1,5 @@
-from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 
 
 @dataclass(frozen=True)
@@ -12,8 +12,21 @@ class PortForwardProcessSnapshot:
     returncode: int | None
 
 
+class PortForwardEventType(StrEnum):
+    STARTED = "started"
+    STOPPED = "stopped"
+    DIED = "died"
+
+
 @dataclass(frozen=True)
-class PortForwardEvents:
-    on_started: Callable[[PortForwardProcessSnapshot], None] = lambda snapshot: None
-    on_stopped: Callable[[PortForwardProcessSnapshot], None] = lambda snapshot: None
-    on_died: Callable[[PortForwardProcessSnapshot], None] = lambda snapshot: None
+class PortForwardEvent:
+    type: PortForwardEventType
+    snapshot: PortForwardProcessSnapshot
+
+    @property
+    def exited(self) -> bool:
+        """True when the port-forward subprocess has exited (stopped or died)."""
+        return self.type in (
+            PortForwardEventType.STOPPED,
+            PortForwardEventType.DIED,
+        )
