@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from kubek.kube import KubeFacade
 from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.application.port_forwarding.planner import build_port_forward_plan
-from portfwd.application.ports import PortForwardRunner
+from portfwd.application.ports import KubeGateway, PortForwardRunner
 from portfwd.domain.config import GroupSpec, PortFwdConfig
 from portfwd.domain.models import (
     ServicePortForwardSpec,
@@ -17,7 +16,7 @@ class PortForwardUseCase:
         self,
         config: PortFwdConfig,
         runner: PortForwardRunner,
-        api: KubeFacade,
+        api: KubeGateway,
     ) -> None:
         self._config = config
         self._runner = runner

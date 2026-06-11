@@ -1,5 +1,6 @@
-from kubek.kube import KubeFacade, Service
+from kubek.kube import Service
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
+from portfwd.application.ports import KubeGateway
 from portfwd.domain.config import PortFwdConfig
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
@@ -53,7 +54,7 @@ def resolve_local_port(
 def build_port_forward_plan(
     spec: ServicePortForwardSpec,
     config: PortFwdConfig,
-    api: KubeFacade,
+    api: KubeGateway,
 ) -> ServicePortForwardPlan:
     """Turn a user-provided spec + cluster lookup into a concrete plan."""
     name = spec.target.name

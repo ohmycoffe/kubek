@@ -12,6 +12,7 @@ from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from pydantic import ValidationError
 
 from portfwd.application.port_forwarding.events import PortForwardEvent
+from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
@@ -123,7 +124,7 @@ def port_forward(
         cfg = _load_config(config)
 
         display = PortForwardLiveDisplay(context=api.current_config.context)
-        port_forward_runner = KubectlPortForwardRunner(api=api)
+        port_forward_runner = KubectlPortForwardRunner(config=api.current_config)
         use_case = PortForwardUseCase(config=cfg, runner=port_forward_runner, api=api)
         run_port_forwards_from_cli(
             cfg=cfg,
@@ -181,7 +182,7 @@ def run_port_forwards_from_cli(
     cfg: PortFwdConfig,
     group: str | None,
     service: list[str] | None,
-    api: KubeFacade,
+    api: KubeGateway,
     out: CLIOutput,
     use_case: PortForwardUseCase,
     display: PortForwardLiveDisplay,
@@ -211,7 +212,7 @@ def run_port_forwards_from_cli(
 
 
 def _ask_for_custom_services(
-    api: KubeFacade,
+    api: KubeGateway,
     out: CLIOutput,
 ) -> list[ServicePortForwardSpec]:
     with out.progress("Fetching namespaces…"):

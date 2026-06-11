@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
+from typing import Protocol
 
+from kubek.kube.config import ResolvedKubeConfig
+from kubek.kube.contracts.repositories import NamespaceRepository, ServiceRepository
 from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.domain.models import ServicePortForwardPlan
 
@@ -14,3 +17,16 @@ class PortForwardRunner(ABC):
     ) -> AsyncIterator[PortForwardEvent]:
         """Start port-forwards from `plans` and yield lifecycle events until all exit."""
         raise NotImplementedError
+
+
+class KubeGateway(Protocol):
+    """Subset of Kubernetes API functionality needed by the application layer."""
+
+    @property
+    def current_config(self) -> ResolvedKubeConfig: ...
+
+    @property
+    def namespace(self) -> NamespaceRepository: ...
+
+    @property
+    def service(self) -> ServiceRepository: ...

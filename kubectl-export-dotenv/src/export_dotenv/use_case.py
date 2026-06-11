@@ -1,10 +1,14 @@
-from kubek.kube import Kind, KubeFacade
+from kubek.kube import Kind
 
 from export_dotenv.errors import UnsupportedKindError
-from export_dotenv.kube import get_deployment_envs, get_workflowtemplate_envs
+from export_dotenv.kube import (
+    KubeGateway,
+    get_deployment_envs,
+    get_workflowtemplate_envs,
+)
 
 
-def fetch_environment_values(kind: Kind, name: str, api: KubeFacade) -> dict[str, str]:
+def fetch_environment_values(kind: Kind, name: str, api: KubeGateway) -> dict[str, str]:
     if kind == Kind.DEPLOYMENT:
         return get_deployment_envs(name=name, api=api)
 

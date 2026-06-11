@@ -11,13 +11,7 @@ from kubek.kube._infrastructure import (
 )
 from kubek.kube.config import KubeConfig, ResolvedKubeConfig
 from kubek.kube.contracts import (
-    ConfigMapRepository,
-    DeploymentRepository,
     KubeClient,
-    NamespaceRepository,
-    SecretRepository,
-    ServiceRepository,
-    WorkflowTemplateRepository,
 )
 
 
@@ -25,12 +19,12 @@ class KubeFacade:
     def __init__(
         self,
         current_config: ResolvedKubeConfig,
-        namespace: NamespaceRepository,
-        deployment: DeploymentRepository,
-        service: ServiceRepository,
-        workflowtemplate: WorkflowTemplateRepository,
-        secret: SecretRepository,
-        configmap: ConfigMapRepository,
+        namespace: KubernetesNamespaceRepository,
+        deployment: KubernetesDeploymentRepository,
+        service: KubernetesServiceRepository,
+        workflowtemplate: KubernetesWorkflowTemplateRepository,
+        secret: KubernetesSecretRepository,
+        configmap: KubernetesConfigMapRepository,
     ):
         self.namespace = namespace
         self.deployment = deployment

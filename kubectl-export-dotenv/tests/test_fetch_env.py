@@ -1,9 +1,9 @@
 import base64
+from types import SimpleNamespace
 
 import pytest
 from export_dotenv.use_case import fetch_environment_values
 from kubek.kube import ResolvedKubeConfig
-from kubek.kube.api import KubeFacade
 from kubek.kube.dto.configmap import ConfigMap, ConfigMapMetadata
 from kubek.kube.dto.container import (
     ConfigMapKeyRef,
@@ -187,13 +187,11 @@ def build_workflow():
 
 @pytest.fixture
 def api():
-    return KubeFacade(
+    return SimpleNamespace(
         deployment=InMemoryRepository([build_deployment()]),
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
         configmap=InMemoryRepository([build_configmap()]),
-        service=InMemoryRepository([]),
-        namespace=InMemoryRepository([]),
         current_config=ResolvedKubeConfig(context="test", namespace=NS),
     )
 

@@ -1,7 +1,8 @@
 import itertools
 from collections.abc import Iterable
 
-from kubek.kube import KubeFacade, Service
+from kubek.kube import Service
+from portfwd.application.ports import KubeGateway
 from portfwd.domain.config import GroupSpec
 from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
@@ -27,7 +28,7 @@ def _convert_services_to_specs(
 
 
 def fetch_services_for_namespaces(
-    namespaces: list[str], api: KubeFacade
+    namespaces: list[str], api: KubeGateway
 ) -> list[ServicePortForwardSpec]:
     raw = itertools.chain.from_iterable(
         api.service.list(namespace=ns) for ns in namespaces

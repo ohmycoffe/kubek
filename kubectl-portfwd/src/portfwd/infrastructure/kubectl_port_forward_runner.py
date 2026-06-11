@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from os import PathLike
 
-from kubek.kube import KubeFacade
+from kubek.kube.config import ResolvedKubeConfig
 
 from portfwd.application.port_forwarding.events import (
     PortForwardEvent,
@@ -89,8 +89,8 @@ async def start_port_forward(
 
 
 class KubectlPortForwardRunner(PortForwardRunner):
-    def __init__(self, api: KubeFacade) -> None:
-        self._api = api
+    def __init__(self, config: ResolvedKubeConfig) -> None:
+        self._config = config
 
     def stream(
         self, plans: list[ServicePortForwardPlan]
@@ -115,8 +115,8 @@ class KubectlPortForwardRunner(PortForwardRunner):
                     service=plan.target.name,
                     local_port=plan.local_port,
                     remote_port=plan.remote_port,
-                    context=self._api.current_config.context,
-                    kubeconfig=self._api.current_config.kubeconfig,
+                    context=self._config.context,
+                    kubeconfig=self._config.kubeconfig,
                 )
                 processes.append(process)
                 event_queue.put_nowait(

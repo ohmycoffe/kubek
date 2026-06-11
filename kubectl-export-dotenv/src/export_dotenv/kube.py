@@ -4,13 +4,21 @@ import logging
 import re
 from collections.abc import Callable
 from functools import lru_cache
+from typing import Protocol
 
 from kubek.kube import (
     ConfigMap,
     Container,
-    KubeFacade,
     Secret,
     WorkflowTemplateType,
+)
+from kubek.kube.config import ResolvedKubeConfig
+from kubek.kube.contracts.repositories import (
+    ConfigMapRepository,
+    DeploymentRepository,
+    NamespaceRepository,
+    SecretRepository,
+    WorkflowTemplateRepository,
 )
 
 from export_dotenv.errors import (
@@ -20,6 +28,26 @@ from export_dotenv.errors import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class KubeGateway(Protocol):
+    @property
+    def namespace(self) -> NamespaceRepository: ...
+
+    @property
+    def deployment(self) -> DeploymentRepository: ...
+
+    @property
+    def workflowtemplate(self) -> WorkflowTemplateRepository: ...
+
+    @property
+    def secret(self) -> SecretRepository: ...
+
+    @property
+    def configmap(self) -> ConfigMapRepository: ...
+
+    @property
+    def current_config(self) -> ResolvedKubeConfig: ...
 
 
 def _clean_key(key: str) -> str:
@@ -36,7 +64,7 @@ def _clean_key(key: str) -> str:
     return key
 
 
-def get_deployment_envs(name: str, api: KubeFacade) -> dict[str, str]:
+def get_deployment_envs(name: str, api: KubeGateway) -> dict[str, str]:
     ns = api.current_config.namespace
     deployment = api.deployment.get(name=name, namespace=ns)
     if not deployment:
@@ -51,7 +79,7 @@ def get_deployment_envs(name: str, api: KubeFacade) -> dict[str, str]:
     return extract_envs_from_container(api=api, container=container)
 
 
-def get_workflowtemplate_envs(name: str, api: KubeFacade) -> dict[str, str]:
+def get_workflowtemplate_envs(name: str, api: KubeGateway) -> dict[str, str]:
     ns = api.current_config.namespace
     workflowtemplate = api.workflowtemplate.get(name=name, namespace=ns)
     if not workflowtemplate:
@@ -81,7 +109,7 @@ def get_workflowtemplate_envs(name: str, api: KubeFacade) -> dict[str, str]:
 
 
 def extract_envs_from_container(
-    api: KubeFacade,
+    api: KubeGateway,
     container: Container,
     fallback_keys: dict[str, str] | None = None,
 ) -> dict[str, str]:
