@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from kubek.kube.dto.service import Service
-from portfwd.application.ports import PortForwardRunner
+from portfwd.application.ports import PortForwardEventStream
 from portfwd.application.use_case import PortForwardUseCase
 from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import UnknownGroupError
@@ -19,7 +19,7 @@ async def _empty_event_stream():
     yield  # pragma: no cover
 
 
-class SpyRunner(PortForwardRunner):
+class SpyRunner(PortForwardEventStream):
     """Records every call to stream() without executing real kubectl."""
 
     def __init__(self) -> None:
@@ -61,7 +61,7 @@ def test_stream_group_resolves_group_and_passes_converted_plans_to_runner():
     group = GroupSpec(name="backend", services=[defaults])
     config = PortFwdConfig(groups=[group])
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=config, runner=runner, api=_make_api())
+    uc = PortForwardUseCase(config=config, streamer=runner, api=_make_api())
 
     async def consume() -> None:
         async for _ in uc.stream_group("backend"):
@@ -82,7 +82,7 @@ def test_stream_group_raises_unknown_group_when_group_is_missing():
     """stream_group propagates UnknownGroupError when the group name is not in config."""
     config = PortFwdConfig(groups=[GroupSpec(name="alpha", services=[])])
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=config, runner=runner, api=_make_api())
+    uc = PortForwardUseCase(config=config, streamer=runner, api=_make_api())
 
     async def consume() -> None:
         async for _ in uc.stream_group("missing"):
@@ -104,7 +104,7 @@ def test_stream_group_with_multiple_services_passes_all_plans():
     ]
     config = PortFwdConfig(groups=[GroupSpec(name="all", services=services)])
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=config, runner=runner, api=_make_api())
+    uc = PortForwardUseCase(config=config, streamer=runner, api=_make_api())
 
     async def consume() -> None:
         async for _ in uc.stream_group("all"):
@@ -128,7 +128,7 @@ def test_stream_specs_builds_plan_from_spec_and_passes_to_runner():
         local_port=9000,
     )
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=PortFwdConfig(), runner=runner, api=api)
+    uc = PortForwardUseCase(config=PortFwdConfig(), streamer=runner, api=api)
 
     async def consume() -> None:
         async for _ in uc.stream_specs([spec]):
@@ -147,7 +147,7 @@ def test_stream_specs_builds_plan_from_spec_and_passes_to_runner():
 def test_stream_specs_passes_empty_list_to_runner_when_no_specs():
     """stream_specs passes an empty plan list to the runner when given no specs."""
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=PortFwdConfig(), runner=runner, api=_make_api())
+    uc = PortForwardUseCase(config=PortFwdConfig(), streamer=runner, api=_make_api())
 
     async def consume() -> None:
         async for _ in uc.stream_specs([]):

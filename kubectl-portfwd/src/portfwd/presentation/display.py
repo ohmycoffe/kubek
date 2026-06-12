@@ -12,8 +12,8 @@ from rich.text import Text
 from portfwd.application.port_forwarding.events import (
     PortForwardEvent,
     PortForwardEventType,
-    PortForwardProcessSnapshot,
 )
+from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 
 
 class _Status(StrEnum):

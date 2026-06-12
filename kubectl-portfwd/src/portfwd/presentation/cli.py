@@ -12,6 +12,7 @@ from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from pydantic import ValidationError
 
 from portfwd.application.port_forwarding.events import PortForwardEvent
+from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
 from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
@@ -26,7 +27,9 @@ from portfwd.domain.errors import (
 )
 from portfwd.domain.models import ServicePortForwardSpec
 from portfwd.infrastructure.config_loader import DEFAULT_CONFIG_PATH, load_config
-from portfwd.infrastructure.kubectl_port_forward_runner import KubectlPortForwardRunner
+from portfwd.infrastructure.kubectl_port_forward_launcher import (
+    KubectlPortForwardLauncher,
+)
 from portfwd.presentation.display import PortForwardLiveDisplay
 from portfwd.presentation.prompts import (
     ask_for_group,
@@ -121,13 +124,19 @@ def port_forward(
         api = KubeFacade.from_config(config=kube_config)
         _print_kubeconfig(out, api.current_config)
 
-        cfg = _load_config(config)
+        portfwd_config = _load_config(config)
 
         display = PortForwardLiveDisplay(context=api.current_config.context)
-        port_forward_runner = KubectlPortForwardRunner(config=api.current_config)
-        use_case = PortForwardUseCase(config=cfg, runner=port_forward_runner, api=api)
+
+        use_case = PortForwardUseCase(
+            api=api,
+            config=portfwd_config,
+            streamer=PortForwardEventStreamer(
+                launcher=KubectlPortForwardLauncher(config=api.current_config)
+            ),
+        )
         run_port_forwards_from_cli(
-            cfg=cfg,
+            cfg=portfwd_config,
             group=group,
             service=service,
             api=api,

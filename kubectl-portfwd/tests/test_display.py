@@ -1,8 +1,8 @@
 from portfwd.application.port_forwarding.events import (
     PortForwardEvent,
     PortForwardEventType,
-    PortForwardProcessSnapshot,
 )
+from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.presentation.display import PortForwardLiveDisplay, _PortForwardStatusTable
 
 

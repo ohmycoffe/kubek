@@ -15,7 +15,7 @@ class ServicePortModel(BaseModel):
     protocol: str
 
 
-class Spec(BaseModel):
+class ServiceSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     ports: list[ServicePortModel] = Field(default_factory=list)
@@ -25,7 +25,7 @@ class Service(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     metadata: ServiceMetadata
-    spec: Spec
+    spec: ServiceSpec
 
 
 class ServiceList(BaseModel):

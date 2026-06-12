@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 
 from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.application.port_forwarding.planner import build_port_forward_plan
-from portfwd.application.ports import KubeGateway, PortForwardRunner
+from portfwd.application.ports import KubeGateway, PortForwardEventStream
 from portfwd.domain.config import GroupSpec, PortFwdConfig
 from portfwd.domain.models import (
     ServicePortForwardSpec,
@@ -14,12 +14,12 @@ from portfwd.domain.models import (
 class PortForwardUseCase:
     def __init__(
         self,
-        config: PortFwdConfig,
-        runner: PortForwardRunner,
         api: KubeGateway,
+        config: PortFwdConfig,
+        streamer: PortForwardEventStream,
     ) -> None:
         self._config = config
-        self._runner = runner
+        self._streamer = streamer
         self._api = api
 
     @property
@@ -34,12 +34,12 @@ class PortForwardUseCase:
             build_port_forward_plan(spec=spec, config=self._config, api=self._api)
             for spec in specs
         ]
-        async for event in self._runner.stream(plans):
+        async for event in self._streamer.stream(plans):
             yield event
 
     async def stream_group(self, group_name: str) -> AsyncIterator[PortForwardEvent]:
         """Run a configured service group and yield port-forward lifecycle events."""
         group = self._config.get_group(group_name)
         plans = [s.to_plan() for s in group.services]
-        async for event in self._runner.stream(plans):
+        async for event in self._streamer.stream(plans):
             yield event

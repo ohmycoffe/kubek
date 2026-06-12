@@ -7,13 +7,13 @@ from kubek.kube.dto.service import Service
 from portfwd.application.port_forwarding.events import (
     PortForwardEvent,
     PortForwardEventType,
-    PortForwardProcessSnapshot,
 )
 from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
     resolve_local_port,
     resolve_remote_port,
 )
+from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
@@ -22,7 +22,7 @@ from portfwd.domain.errors import (
     ServiceNotFoundError,
 )
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
-from portfwd.infrastructure.kubectl_port_forward_runner import PortForwardProcess
+from portfwd.infrastructure.kubectl_port_forward_launcher import PortForwardProcess
 
 
 def _make_process(

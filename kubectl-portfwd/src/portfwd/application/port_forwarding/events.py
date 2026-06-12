@@ -1,15 +1,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 
-
-@dataclass(frozen=True)
-class PortForwardProcessSnapshot:
-    namespace: str
-    service_name: str
-    remote_port: int
-    local_port: int
-    pid: int
-    returncode: int | None
+from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 
 
 class PortForwardEventType(StrEnum):
