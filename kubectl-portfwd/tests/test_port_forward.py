@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,6 +15,7 @@ from portfwd.application.port_forwarding.planner import (
     resolve_remote_port,
 )
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
+from portfwd.application.ports import KubeGateway
 from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
@@ -223,7 +225,7 @@ def test_resolve_remote_port_raises_when_multiple_ports():
         resolve_remote_port(service)
 
 
-def _make_api(namespace=None, services=None):
+def _make_api(namespace=None, services=None) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
 
@@ -231,10 +233,11 @@ def _make_api(namespace=None, services=None):
         def get(self, name, namespace=None):
             return services_map.get((namespace, name))
 
-    return SimpleNamespace(
+    res = SimpleNamespace(
         current_config=SimpleNamespace(namespace=namespace, context=None),
         service=FakeServiceRepo(),
     )
+    return cast(KubeGateway, res)
 
 
 def test_build_port_forward_plan_uses_spec_ports_directly():
