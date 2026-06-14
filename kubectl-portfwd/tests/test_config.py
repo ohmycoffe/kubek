@@ -1,10 +1,10 @@
 from pathlib import Path
 
-import portfwd.infrastructure.config_loader as config_module
 import pytest
 from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError
 from portfwd.domain.models import ServicePortForwardPlan
+from portfwd.infrastructure import config_loader
 from portfwd.infrastructure.config_loader import (
     get_default_service,
     load_config,
@@ -56,7 +56,7 @@ def test_should_load_config():
 
 def test_load_config_default_missing_returns_empty(tmp_path, monkeypatch):
     """Returns a default Config when the default path does not exist."""
-    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", tmp_path / "missing")
+    monkeypatch.setattr(config_loader, "DEFAULT_CONFIG_PATH", tmp_path / "missing")
     assert load_config(None) == PortFwdConfig()
 
 

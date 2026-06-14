@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from kubek.kube.dto.service import Service
-from portfwd.application.ports import PortForwardEventStream
+from portfwd.application.ports import KubeGateway, PortForwardEventStream
 from portfwd.application.use_case import PortForwardUseCase
 from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import UnknownGroupError
@@ -30,7 +30,9 @@ class SpyRunner(PortForwardEventStream):
         return _empty_event_stream()
 
 
-def _make_api(namespace: str | None = "ns", services: dict | None = None) -> object:
+def _make_api(
+    namespace: str | None = "ns", services: dict | None = None
+) -> KubeGateway:
     """Minimal fake KubeFacade covering only attributes used by PortForwardUseCase."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
 
@@ -41,7 +43,7 @@ def _make_api(namespace: str | None = "ns", services: dict | None = None) -> obj
     return SimpleNamespace(
         current_config=SimpleNamespace(namespace=namespace, context=None),
         service=FakeServiceRepo(),
-    )
+    )  # type: ignore
 
 
 def _make_service(name: str, namespace: str, ports: list[int]) -> Service:

@@ -1,8 +1,10 @@
 import json
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from kubek.kube.dto import Service, ServiceList
+from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import (
     _convert_services_to_specs as _convert_to_spec,
 )
@@ -106,7 +108,7 @@ def test_fetch_services_for_namespaces_combines_services_from_each_namespace():
         def list(self, namespace: str) -> list[Service]:
             return {"ns-1": [svc_a], "ns-2": [svc_b]}.get(namespace, [])
 
-    api = SimpleNamespace(service=FakeServiceRepo())
+    api = cast(KubeGateway, SimpleNamespace(service=FakeServiceRepo()))
     specs = fetch_services_for_namespaces(["ns-1", "ns-2"], api)
 
     keys = [(s.target.namespace, s.target.name, s.remote_port) for s in specs]
@@ -121,5 +123,5 @@ def test_fetch_services_for_namespaces_returns_empty_for_empty_namespaces():
         def list(self, namespace: str) -> list[Service]:
             return []
 
-    api = SimpleNamespace(service=FakeServiceRepo())
+    api = cast(KubeGateway, SimpleNamespace(service=FakeServiceRepo()))
     assert fetch_services_for_namespaces([], api) == []

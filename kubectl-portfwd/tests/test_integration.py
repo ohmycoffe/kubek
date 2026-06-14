@@ -1,7 +1,6 @@
-from contextlib import nullcontext
 from types import SimpleNamespace
 from typing import cast
-from unittest.mock import AsyncMock, Mock, call
+from unittest.mock import AsyncMock, Mock
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
@@ -12,10 +11,6 @@ from kubek.kube.dto.service import (
     ServiceSpec,
 )
 from kubek.term.output import create_output
-from portfwd.application.port_forwarding.events import (
-    PortForwardEvent,
-    PortForwardEventType,
-)
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
 from portfwd.application.ports import (
@@ -24,8 +19,9 @@ from portfwd.application.ports import (
     PortForwardSession,
 )
 from portfwd.application.use_case import PortForwardUseCase
-from portfwd.domain.config import PortFwdConfig
+from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
 from portfwd.presentation.cli import run_port_forwards_from_cli
+from portfwd.presentation.display import PortForwardLiveDisplay
 
 
 class InMemoryRepository:
@@ -58,11 +54,11 @@ def build_services():
     return [
         Service(
             metadata=ServiceMetadata(name="svc-foo", namespace="ns-kubectl-portfwd"),
-            spec=ServiceSpec(ports=[ServicePortModel(port=80, protocol="TCP")]),
+            spec=ServiceSpec(ports=[ServicePortModel(port=30, protocol="TCP")]),
         ),
         Service(
             metadata=ServiceMetadata(name="svc-bar", namespace="ns-kubectl-portfwd"),
-            spec=ServiceSpec(ports=[ServicePortModel(port=80, protocol="TCP")]),
+            spec=ServiceSpec(ports=[ServicePortModel(port=40, protocol="TCP")]),
         ),
     ]
 
@@ -95,28 +91,64 @@ class FakePortForwardSession(PortForwardSession):
 
 
 class FakePortForwardLauncher(PortForwardLauncher):
+    def __init__(self, responses: list[dict]) -> None:
+        self.responses = iter(responses)
+
     async def launch(self, plan) -> PortForwardSession:
+        kwargs = next(self.responses)
+
         return FakePortForwardSession(
             snapshot=PortForwardProcessSnapshot(
                 namespace=plan.target.namespace,
                 service_name=plan.target.name,
                 remote_port=plan.remote_port,
                 local_port=plan.local_port,
-                pid=12345,
-                returncode=1,
+                **kwargs,
             )
         )
 
 
+def extract_cells(
+    display: PortForwardLiveDisplay,
+) -> list[list]:
+    table = display._table.render()
+    return [list(col.cells) for col in table.columns]
+
+
 def test_run_from_spec():
-    api = create_fake_api()
-    display_mock = Mock()
-    display_mock.live.return_value = nullcontext()
-    cfg = PortFwdConfig(
-        groups=[],
-        defaults=[],
+    svc1, svc2 = build_services()
+    expected_snapshot_1 = PortForwardProcessSnapshot(
+        namespace=svc1.metadata.namespace,
+        service_name=svc1.metadata.name,
+        remote_port=svc1.spec.ports[0].port,
+        local_port=3030,
+        pid=123,
+        returncode=1,
     )
-    launcher = FakePortForwardLauncher()
+    expected_snapshot_2 = PortForwardProcessSnapshot(
+        namespace=svc2.metadata.namespace,
+        service_name=svc2.metadata.name,
+        remote_port=svc2.spec.ports[0].port,
+        local_port=4040,
+        pid=456,
+        returncode=10,
+    )
+
+    api = create_fake_api()
+    display = PortForwardLiveDisplay(context=api.current_config.context)
+    cfg = PortFwdConfig()
+    launcher = FakePortForwardLauncher(
+        responses=[
+            {
+                "pid": expected_snapshot_1.pid,
+                "returncode": expected_snapshot_1.returncode,
+            },
+            {
+                "pid": expected_snapshot_2.pid,
+                "returncode": expected_snapshot_2.returncode,
+            },
+        ]
+    )
     use_case = PortForwardUseCase(
         config=cfg,
         streamer=PortForwardEventStreamer(launcher=launcher),
@@ -127,52 +159,90 @@ def test_run_from_spec():
         cfg=cfg,
         group=None,
         service=[
-            "ns-kubectl-portfwd/svc-foo:80::3030",
-            "ns-kubectl-portfwd/svc-bar:80::4040",
+            f"{expected_snapshot_1.namespace}/{expected_snapshot_1.service_name}:{expected_snapshot_1.remote_port}::{expected_snapshot_1.local_port}",
+            f"{expected_snapshot_2.namespace}/{expected_snapshot_2.service_name}:{expected_snapshot_2.remote_port}::{expected_snapshot_2.local_port}",
         ],
         api=api,
         out=create_output(),
         use_case=use_case,
-        display=display_mock,
+        display=display,
     )
 
-    expected_snapshot_1 = PortForwardProcessSnapshot(
-        namespace="ns-kubectl-portfwd",
-        service_name="svc-foo",
-        remote_port=80,
-        local_port=3030,
-        pid=12345,
-        returncode=1,
-    )
-    expected_snapshot_2 = PortForwardProcessSnapshot(
-        namespace="ns-kubectl-portfwd",
-        service_name="svc-bar",
-        remote_port=80,
-        local_port=4040,
-        pid=12345,
-        returncode=1,
-    )
-
-    expected_events = [
-        PortForwardEvent(
-            type=PortForwardEventType.STARTED,
-            snapshot=expected_snapshot_1,
-        ),
-        PortForwardEvent(
-            type=PortForwardEventType.DIED,
-            snapshot=expected_snapshot_1,
-        ),
-        PortForwardEvent(
-            type=PortForwardEventType.STARTED,
-            snapshot=expected_snapshot_2,
-        ),
-        PortForwardEvent(
-            type=PortForwardEventType.DIED,
-            snapshot=expected_snapshot_2,
-        ),
+    cells = extract_cells(display)
+    assert cells == [
+        [expected_snapshot_1.namespace, expected_snapshot_2.namespace],
+        [expected_snapshot_1.service_name, expected_snapshot_2.service_name],
+        [f":{expected_snapshot_1.remote_port}", f":{expected_snapshot_2.remote_port}"],
+        [
+            f"localhost:{expected_snapshot_1.local_port}",
+            f"localhost:{expected_snapshot_2.local_port}",
+        ],
+        [str(expected_snapshot_1.pid), str(expected_snapshot_2.pid)],
+        [
+            f"[red]✗ died (exit {expected_snapshot_1.returncode})[/red]",
+            f"[red]✗ died (exit {expected_snapshot_2.returncode})[/red]",
+        ],
     ]
-    assert display_mock.apply.call_count == len(expected_events)
-    display_mock.apply.assert_has_calls(
-        [call(event) for event in expected_events],
-        any_order=True,
+
+
+def test_run_from_group():
+    svc1, _ = build_services()
+    expected_snapshot_1 = PortForwardProcessSnapshot(
+        namespace=svc1.metadata.namespace,
+        service_name=svc1.metadata.name,
+        remote_port=svc1.spec.ports[0].port,
+        local_port=3030,
+        pid=123,
+        returncode=1,
     )
+
+    api = create_fake_api()
+    display = PortForwardLiveDisplay(context=api.current_config.context)
+    cfg = PortFwdConfig(
+        groups=[
+            GroupSpec(
+                name="test-group",
+                services=[
+                    ServicePortForwardDefaults(
+                        name=svc1.metadata.name,
+                        namespace=svc1.metadata.namespace,
+                        remote_port=svc1.spec.ports[0].port,
+                        local_port=3030,
+                    ),
+                ],
+            )
+        ]
+    )
+    launcher = FakePortForwardLauncher(
+        responses=[
+            {
+                "pid": expected_snapshot_1.pid,
+                "returncode": expected_snapshot_1.returncode,
+            },
+        ]
+    )
+    use_case = PortForwardUseCase(
+        config=cfg,
+        streamer=PortForwardEventStreamer(launcher=launcher),
+        api=api,
+    )
+
+    run_port_forwards_from_cli(
+        cfg=cfg,
+        group="test-group",
+        service=None,
+        api=api,
+        out=create_output(),
+        use_case=use_case,
+        display=display,
+    )
+
+    cells = extract_cells(display)
+    assert cells == [
+        [expected_snapshot_1.namespace],
+        [expected_snapshot_1.service_name],
+        [f":{expected_snapshot_1.remote_port}"],
+        [f"localhost:{expected_snapshot_1.local_port}"],
+        [str(expected_snapshot_1.pid)],
+        [f"[red]✗ died (exit {expected_snapshot_1.returncode})[/red]"],
+    ]

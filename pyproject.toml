@@ -56,6 +56,8 @@ packages = [
 ruff = "^0.12.8"
 pytest = "^9.0.3"
 pre-commit = "^4.6.0"
+pytest-asyncio = "^1.4.0"
+pytest-cov = "^7.1.0"
 
 [tool.ruff]
 line-length = 88

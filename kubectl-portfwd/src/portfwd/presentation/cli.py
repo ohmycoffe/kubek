@@ -202,6 +202,9 @@ def run_port_forwards_from_cli(
     - `--group` runs that group.
     - Otherwise prompt the user to pick a group (or 'custom' interactive flow).
     """
+    if service is not None and group is not None:
+        raise ValueError("'group' and 'service' cannot both be provided")
+
     if service is not None:
         specs = [parse_spec(value) for value in service]
         asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
