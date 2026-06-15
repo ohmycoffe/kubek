@@ -71,7 +71,7 @@ def create_fake_api() -> KubeGateway:
             context="test", namespace="ns-kubectl-portfwd"
         ),
     )
-    return res  # type: ignore
+    return cast(KubeGateway, res)
 
 
 class FakePortForwardSession(PortForwardSession):

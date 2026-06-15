@@ -2,6 +2,17 @@ import base64
 from types import SimpleNamespace
 
 import pytest
+from export_dotenv.errors import (
+    AmbiguousResourceError,
+    ResourceNotFoundError,
+    UnsupportedFormatError,
+    UnsupportedKindError,
+)
+from export_dotenv.kube import (
+    extract_envs_from_container,
+    get_deployment_envs,
+    get_workflowtemplate_envs,
+)
 from export_dotenv.use_case import fetch_environment_values
 from kubek.kube import ResolvedKubeConfig
 from kubek.kube.dto.configmap import ConfigMap, ConfigMapMetadata
@@ -27,7 +38,12 @@ from kubek.kube.dto.deployment import (
 from kubek.kube.dto.kind import Kind
 from kubek.kube.dto.secret import Secret as SecretDTO
 from kubek.kube.dto.secret import SecretMetadata
-from kubek.kube.dto.workflowtemplate.template import ContainerTemplate
+from kubek.kube.dto.workflowtemplate.template import (
+    ContainerTemplate,
+    DagTemplate,
+    Inputs,
+    Parameters,
+)
 from kubek.kube.dto.workflowtemplate.workflowtemplate import (
     Metadata as WorkflowMetadata,
 )
@@ -48,7 +64,8 @@ class InMemoryRepository:
         self.items = items
 
     def list(self, namespace: str | None = None):
-        assert namespace is not None, "namespace must be provided"
+        if namespace is None:
+            return self.items
         return [x for x in self.items if x.metadata.namespace == namespace]
 
     def get(self, name: str, namespace: str | None = None):
@@ -248,3 +265,201 @@ def test_deployment_env_vars(api):
         "API_VERSION": "v2",
         "ENABLE_TRACING": "true",
     }
+
+
+def test_deployment_not_found_raises(api):
+    with pytest.raises(ResourceNotFoundError, match="Deployment missing"):
+        get_deployment_envs(name="missing", api=api)
+
+
+def test_deployment_with_multiple_containers_raises(api):
+    api.deployment = InMemoryRepository(
+        [
+            DeploymentDTO(
+                metadata=DeploymentMetadata(name="api-service", namespace=NS),
+                spec=DeploymentSpec(
+                    template=Template(
+                        spec=TemplateSpec(containers=[Container(), Container()])
+                    )
+                ),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_deployment_envs(name="api-service", api=api)
+
+
+def test_missing_configmap_in_env_from_is_skipped(api):
+    container = Container(
+        env_from=[EnvFromSource(config_map_ref=ConfigMapRef(name="missing-config"))],
+    )
+
+    assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_missing_secret_in_env_from_is_skipped(api):
+    container = Container(
+        env_from=[EnvFromSource(secret_ref=SecretRef(name="missing-secret"))],
+    )
+
+    assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_unsupported_env_from_raises(api):
+    container = Container(env_from=[EnvFromSource()])
+
+    with pytest.raises(UnsupportedFormatError, match="Unknown envFrom"):
+        extract_envs_from_container(api=api, container=container)
+
+
+def test_missing_configmap_key_sets_empty_value(api):
+    container = Container(
+        env=[
+            EnvVar(
+                name="MISSING_KEY",
+                value_from=EnvValueFrom(
+                    config_map_key_ref=ConfigMapKeyRef(
+                        name="app-config",
+                        key="NOT_IN_CONFIGMAP",
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = extract_envs_from_container(api=api, container=container)
+    assert result == {"MISSING_KEY": ""}
+
+
+def test_missing_secret_key_sets_empty_value(api):
+    container = Container(
+        env=[
+            EnvVar(
+                name="MISSING_KEY",
+                value_from=EnvValueFrom(
+                    secret_key_ref=SecretKeyRef(
+                        name="app-secrets",
+                        key="NOT_IN_SECRET",
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = extract_envs_from_container(api=api, container=container)
+    assert result == {"MISSING_KEY": ""}
+
+
+def test_env_with_unknown_value_from_is_skipped(api):
+    container = Container(
+        env=[EnvVar(name="UNKNOWN", value_from=EnvValueFrom())],
+    )
+
+    assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_env_with_no_value_or_value_from_is_skipped(api):
+    container = Container(env=[EnvVar(name="EMPTY")])
+
+    assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_workflowtemplate_not_found_raises(api):
+    with pytest.raises(ResourceNotFoundError, match="WorkflowTemplate missing"):
+        get_workflowtemplate_envs(name="missing", api=api)
+
+
+def test_workflowtemplate_skips_non_container_templates(api):
+    workflow = WorkflowTemplate(
+        metadata=WorkflowMetadata(name="mixed", namespace=NS),
+        spec=WorkflowSpec(
+            templates=[
+                DagTemplate(name="dag-step"),
+                ContainerTemplate(
+                    name="main",
+                    container=Container(
+                        env=[EnvVar(name="ONLY", value="from-container")],
+                    ),
+                ),
+            ]
+        ),
+    )
+    api.workflowtemplate = InMemoryRepository([workflow])
+
+    result = get_workflowtemplate_envs(name="mixed", api=api)
+    assert result == {"ONLY": "from-container"}
+
+
+def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
+    workflow = WorkflowTemplate(
+        metadata=WorkflowMetadata(name="with-defaults", namespace=NS),
+        spec=WorkflowSpec(
+            templates=[
+                ContainerTemplate(
+                    name="main",
+                    inputs=Inputs(
+                        parameters=[Parameters(name="batch_size", default="100")]
+                    ),
+                    container=Container(
+                        env=[
+                            EnvVar(
+                                name="BATCH",
+                                value_from=EnvValueFrom(
+                                    config_map_key_ref=ConfigMapKeyRef(
+                                        name="app-config",
+                                        key="{{inputs.parameters.batch_size}}",
+                                    )
+                                ),
+                            )
+                        ],
+                    ),
+                )
+            ]
+        ),
+    )
+    api.workflowtemplate = InMemoryRepository([workflow])
+
+    result = get_workflowtemplate_envs(name="with-defaults", api=api)
+    assert result == {"BATCH": ""}
+
+
+def test_missing_configmap_for_value_from_is_skipped(api):
+    container = Container(
+        env=[
+            EnvVar(
+                name="MISSING_CM",
+                value_from=EnvValueFrom(
+                    config_map_key_ref=ConfigMapKeyRef(
+                        name="missing-config",
+                        key="ANY",
+                    )
+                ),
+            )
+        ]
+    )
+
+    assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_missing_secret_for_value_from_is_skipped(api):
+    container = Container(
+        env=[
+            EnvVar(
+                name="MISSING_SECRET",
+                value_from=EnvValueFrom(
+                    secret_key_ref=SecretKeyRef(
+                        name="missing-secret",
+                        key="ANY",
+                    )
+                ),
+            )
+        ]
+    )
+
+    assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_fetch_environment_values_raises_for_unsupported_kind(api):
+    with pytest.raises(UnsupportedKindError, match="Unsupported kind"):
+        fetch_environment_values(kind=Kind.SERVICE, name="any", api=api)

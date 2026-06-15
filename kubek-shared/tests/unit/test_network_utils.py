@@ -1,6 +1,7 @@
 import socket
 
 from kubek.net.port import (
+    find_free_port,
     get_deterministic_port,
     is_port_free,
 )
@@ -42,4 +43,11 @@ def test_is_port_free_returns_true_when_port_is_released():
         s.bind(("", 0))
         port = s.getsockname()[1]
     # socket is closed — port should be free now
+    assert is_port_free(port) is True
+
+
+def test_find_free_port_returns_a_bindable_port():
+    port = find_free_port()
+
+    assert port > 0
     assert is_port_free(port) is True

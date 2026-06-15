@@ -60,6 +60,30 @@ def test_load_config_default_missing_returns_empty(tmp_path, monkeypatch):
     assert load_config(None) == PortFwdConfig()
 
 
+def test_load_config_default_invalid_yaml_returns_empty(tmp_path, monkeypatch):
+    """Returns an empty config when the default path contains invalid YAML."""
+    bad = tmp_path / "config.yaml"
+    bad.write_text(": : :\n")
+    monkeypatch.setattr(config_loader, "DEFAULT_CONFIG_PATH", bad)
+    assert load_config(None) == PortFwdConfig()
+
+
+def test_load_config_default_non_mapping_returns_empty(tmp_path, monkeypatch):
+    """Returns an empty config when the default path root is not a mapping."""
+    bad = tmp_path / "config.yaml"
+    bad.write_text("- item\n")
+    monkeypatch.setattr(config_loader, "DEFAULT_CONFIG_PATH", bad)
+    assert load_config(None) == PortFwdConfig()
+
+
+def test_load_config_default_invalid_schema_returns_empty(tmp_path, monkeypatch):
+    """Returns an empty config when the default path fails validation."""
+    bad = tmp_path / "config.yaml"
+    bad.write_text("unknown_key: oops\n")
+    monkeypatch.setattr(config_loader, "DEFAULT_CONFIG_PATH", bad)
+    assert load_config(None) == PortFwdConfig()
+
+
 def test_load_config_explicit_missing_raises(tmp_path):
     """Raises FileNotFoundError when an explicit config path does not exist."""
     with pytest.raises(FileNotFoundError):

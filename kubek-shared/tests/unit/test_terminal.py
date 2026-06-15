@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from kubek.term.formatter import MessageFormatter
-from kubek.term.output import CLIOutput
+from kubek.term.output import CLIOutput, create_output
 from kubek.term.style import DEFAULT_MESSAGE_STYLES
 from kubek.term.verbosity import Verbosity, VerbosityLevel
 from rich.console import Console
@@ -164,3 +164,27 @@ def test_show_tracebacks_only_for_diagnostic(
     expected: bool,
 ) -> None:
     assert Verbosity.from_count(count).show_tracebacks is expected
+
+
+def test_progress_uses_console_status_when_allowed() -> None:
+    output, console = _make_output(0)
+
+    with output.progress("working"):
+        pass
+
+    console.status.assert_called_once()
+
+
+def test_progress_skips_status_when_verbosity_too_low() -> None:
+    output, console = _make_output(0)
+
+    with output.progress("working", verbosity=VerbosityLevel.VERBOSE):
+        pass
+
+    console.status.assert_not_called()
+
+
+def test_create_output_returns_cli_output() -> None:
+    output = create_output(verbosity_count=1)
+
+    assert isinstance(output, CLIOutput)

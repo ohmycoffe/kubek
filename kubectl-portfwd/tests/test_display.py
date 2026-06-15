@@ -58,6 +58,15 @@ def test_apply_started_tracks_a_new_row():
     assert display._table.render().row_count == 1
 
 
+def test_apply_started_shows_live_status():
+    """apply(STARTED) renders the row as live."""
+    display = PortForwardLiveDisplay(context=None)
+    display.apply(_make_event(PortForwardEventType.STARTED, "svc"))
+
+    cells = list(display._table.render().columns[-1].cells)
+    assert "live" in str(cells[0])
+
+
 def test_apply_started_multiple_times_tracks_all_rows():
     """Each STARTED event adds a distinct row."""
     display = PortForwardLiveDisplay(context=None)
