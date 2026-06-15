@@ -1,6 +1,6 @@
 [project]
 name = "kubek"
-version = "0.6.0"
+version = "0.6.1"
 description = "kubectl extensions"
 readme = "README.md"
 authors = [
@@ -56,6 +56,8 @@ packages = [
 ruff = "^0.12.8"
 pytest = "^9.0.3"
 pre-commit = "^4.6.0"
+pytest-asyncio = "^1.4.0"
+pytest-cov = "^7.1.0"
 
 [tool.ruff]
 line-length = 88
@@ -64,6 +66,11 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "raise NotImplementedError",
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

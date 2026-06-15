@@ -18,6 +18,7 @@ from export_dotenv.errors import (
     NoResourcesFoundError,
 )
 from export_dotenv.formatting import ExportFormat, format_environment_values
+from export_dotenv.kube import KubeGateway
 from export_dotenv.prompts import ask_for_kind, ask_for_resource
 from export_dotenv.use_case import fetch_environment_values
 
@@ -148,7 +149,7 @@ def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
 def _select_resource_name(
     out: CLIOutput,
     kind: Kind,
-    api: KubeFacade,
+    api: KubeGateway,
 ) -> str:
     with out.progress(
         f"Fetching available {kind.value}s in {api.current_config.namespace}…"

@@ -1,125 +1,180 @@
-import json
 from types import SimpleNamespace
+from typing import cast
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from kubek.kube.dto import Service, ServiceList
-from portfwd.application.queries import (
-    _convert_services_to_specs as _convert_to_spec,
+from kubek.kube.config import ResolvedKubeConfig
+from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
+from kubek.kube.dto.service import (
+    Service,
+    ServiceMetadata,
+    ServicePortModel,
+    ServiceSpec,
 )
-from portfwd.application.queries import (
-    _resolve_group,
-    fetch_services_for_namespaces,
+from kubek.term.output import create_output
+from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
+from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
+from portfwd.application.ports import (
+    KubeGateway,
+    PortForwardLauncher,
+    PortForwardSession,
 )
-from portfwd.domain.config import GroupSpec
-from portfwd.domain.errors import NoGroupsDefinedError, UnknownGroupError
-from portfwd.domain.models import ServicePortForwardSpec
+from portfwd.application.use_case import PortForwardUseCase
+from portfwd.domain.config import PortFwdConfig, SpecialGroups
+from portfwd.domain.models import (
+    NamespacedServiceNameSpec,
+    ServicePortForwardSpec,
+)
+from portfwd.presentation.cli import run_port_forwards_from_cli
+from portfwd.presentation.display import PortForwardLiveDisplay
 
 
-def _service(name: str, namespace: str, ports: list[int]) -> Service:
-    raw = {
-        "metadata": {"name": name, "namespace": namespace},
-        "spec": {"ports": [{"port": p, "protocol": "TCP"} for p in ports]},
-    }
-    return Service.model_validate(raw)
+class _InMemoryRepository:
+    def __init__(self, items):
+        self.items = items
+
+    def list(self, namespace: str | None = None):
+        if namespace is None:
+            return self.items
+        return [x for x in self.items if x.metadata.namespace == namespace]
+
+    def get(self, name: str, namespace: str | None = None):
+        assert namespace is not None
+        return next(
+            (
+                x
+                for x in self.items
+                if x.metadata.name == name and x.metadata.namespace == namespace
+            ),
+            None,
+        )
 
 
-def test_convert_to_spec_sorted_by_namespace_name_and_port():
-    """Interactive picker specs are ordered for stable display."""
-    services = [
-        _service("zebra", "ns", [80]),
-        _service("alpha", "ns", [9000, 80]),
+def _build_services() -> list[Service]:
+    return [
+        Service(
+            metadata=ServiceMetadata(name="svc-foo", namespace="ns-kubectl-portfwd"),
+            spec=ServiceSpec(ports=[ServicePortModel(port=30, protocol="TCP")]),
+        ),
+        Service(
+            metadata=ServiceMetadata(name="svc-bar", namespace="ns-kubectl-portfwd"),
+            spec=ServiceSpec(ports=[ServicePortModel(port=40, protocol="TCP")]),
+        ),
     ]
-    specs = _convert_to_spec(services)
-    assert specs == [
-        ServicePortForwardSpec.model_validate(
-            {
-                "target": {"namespace": "ns", "name": "alpha"},
-                "remote_port": 80,
-            }
-        ),
-        ServicePortForwardSpec.model_validate(
-            {
-                "target": {"namespace": "ns", "name": "alpha"},
-                "remote_port": 9000,
-            }
-        ),
-        ServicePortForwardSpec.model_validate(
-            {
-                "target": {"namespace": "ns", "name": "zebra"},
-                "remote_port": 80,
-            }
-        ),
-    ]
 
 
-def test_convert_to_spec_accepts_unsorted_service_list_json():
-    """Sorting applies even when kubectl returns items out of order."""
-    raw = json.dumps(
-        {
-            "items": [
-                {
-                    "metadata": {"name": "zebra", "namespace": "b"},
-                    "spec": {"ports": [{"port": 80, "protocol": "TCP"}]},
-                },
-                {
-                    "metadata": {"name": "alpha", "namespace": "a"},
-                    "spec": {"ports": [{"port": 80, "protocol": "TCP"}]},
-                },
-            ]
-        }
+def _create_fake_api() -> KubeGateway:
+    namespace = Namespace(metadata=NamespaceMetadata(name="ns-kubectl-portfwd"))
+    return cast(
+        KubeGateway,
+        SimpleNamespace(
+            namespace=_InMemoryRepository([namespace]),
+            service=_InMemoryRepository(_build_services()),
+            current_config=ResolvedKubeConfig(
+                context="test", namespace="ns-kubectl-portfwd"
+            ),
+        ),
     )
-    services = ServiceList.model_validate_json(raw).items
-    specs = _convert_to_spec(services)
-    keys = [(s.target.namespace, s.target.name, s.remote_port) for s in specs]
-    assert keys == [("a", "alpha", 80), ("b", "zebra", 80)]
 
 
-def _make_group(name: str) -> GroupSpec:
-    return GroupSpec(name=name, services=[])
+class _FakePortForwardSession(PortForwardSession):
+    def __init__(self, snapshot: PortForwardProcessSnapshot) -> None:
+        self._snapshot = snapshot
+        self.wait_mock = AsyncMock(return_value=None)
+        self.terminate_mock = Mock(return_value=None)
+
+    def snapshot(self) -> PortForwardProcessSnapshot:
+        return self._snapshot
+
+    def terminate(self) -> None:
+        self.terminate_mock()
+
+    async def wait(self) -> None:
+        await self.wait_mock()
 
 
-def test_resolve_group_returns_matching_group():
-    """Returns the GroupSpec whose name matches."""
-    groups = [_make_group("alpha"), _make_group("beta")]
-    assert _resolve_group("beta", groups).name == "beta"
+class _FakePortForwardLauncher(PortForwardLauncher):
+    def __init__(self, responses: list[dict]) -> None:
+        self.responses = iter(responses)
+
+    async def launch(self, plan) -> PortForwardSession:
+        kwargs = next(self.responses)
+        return _FakePortForwardSession(
+            snapshot=PortForwardProcessSnapshot(
+                namespace=plan.target.namespace,
+                service_name=plan.target.name,
+                remote_port=plan.remote_port,
+                local_port=plan.local_port,
+                **kwargs,
+            )
+        )
 
 
-def test_resolve_group_raises_unknown_group_with_available_names():
-    """UnknownGroupError lists the available group names when the requested one is missing."""
-    groups = [_make_group("alpha"), _make_group("beta")]
-    with pytest.raises(UnknownGroupError, match="available: alpha, beta"):
-        _resolve_group("missing", groups)
+def test_run_port_forwards_raises_when_group_and_service_both_provided():
+    """group and service flags are mutually exclusive at the dispatch layer."""
+    api = _create_fake_api()
+    use_case = PortForwardUseCase(
+        config=PortFwdConfig(),
+        streamer=PortForwardEventStreamer(launcher=_FakePortForwardLauncher([])),
+        api=api,
+    )
+
+    with pytest.raises(ValueError, match="cannot both be provided"):
+        run_port_forwards_from_cli(
+            cfg=PortFwdConfig(),
+            group="backend",
+            service=["ns/svc:80::8080"],
+            api=api,
+            out=create_output(),
+            use_case=use_case,
+            display=PortForwardLiveDisplay(context=None),
+        )
 
 
-def test_resolve_group_raises_no_groups_defined_when_config_has_none():
-    """NoGroupsDefinedError is raised when the config contains no groups at all."""
-    with pytest.raises(NoGroupsDefinedError):
-        _resolve_group("any", [])
+def test_run_port_forwards_custom_flow_uses_selected_services():
+    """Interactive custom flow fetches services and forwards the user's selection."""
+    api = _create_fake_api()
+    svc1, _ = _build_services()
+    selected = ServicePortForwardSpec(
+        target=NamespacedServiceNameSpec(
+            name=svc1.metadata.name,
+            namespace=svc1.metadata.namespace,
+        ),
+        remote_port=svc1.spec.ports[0].port,
+        local_port=3030,
+    )
+    use_case = PortForwardUseCase(
+        config=PortFwdConfig(),
+        streamer=PortForwardEventStreamer(
+            launcher=_FakePortForwardLauncher([{"pid": 123, "returncode": 0}])
+        ),
+        api=api,
+    )
+    display = PortForwardLiveDisplay(context=api.current_config.context)
 
+    with (
+        patch(
+            "portfwd.presentation.cli.ask_for_group",
+            return_value=SpecialGroups.CUSTOM,
+        ),
+        patch(
+            "portfwd.presentation.cli.ask_for_namespace",
+            return_value=["ns-kubectl-portfwd"],
+        ),
+        patch(
+            "portfwd.presentation.cli.ask_for_service",
+            return_value=[selected],
+        ),
+    ):
+        run_port_forwards_from_cli(
+            cfg=PortFwdConfig(),
+            group=None,
+            service=None,
+            api=api,
+            out=create_output(),
+            use_case=use_case,
+            display=display,
+        )
 
-def test_fetch_services_for_namespaces_combines_services_from_each_namespace():
-    """Services from all requested namespaces are returned, sorted and flattened."""
-    svc_a = _service("alpha", "ns-1", [80])
-    svc_b = _service("beta", "ns-2", [443])
-
-    class FakeServiceRepo:
-        def list(self, namespace: str) -> list[Service]:
-            return {"ns-1": [svc_a], "ns-2": [svc_b]}.get(namespace, [])
-
-    api = SimpleNamespace(service=FakeServiceRepo())
-    specs = fetch_services_for_namespaces(["ns-1", "ns-2"], api)
-
-    keys = [(s.target.namespace, s.target.name, s.remote_port) for s in specs]
-    assert ("ns-1", "alpha", 80) in keys
-    assert ("ns-2", "beta", 443) in keys
-
-
-def test_fetch_services_for_namespaces_returns_empty_for_empty_namespaces():
-    """Returns an empty list when no namespaces are provided."""
-
-    class FakeServiceRepo:
-        def list(self, namespace: str) -> list[Service]:
-            return []
-
-    api = SimpleNamespace(service=FakeServiceRepo())
-    assert fetch_services_for_namespaces([], api) == []
+    cells = [list(col.cells) for col in display._table.render().columns]
+    assert cells[1] == [svc1.metadata.name]

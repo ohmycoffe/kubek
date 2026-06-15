@@ -13,6 +13,9 @@ help: ## Show available commands
 test: ## Run all tests
 	poetry run pytest
 
+test-cov: ## Run all tests with coverage
+	poetry run pytest --cov --cov-report=term-missing
+
 format: ## Format code and fix lint errors with Ruff
 	poetry run ruff format
 	poetry run ruff check --fix

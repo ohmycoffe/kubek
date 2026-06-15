@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated
 
@@ -10,7 +11,9 @@ from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConf
 from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from pydantic import ValidationError
 
-from portfwd.application.port_forwarding.events import PortForwardEvents
+from portfwd.application.port_forwarding.events import PortForwardEvent
+from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
+from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
@@ -24,7 +27,9 @@ from portfwd.domain.errors import (
 )
 from portfwd.domain.models import ServicePortForwardSpec
 from portfwd.infrastructure.config_loader import DEFAULT_CONFIG_PATH, load_config
-from portfwd.infrastructure.kubectl_port_forward_runner import KubectlPortForwardRunner
+from portfwd.infrastructure.kubectl_port_forward_launcher import (
+    KubectlPortForwardLauncher,
+)
 from portfwd.presentation.display import PortForwardLiveDisplay
 from portfwd.presentation.prompts import (
     ask_for_group,
@@ -119,16 +124,19 @@ def port_forward(
         api = KubeFacade.from_config(config=kube_config)
         _print_kubeconfig(out, api.current_config)
 
-        cfg = _load_config(config)
+        portfwd_config = _load_config(config)
 
         display = PortForwardLiveDisplay(context=api.current_config.context)
 
-        events: PortForwardEvents = display.events()
-        port_forward_runner = KubectlPortForwardRunner(api=api, events=events)
-
-        use_case = PortForwardUseCase(config=cfg, runner=port_forward_runner, api=api)
+        use_case = PortForwardUseCase(
+            api=api,
+            config=portfwd_config,
+            streamer=PortForwardEventStreamer(
+                launcher=KubectlPortForwardLauncher(config=api.current_config)
+            ),
+        )
         run_port_forwards_from_cli(
-            cfg=cfg,
+            cfg=portfwd_config,
             group=group,
             service=service,
             api=api,
@@ -169,12 +177,21 @@ def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
         )
 
 
+async def _run_event_stream(
+    display: PortForwardLiveDisplay,
+    event_stream: AsyncIterator[PortForwardEvent],
+) -> None:
+    with display.live():
+        async for event in event_stream:
+            display.apply(event)
+
+
 def run_port_forwards_from_cli(
     *,
     cfg: PortFwdConfig,
     group: str | None,
     service: list[str] | None,
-    api: KubeFacade,
+    api: KubeGateway,
     out: CLIOutput,
     use_case: PortForwardUseCase,
     display: PortForwardLiveDisplay,
@@ -185,28 +202,29 @@ def run_port_forwards_from_cli(
     - `--group` runs that group.
     - Otherwise prompt the user to pick a group (or 'custom' interactive flow).
     """
+    if service is not None and group is not None:
+        raise ValueError("'group' and 'service' cannot both be provided")
+
     if service is not None:
         specs = [parse_spec(value) for value in service]
-        with display.live():
-            asyncio.run(use_case.run_specs(specs))
+        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
         return
     if group is not None:
-        with display.live():
-            asyncio.run(use_case.run_group(group_name=group))
+        asyncio.run(_run_event_stream(display, use_case.stream_group(group_name=group)))
         return
 
     selection = ask_for_group(cfg.groups)
     if selection is SpecialGroups.CUSTOM:
         specs = _ask_for_custom_services(api=api, out=out)
-        with display.live():
-            asyncio.run(use_case.run_specs(specs))
+        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
     else:
-        with display.live():
-            asyncio.run(use_case.run_group(group_name=selection.name))
+        asyncio.run(
+            _run_event_stream(display, use_case.stream_group(group_name=selection.name))
+        )
 
 
 def _ask_for_custom_services(
-    api: KubeFacade,
+    api: KubeGateway,
     out: CLIOutput,
 ) -> list[ServicePortForwardSpec]:
     with out.progress("Fetching namespaces…"):

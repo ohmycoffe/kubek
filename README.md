@@ -9,7 +9,7 @@
 ![CI](https://github.com/ohmycoffe/kubek/actions/workflows/ci.yml/badge.svg?branch=main)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-
+[![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fohmycoffe%2Fdde6edd698fb5f25063c01f49ba251d7%2Fraw%2Fcoverage.json)](https://gist.github.com/ohmycoffe/dde6edd698fb5f25063c01f49ba251d7)
 </div>
 
 ---
@@ -31,11 +31,11 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 
 ---
 
-### 📦 export-dotenv — Export env vars from Kubernetes manifests
+### 📦 export-dotenv — Export env vars from cluster resources
 
-Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **export-dotenv** does it in one command — pick any Deployment or Argo WorkflowTemplate you have access to and get its env vars exported instantly.
+Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **export-dotenv** does it in one command — pick any Deployment or Argo WorkflowTemplate in your cluster and get its env vars exported instantly (including values resolved from ConfigMaps and Secrets).
 
-- Fully interactive (fuzzy-search, arrow key navigation)
+- Interactive resource picker (kind and name; namespace comes from your kubectl context)
 - Output as `.env` or JSON
 - Pipe directly: `kubectl export-dotenv ... > .env` to produce a dotenv file
 
@@ -50,21 +50,21 @@ Getting credentials out of a running deployment usually means digging through `k
 ### Prerequisites
 
 - Python 3.11+
-- `kubectl` installed and configured with cluster access (recommended version 1.36+)
+- `kubectl` installed and configured with cluster access
 
 ### Install
 
-The recommended way to install kubek is with [pipx](https://pipx.pypa.io/), which installs it in an isolated environment and automatically makes the plugin executables available on your PATH:
+The recommended way to install kubek is with [pipx](https://pipx.pypa.io/) or [uv](https://docs.astral.sh/uv/), which installs it in an isolated environment and automatically makes the plugin executables available on your PATH:
 
+#### pipx
 ```bash
-# Latest stable release (recommended)
 pipx install kubek
-
-# Newest development version
-pipx install git+https://github.com/ohmycoffe/kubek.git
 ```
 
-If you use pip or another package manager, make sure the installation's `bin/` directory is on your PATH — `kubectl` discovers plugins by scanning PATH for executables prefixed with `kubectl-`.
+#### uv
+```bash
+uv tool install kubek
+```
 
 ### Verify
 
