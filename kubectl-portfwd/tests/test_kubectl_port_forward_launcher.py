@@ -5,6 +5,7 @@ from kubek.kube.config import ResolvedKubeConfig
 from portfwd.domain.models import NamespacedServiceNamePlan, ServicePortForwardPlan
 from portfwd.infrastructure.kubectl_port_forward_launcher import (
     KubectlPortForwardLauncher,
+    PortForwardProcess,
 )
 
 
@@ -73,6 +74,46 @@ async def test_start_port_forward_includes_kubeconfig_and_context_when_given():
     assert "/tmp/kcfg" in cmd
     assert "--context" in cmd
     assert "my-ctx" in cmd
+
+
+@pytest.mark.asyncio
+async def test_port_forward_process_snapshot_reflects_subprocess_state():
+    mock_proc = Mock()
+    mock_proc.pid = 42
+    mock_proc.returncode = 0
+
+    session = PortForwardProcess(
+        process=mock_proc,
+        local_port=5000,
+        remote_port=80,
+        service_name="svc",
+        namespace="ns",
+    )
+
+    snapshot = session.snapshot()
+    assert snapshot.pid == 42
+    assert snapshot.returncode == 0
+    assert snapshot.local_port == 5000
+    assert snapshot.service_name == "svc"
+
+
+@pytest.mark.asyncio
+async def test_port_forward_process_terminate_ignores_missing_process():
+    mock_proc = Mock()
+    mock_proc.pid = 42
+    mock_proc.returncode = None
+    mock_proc.wait = AsyncMock()
+    mock_proc.terminate = Mock(side_effect=ProcessLookupError)
+
+    session = PortForwardProcess(
+        process=mock_proc,
+        local_port=5000,
+        remote_port=80,
+        service_name="svc",
+        namespace="ns",
+    )
+
+    session.terminate()
 
 
 @pytest.mark.asyncio

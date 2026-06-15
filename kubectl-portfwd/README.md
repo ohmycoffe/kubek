@@ -16,6 +16,8 @@ kubectl portfwd --kubeconfig ~/.kube/other-config          # use a specific kube
 kubectl portfwd --help                                     # full option reference
 ```
 
+`--group` and `--service` are mutually exclusive.
+
 ### Context
 
 Use the plugin’s `--context` flag (after `portfwd`):
@@ -63,16 +65,15 @@ groups:
         local_port: 50010
 ```
 
-When a config is present the CLI shows a group picker in interactive mode:
+When a config defines groups, interactive mode shows a group picker (plus a **custom** option for service discovery):
 
 ```
 ? Select a group to run:
   ◉ backend
-  ◉ backend-2
   ◉ custom   (interactive: select services to forward)
 ```
 
-If no config file exists, the tool falls back to kubectl service discovery (namespace prompt → service checkbox).
+If no config file exists (or it has no groups), the tool skips the picker and goes straight to kubectl service discovery (namespace prompt → service checkbox).
 
 The `--service` / `-s` flag accepts the format `[namespace/]name[:remote_port][::local_port]`. Remote and local ports are optional — if omitted, the config defaults are used, or a free port is chosen automatically.
 
