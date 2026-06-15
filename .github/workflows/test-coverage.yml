@@ -47,7 +47,7 @@ jobs:
         id: coverage
         shell: bash
         run: |
-          ./.github/scripts/extract-coverage-badge.sh coverage.json | tee -a "$GITHUB_OUTPUT"
+          ./.github/scripts/extract-coverage-badge.sh coverage.json >> "$GITHUB_OUTPUT"
 
       - name: Update coverage badge gist
         uses: schneegans/dynamic-badges-action@v1.7.0
