@@ -3,6 +3,10 @@ import re
 from portfwd.domain.errors import InvalidServiceSpecError
 from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
 
+SPEC_FORMAT = "[namespace/]name[:remote_port][::local_port]"
+SPEC_EXAMPLE = "ns-kubectl-portfwd/nginx:80::50001"
+
+
 REGEXP_PORT_FORWARD_SPEC = re.compile(
     r"""
     ^
@@ -20,15 +24,26 @@ REGEXP_PORT_FORWARD_SPEC = re.compile(
 )
 
 
+def format_invalid_spec(value: str) -> str:
+    """Build a single-line message for a malformed ``--service`` value."""
+    return f'invalid "{value}"; expected {SPEC_FORMAT}; example {SPEC_EXAMPLE}'
+
+
+def format_spec_file_line_error(*, path: str, line: int, text: str) -> str:
+    """Build a single-line message for a malformed spec file line."""
+    return (
+        f'invalid spec in {path} at line {line}: "{text}"; '
+        f"expected {SPEC_FORMAT}; example {SPEC_EXAMPLE}"
+    )
+
+
 def parse_spec(value: str) -> ServicePortForwardSpec:
     """Parse ``[namespace/]name[:remote_port][::local_port]`` into a spec."""
 
     argument = value.strip()
     match = REGEXP_PORT_FORWARD_SPEC.match(argument) if argument else None
     if not match:
-        raise InvalidServiceSpecError(
-            f'error: invalid value "{value}": expected format "[namespace/]name[:remote_port][::local_port]"'
-        )
+        raise InvalidServiceSpecError(format_invalid_spec(value))
 
     target = NamespacedServiceNameSpec(
         namespace=match.group("namespace"),

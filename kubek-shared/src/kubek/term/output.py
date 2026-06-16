@@ -28,6 +28,11 @@ class CLIOutput:
         self.__formatter = formatter
         self.__verbosity = verbosity
 
+    @property
+    def console(self) -> Console:
+        """The Rich console used for all terminal output."""
+        return self.__console
+
     def note(self, message: str, highlight: list[str] | None = None) -> None:
         """Show a normal informational user-facing message."""
         if not self.__verbosity.allows(VerbosityLevel.NORMAL):

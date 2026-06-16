@@ -1,0 +1,2 @@
+ns-kubectl-portfwd/httpd:8080::50000
+ns-kubectl-portfwd/nginx:80::50001

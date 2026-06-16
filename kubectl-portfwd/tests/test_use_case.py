@@ -5,8 +5,6 @@ import pytest
 from kubek.kube.dto.service import Service
 from portfwd.application.ports import KubeGateway, PortForwardEventStream
 from portfwd.application.use_case import PortForwardUseCase
-from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
-from portfwd.domain.errors import UnknownGroupError
 from portfwd.domain.models import (
     NamespacedServiceNameSpec,
     ServicePortForwardPlan,
@@ -60,74 +58,6 @@ def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
     )
 
 
-def test_groups_returns_configured_groups():
-    """The groups property exposes groups from the loaded config."""
-    group = GroupSpec(name="backend", services=[])
-    config = PortFwdConfig(groups=[group])
-    uc = PortForwardUseCase(config=config, streamer=SpyRunner(), api=_make_api())
-
-    assert uc.groups == [group]
-
-
-@pytest.mark.asyncio
-async def test_stream_group_resolves_group_and_passes_converted_plans_to_runner():
-    """stream_group fetches the named group and runs its services as plans."""
-    defaults = ServicePortForwardDefaults(
-        name="auth", namespace="ns", remote_port=80, local_port=9000
-    )
-    group = GroupSpec(name="backend", services=[defaults])
-    config = PortFwdConfig(groups=[group])
-    runner = SpyRunner()
-    uc = PortForwardUseCase(config=config, streamer=runner, api=_make_api())
-
-    async for _ in uc.stream_group("backend"):
-        pass
-
-    assert len(runner.calls) == 1
-    plans = runner.calls[0]
-    assert len(plans) == 1
-    assert plans[0].target.name == "auth"
-    assert plans[0].target.namespace == "ns"
-    assert plans[0].remote_port == 80
-    assert plans[0].local_port == 9000
-
-
-@pytest.mark.asyncio
-async def test_stream_group_raises_unknown_group_when_group_is_missing():
-    """stream_group propagates UnknownGroupError when the group name is not in config."""
-    config = PortFwdConfig(groups=[GroupSpec(name="alpha", services=[])])
-    runner = SpyRunner()
-    uc = PortForwardUseCase(config=config, streamer=runner, api=_make_api())
-
-    with pytest.raises(UnknownGroupError):
-        async for _ in uc.stream_group("missing"):
-            pass
-
-
-@pytest.mark.asyncio
-async def test_stream_group_with_multiple_services_passes_all_plans():
-    """All services in the group are converted to plans and passed to the runner."""
-    services = [
-        ServicePortForwardDefaults(
-            name="svc-a", namespace="ns", remote_port=80, local_port=9001
-        ),
-        ServicePortForwardDefaults(
-            name="svc-b", namespace="ns", remote_port=443, local_port=9002
-        ),
-    ]
-    config = PortFwdConfig(groups=[GroupSpec(name="all", services=services)])
-    runner = SpyRunner()
-    uc = PortForwardUseCase(config=config, streamer=runner, api=_make_api())
-
-    async for _ in uc.stream_group("all"):
-        pass
-
-    plans = runner.calls[0]
-    assert len(plans) == 2
-    names = {p.target.name for p in plans}
-    assert names == {"svc-a", "svc-b"}
-
-
 @pytest.mark.asyncio
 async def test_stream_specs_builds_plan_from_spec_and_passes_to_runner():
     """stream_specs resolves each spec to a plan and forwards them to the runner."""
@@ -139,7 +69,7 @@ async def test_stream_specs_builds_plan_from_spec_and_passes_to_runner():
         local_port=9000,
     )
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=PortFwdConfig(), streamer=runner, api=api)
+    uc = PortForwardUseCase(streamer=runner, api=api)
 
     async for _ in uc.stream_specs([spec]):
         pass
@@ -156,7 +86,7 @@ async def test_stream_specs_builds_plan_from_spec_and_passes_to_runner():
 async def test_stream_specs_passes_empty_list_to_runner_when_no_specs():
     """stream_specs passes an empty plan list to the runner when given no specs."""
     runner = SpyRunner()
-    uc = PortForwardUseCase(config=PortFwdConfig(), streamer=runner, api=_make_api())
+    uc = PortForwardUseCase(streamer=runner, api=_make_api())
 
     async for _ in uc.stream_specs([]):
         pass

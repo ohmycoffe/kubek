@@ -11,7 +11,6 @@ from portfwd.application.port_forwarding.planner import (
     resolve_remote_port,
 )
 from portfwd.application.ports import KubeGateway
-from portfwd.domain.config import PortFwdConfig, ServicePortForwardDefaults
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
     MissingNamespaceError,
@@ -23,9 +22,6 @@ from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardS
 _FALLBACK_PORT = 50_000
 _SVC_DETERMINISTIC_PORT = get_deterministic_port(
     service="svc", namespace="ns", service_port=80
-)
-_SVC_CONFIG = ServicePortForwardDefaults(
-    name="svc", namespace="ns", remote_port=80, local_port=9000
 )
 
 
@@ -90,16 +86,10 @@ class TestNamespacedServiceNamePlan:
 
 
 class TestResolveLocalPort:
-    def test_uses_configured_port(self):
-        """Returns the configured local_port when a matching config entry exists."""
-        config = PortFwdConfig(defaults=[_SVC_CONFIG])
-        assert resolve_local_port("svc", "ns", 80, config) == 9000
-
     def test_uses_deterministic_port_when_free(self, mock_is_port_free):
-        """Returns the deterministic port when no config match and the port is free."""
+        """Returns the deterministic port when the port is free."""
         mock_is_port_free.return_value = True
-        config = PortFwdConfig()
-        assert resolve_local_port("svc", "ns", 80, config) == _SVC_DETERMINISTIC_PORT
+        assert resolve_local_port("svc", "ns", 80) == _SVC_DETERMINISTIC_PORT
 
     def test_falls_back_to_free_port_when_deterministic_taken(
         self, mock_is_port_free, mock_find_free_port
@@ -107,20 +97,7 @@ class TestResolveLocalPort:
         """Falls back to find_free_port when the deterministic port is already in use."""
         mock_is_port_free.return_value = False
         mock_find_free_port.return_value = _FALLBACK_PORT
-        config = PortFwdConfig()
-        assert resolve_local_port("svc", "ns", 80, config) == _FALLBACK_PORT
-
-    def test_ignores_config_from_other_namespace(
-        self, mock_is_port_free, mock_find_free_port
-    ):
-        """Does not use a config entry whose namespace does not match."""
-        mock_is_port_free.return_value = False
-        mock_find_free_port.return_value = _FALLBACK_PORT
-        other_ns = ServicePortForwardDefaults(
-            name="svc", namespace="other-ns", remote_port=80, local_port=9000
-        )
-        config = PortFwdConfig(defaults=[other_ns])
-        assert resolve_local_port("svc", "ns", 80, config) == _FALLBACK_PORT
+        assert resolve_local_port("svc", "ns", 80) == _FALLBACK_PORT
 
 
 class TestResolveRemotePort:
@@ -152,7 +129,7 @@ class TestBuildPortForwardPlan:
             remote_port=443,
             local_port=9443,
         )
-        plan = build_port_forward_plan(spec, PortFwdConfig(), api)
+        plan = build_port_forward_plan(spec, api)
         assert plan.remote_port == 443
         assert plan.local_port == 9443
         assert plan.target.namespace == "ns"
@@ -169,7 +146,7 @@ class TestBuildPortForwardPlan:
             remote_port=80,
             local_port=9000,
         )
-        plan = build_port_forward_plan(spec, PortFwdConfig(), api)
+        plan = build_port_forward_plan(spec, api)
         assert plan.target.namespace == "kube-public"
 
     def test_raises_when_namespace_missing(self):
@@ -182,7 +159,7 @@ class TestBuildPortForwardPlan:
             local_port=9000,
         )
         with pytest.raises(MissingNamespaceError):
-            build_port_forward_plan(spec, PortFwdConfig(), api)
+            build_port_forward_plan(spec, api)
 
     def test_raises_when_service_not_found(self):
         """ServiceNotFoundError is raised when the Service does not exist in the namespace."""
@@ -193,7 +170,7 @@ class TestBuildPortForwardPlan:
             local_port=9000,
         )
         with pytest.raises(ServiceNotFoundError):
-            build_port_forward_plan(spec, PortFwdConfig(), api)
+            build_port_forward_plan(spec, api)
 
     def test_resolves_remote_port_from_service(self):
         """When spec has no remote_port, it is read from the service's single declared port."""
@@ -203,5 +180,5 @@ class TestBuildPortForwardPlan:
             target=NamespacedServiceNameSpec(name="auth", namespace="ns"),
             local_port=9000,
         )
-        plan = build_port_forward_plan(spec, PortFwdConfig(), api)
+        plan = build_port_forward_plan(spec, api)
         assert plan.remote_port == 8080

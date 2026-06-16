@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, Mock
@@ -11,6 +12,7 @@ from kubek.kube.dto.service import (
     ServiceSpec,
 )
 from kubek.term.output import create_output
+from kubek.term.style import Color
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
 from portfwd.application.ports import (
@@ -19,7 +21,6 @@ from portfwd.application.ports import (
     PortForwardSession,
 )
 from portfwd.application.use_case import PortForwardUseCase
-from portfwd.domain.config import GroupSpec, PortFwdConfig, ServicePortForwardDefaults
 from portfwd.presentation.cli import run_port_forwards_from_cli
 from portfwd.presentation.display import PortForwardLiveDisplay
 
@@ -135,8 +136,10 @@ def test_run_from_spec():
     )
 
     api = create_fake_api()
-    display = PortForwardLiveDisplay(context=api.current_config.context)
-    cfg = PortFwdConfig()
+    display = PortForwardLiveDisplay(
+        context=api.current_config.context,
+        console=create_output().console,
+    )
     launcher = FakePortForwardLauncher(
         responses=[
             {
@@ -150,14 +153,12 @@ def test_run_from_spec():
         ]
     )
     use_case = PortForwardUseCase(
-        config=cfg,
         streamer=PortForwardEventStreamer(launcher=launcher),
         api=api,
     )
 
     run_port_forwards_from_cli(
-        cfg=cfg,
-        group=None,
+        file=None,
         service=[
             f"{expected_snapshot_1.namespace}/{expected_snapshot_1.service_name}:{expected_snapshot_1.remote_port}::{expected_snapshot_1.local_port}",
             f"{expected_snapshot_2.namespace}/{expected_snapshot_2.service_name}:{expected_snapshot_2.remote_port}::{expected_snapshot_2.local_port}",
@@ -179,13 +180,13 @@ def test_run_from_spec():
         ],
         [str(expected_snapshot_1.pid), str(expected_snapshot_2.pid)],
         [
-            f"[red]✗ died (exit {expected_snapshot_1.returncode})[/red]",
-            f"[red]✗ died (exit {expected_snapshot_2.returncode})[/red]",
+            f"[{Color.ERROR}]✗ died (exit {expected_snapshot_1.returncode})[/{Color.ERROR}]",
+            f"[{Color.ERROR}]✗ died (exit {expected_snapshot_2.returncode})[/{Color.ERROR}]",
         ],
     ]
 
 
-def test_run_from_group():
+def test_run_from_spec_file(tmp_path: Path):
     svc1, _ = build_services()
     expected_snapshot_1 = PortForwardProcessSnapshot(
         namespace=svc1.metadata.namespace,
@@ -196,22 +197,17 @@ def test_run_from_group():
         returncode=1,
     )
 
+    spec_file = tmp_path / ".portfwd-plan"
+    spec_file.write_text(
+        f"{expected_snapshot_1.namespace}/{expected_snapshot_1.service_name}:"
+        f"{expected_snapshot_1.remote_port}::{expected_snapshot_1.local_port}\n",
+        encoding="utf-8",
+    )
+
     api = create_fake_api()
-    display = PortForwardLiveDisplay(context=api.current_config.context)
-    cfg = PortFwdConfig(
-        groups=[
-            GroupSpec(
-                name="test-group",
-                services=[
-                    ServicePortForwardDefaults(
-                        name=svc1.metadata.name,
-                        namespace=svc1.metadata.namespace,
-                        remote_port=svc1.spec.ports[0].port,
-                        local_port=3030,
-                    ),
-                ],
-            )
-        ]
+    display = PortForwardLiveDisplay(
+        context=api.current_config.context,
+        console=create_output().console,
     )
     launcher = FakePortForwardLauncher(
         responses=[
@@ -222,14 +218,12 @@ def test_run_from_group():
         ]
     )
     use_case = PortForwardUseCase(
-        config=cfg,
         streamer=PortForwardEventStreamer(launcher=launcher),
         api=api,
     )
 
     run_port_forwards_from_cli(
-        cfg=cfg,
-        group="test-group",
+        file=spec_file,
         service=None,
         api=api,
         out=create_output(),
@@ -244,5 +238,7 @@ def test_run_from_group():
         [f":{expected_snapshot_1.remote_port}"],
         [f"localhost:{expected_snapshot_1.local_port}"],
         [str(expected_snapshot_1.pid)],
-        [f"[red]✗ died (exit {expected_snapshot_1.returncode})[/red]"],
+        [
+            f"[{Color.ERROR}]✗ died (exit {expected_snapshot_1.returncode})[/{Color.ERROR}]"
+        ],
     ]

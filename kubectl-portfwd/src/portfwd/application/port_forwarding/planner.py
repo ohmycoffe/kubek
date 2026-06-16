@@ -1,7 +1,6 @@
 from kubek.kube import Service
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 from portfwd.application.ports import KubeGateway
-from portfwd.domain.config import PortFwdConfig
 from portfwd.domain.errors import (
     AmbiguousServicePortError,
     MissingNamespaceError,
@@ -25,7 +24,7 @@ def resolve_remote_port(service: Service) -> int:
         port_list = ", ".join(str(p.port) for p in ports)
         raise AmbiguousServicePortError(
             f'service "{ref}" has multiple ports ({port_list}); '
-            "specify one with :port in --service"
+            "specify one with :port in the service spec"
         )
     return ports[0].port
 
@@ -34,15 +33,8 @@ def resolve_local_port(
     name: str,
     namespace: str,
     remote_port: int,
-    config: PortFwdConfig,
 ) -> int:
-    """Pick a local port: config default → deterministic → OS-assigned."""
-    default = config.get_default_service(
-        name=name, namespace=namespace, remote_port=remote_port
-    )
-    if default is not None:
-        return int(default.local_port)
-
+    """Pick a local port: deterministic when free, otherwise OS-assigned."""
     deterministic = get_deterministic_port(
         service=name, namespace=namespace, service_port=remote_port
     )
@@ -53,7 +45,6 @@ def resolve_local_port(
 
 def build_port_forward_plan(
     spec: ServicePortForwardSpec,
-    config: PortFwdConfig,
     api: KubeGateway,
 ) -> ServicePortForwardPlan:
     """Turn a user-provided spec + cluster lookup into a concrete plan."""
@@ -77,9 +68,7 @@ def build_port_forward_plan(
     local_port = (
         int(spec.local_port)
         if spec.local_port is not None
-        else resolve_local_port(
-            name=name, namespace=ns, remote_port=remote_port, config=config
-        )
+        else resolve_local_port(name=name, namespace=ns, remote_port=remote_port)
     )
 
     return ServicePortForwardPlan(

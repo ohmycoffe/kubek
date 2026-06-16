@@ -6,9 +6,9 @@
 
 **kubek** (**kub**ernetes **e**xtension **k**it) is a collection of CLI tools that plug into `kubectl` and add interactive, developer-friendly shortcuts on top of it.
 
-![CI](https://github.com/ohmycoffe/kubek/actions/workflows/ci.yml/badge.svg?branch=main)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/ohmycoffe/kubek/actions/workflows/ci.yml/badge.svg?branch=main)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fohmycoffe%2Fdde6edd698fb5f25063c01f49ba251d7%2Fraw%2Fcoverage.json)](https://gist.github.com/ohmycoffe/dde6edd698fb5f25063c01f49ba251d7)
 </div>
 

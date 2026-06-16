@@ -1,10 +1,15 @@
 import asyncio
 import signal
+from collections.abc import AsyncIterator
 from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
-from portfwd.application.port_forwarding.events import PortForwardEventType
+from portfwd.application.port_forwarding.events import (
+    OutputLine,
+    OutputStream,
+    PortForwardEventType,
+)
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
 from portfwd.application.ports import PortForwardLauncher, PortForwardSession
@@ -21,11 +26,22 @@ _PLAN = ServicePortForwardPlan(
 class FakeSession(PortForwardSession):
     """Session that exits immediately, or blocks until terminate() is called."""
 
-    def __init__(self, *, returncode: int | None, block_exit: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        returncode: int | None,
+        block_exit: bool = False,
+        output: list[OutputLine] | None = None,
+    ) -> None:
         self._returncode = returncode
         self._exit = asyncio.Event()
+        self._output = output or []
         if not block_exit:
             self._exit.set()
+
+    async def stream_output(self) -> AsyncIterator[OutputLine]:
+        for line in self._output:
+            yield line
 
     def snapshot(self) -> PortForwardProcessSnapshot:
         return PortForwardProcessSnapshot(
@@ -115,6 +131,30 @@ async def test_stream_yields_died_when_process_exits_unexpectedly():
     assert events[0].type == PortForwardEventType.STARTED
     assert events[-1].type == PortForwardEventType.DIED
     assert events[-1].snapshot.returncode == 1
+
+
+@pytest.mark.asyncio
+async def test_stream_yields_output_events_from_subprocess_streams():
+    """OUTPUT events carry real stdout/stderr lines and don't end the stream early."""
+    session = FakeSession(
+        returncode=0,
+        output=[
+            OutputLine(stream=OutputStream.STDOUT, text="Forwarding from 127.0.0.1"),
+            OutputLine(stream=OutputStream.STDERR, text="lost connection to pod"),
+        ],
+    )
+    launcher = FakeLauncher(session)
+
+    with _capture_signal_handlers():
+        streamer = PortForwardEventStreamer(launcher)
+        events = [event async for event in streamer.stream_port_forwards([_PLAN])]
+
+    outputs = [e for e in events if e.type == PortForwardEventType.OUTPUT]
+    assert {(o.output.stream, o.output.text) for o in outputs if o.output} == {
+        (OutputStream.STDOUT, "Forwarding from 127.0.0.1"),
+        (OutputStream.STDERR, "lost connection to pod"),
+    }
+    assert any(e.type == PortForwardEventType.DIED for e in events)
 
 
 @pytest.mark.asyncio

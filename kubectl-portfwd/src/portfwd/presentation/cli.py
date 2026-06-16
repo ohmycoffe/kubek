@@ -9,7 +9,6 @@ from typing import Annotated
 import typer
 from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConfig
 from kubek.term import CLIOutput, create_output, setup_logging_from_count
-from pydantic import ValidationError
 
 from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
@@ -18,25 +17,28 @@ from portfwd.application.queries import fetch_services_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
 )
-from portfwd.domain.config import PortFwdConfig, SpecialGroups
 from portfwd.domain.errors import (
-    ConfigLoadError,
+    EmptySpecFileError,
+    InvalidServiceSpecError,
     NoSelectionError,
     NoServicesFoundError,
     PortForwardError,
+    SpecFileLoadError,
 )
 from portfwd.domain.models import ServicePortForwardSpec
-from portfwd.infrastructure.config_loader import DEFAULT_CONFIG_PATH, load_config
 from portfwd.infrastructure.kubectl_port_forward_launcher import (
     KubectlPortForwardLauncher,
 )
+from portfwd.infrastructure.spec_file_loader import load_spec_file
 from portfwd.presentation.display import PortForwardLiveDisplay
 from portfwd.presentation.prompts import (
-    ask_for_group,
     ask_for_namespace,
     ask_for_service,
 )
-from portfwd.presentation.service_parser import parse_spec
+from portfwd.presentation.service_parser import (
+    format_spec_file_line_error,
+    parse_spec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,13 +47,16 @@ app = typer.Typer()
 
 @app.callback(invoke_without_command=True)
 def port_forward(
-    config: Annotated[
+    file: Annotated[
         Path | None,
         typer.Option(
-            "--config",
-            "-c",
-            envvar="KUBEK_PORTFWD_CONFIG",
-            help=f"Path to config file. Defaults to {DEFAULT_CONFIG_PATH}.",
+            "--file",
+            "-f",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            resolve_path=True,
+            help="Path to a spec file listing services to forward (one per line).",
         ),
     ] = None,
     context: Annotated[
@@ -69,14 +74,6 @@ def port_forward(
             dir_okay=False,
             resolve_path=True,
             help="Path to a kubeconfig file (single path). Omit to use kubectl's default.",
-        ),
-    ] = None,
-    group: Annotated[
-        str | None,
-        typer.Option(
-            "--group",
-            "-g",
-            help="Run a predefined service group from the config.",
         ),
     ] = None,
     service: Annotated[
@@ -105,7 +102,7 @@ def port_forward(
     \b
     Examples:
         kubectl portfwd
-        kubectl portfwd -g backend
+        kubectl portfwd -f .portfwd-plan
         kubectl portfwd -s kube-public/auth-service
         kubectl portfwd -s kube-public/auth-service:8080
         kubectl portfwd -s kube-public/auth-service:8080::50000
@@ -114,8 +111,8 @@ def port_forward(
     setup_logging_from_count(verbose, "kubek", "portfwd")
     out: CLIOutput = create_output(verbosity_count=verbose)
 
-    if group is not None and service is not None:
-        raise typer.BadParameter("'--group' and '--service' are mutually exclusive.")
+    if file is not None and service is not None:
+        raise typer.BadParameter("'--file' and '--service' are mutually exclusive.")
 
     kubeconfig_str = str(kubeconfig) if kubeconfig else None
 
@@ -124,20 +121,19 @@ def port_forward(
         api = KubeFacade.from_config(config=kube_config)
         _print_kubeconfig(out, api.current_config)
 
-        portfwd_config = _load_config(config)
-
-        display = PortForwardLiveDisplay(context=api.current_config.context)
+        display = PortForwardLiveDisplay(
+            context=api.current_config.context,
+            console=out.console,
+        )
 
         use_case = PortForwardUseCase(
             api=api,
-            config=portfwd_config,
             streamer=PortForwardEventStreamer(
                 launcher=KubectlPortForwardLauncher(config=api.current_config)
             ),
         )
         run_port_forwards_from_cli(
-            cfg=portfwd_config,
-            group=group,
+            file=file,
             service=service,
             api=api,
             out=out,
@@ -150,17 +146,6 @@ def port_forward(
     except Exception:
         out.exception("An unexpected error occurred. Use -vv for more details.")
         raise typer.Exit(code=1) from None
-
-
-def _load_config(path: Path | None):
-    try:
-        return load_config(path)
-    except FileNotFoundError as e:
-        raise ConfigLoadError(f"config file not found: {e.filename}") from e
-    except ValidationError as e:
-        raise ConfigLoadError(f"invalid configuration: {e}") from e
-    except ValueError as e:
-        raise ConfigLoadError(f"could not load configuration: {e}") from e
 
 
 def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
@@ -188,8 +173,7 @@ async def _run_event_stream(
 
 def run_port_forwards_from_cli(
     *,
-    cfg: PortFwdConfig,
-    group: str | None,
+    file: Path | None,
     service: list[str] | None,
     api: KubeGateway,
     out: CLIOutput,
@@ -198,29 +182,56 @@ def run_port_forwards_from_cli(
 ) -> None:
     """Dispatch to the correct port-forward flow based on CLI flags.
 
-    - `--service` wins outright.
-    - `--group` runs that group.
-    - Otherwise prompt the user to pick a group (or 'custom' interactive flow).
+    - ``--service`` wins outright.
+    - ``--file`` loads services from a spec file.
+    - Otherwise prompt the user to pick services interactively.
     """
-    if service is not None and group is not None:
-        raise ValueError("'group' and 'service' cannot both be provided")
+    if service is not None and file is not None:
+        raise ValueError("'file' and 'service' cannot both be provided")
 
     if service is not None:
         specs = [parse_spec(value) for value in service]
         asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
         return
-    if group is not None:
-        asyncio.run(_run_event_stream(display, use_case.stream_group(group_name=group)))
+    if file is not None:
+        specs = _load_spec_file(file)
+        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
         return
 
-    selection = ask_for_group(cfg.groups)
-    if selection is SpecialGroups.CUSTOM:
-        specs = _ask_for_custom_services(api=api, out=out)
-        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
-    else:
-        asyncio.run(
-            _run_event_stream(display, use_case.stream_group(group_name=selection.name))
-        )
+    specs = _ask_for_custom_services(api=api, out=out)
+    asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
+
+
+def _load_spec_file(path: Path) -> list[ServicePortForwardSpec]:
+    try:
+        lines = load_spec_file(path)
+    except FileNotFoundError as e:
+        raise SpecFileLoadError(f"spec file not found: {e.filename}") from e
+
+    if not lines:
+        raise EmptySpecFileError(f"spec file contains no services: {path}")
+
+    display_path = _display_path(path)
+    specs: list[ServicePortForwardSpec] = []
+    for entry in lines:
+        try:
+            specs.append(parse_spec(entry.value))
+        except InvalidServiceSpecError as e:
+            raise SpecFileLoadError(
+                format_spec_file_line_error(
+                    path=display_path,
+                    line=entry.line,
+                    text=entry.value,
+                )
+            ) from e
+    return specs
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(Path.cwd()))
+    except ValueError:
+        return str(path)
 
 
 def _ask_for_custom_services(

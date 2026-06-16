@@ -4,7 +4,7 @@ from typing import Protocol
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.contracts.repositories import NamespaceRepository, ServiceRepository
-from portfwd.application.port_forwarding.events import PortForwardEvent
+from portfwd.application.port_forwarding.events import OutputLine, PortForwardEvent
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.domain.models import ServicePortForwardPlan
 
@@ -46,6 +46,15 @@ class PortForwardSession(ABC):
     @abstractmethod
     def snapshot(self) -> PortForwardProcessSnapshot:
         raise NotImplementedError
+
+    async def stream_output(self) -> AsyncIterator[OutputLine]:
+        """Yield stdout/stderr lines as the subprocess produces them.
+
+        Defaults to no output so sessions that do not capture pipes (e.g. test
+        fakes) need not implement it.
+        """
+        return
+        yield  # pragma: no cover - marks this as an (empty) async generator
 
 
 class PortForwardLauncher(ABC):
