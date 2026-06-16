@@ -156,10 +156,6 @@ def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
         )
     if kube_config.context:
         out.note(f"Context: {kube_config.context}", highlight=[kube_config.context])
-    if kube_config.namespace:
-        out.note(
-            f"Namespace: {kube_config.namespace}", highlight=[kube_config.namespace]
-        )
 
 
 async def _run_event_stream(
