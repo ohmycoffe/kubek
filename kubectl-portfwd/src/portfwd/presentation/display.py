@@ -115,7 +115,7 @@ class _PortForwardStatusTable:
         )
         table.add_column("Namespace", style=Color.HIGHLIGHT, no_wrap=True)
         table.add_column("Service", style="bold", no_wrap=True)
-        table.add_column("Remote", style=Color.HIGHLIGHT, justify="right")
+        table.add_column("Port", style=Color.HIGHLIGHT, justify="right")
         table.add_column("Local", style=Color.HIGHLIGHT, justify="right")
         table.add_column("PID", style=Color.MUTED, justify="right")
         table.add_column("Status")
@@ -124,7 +124,7 @@ class _PortForwardStatusTable:
             table.add_row(
                 key.namespace,
                 key.service_name,
-                f":{key.remote_port}",
+                f"{key.remote_port}",
                 f"localhost:{key.local_port}",
                 str(key.pid),
                 self.__format_status(row_state),
