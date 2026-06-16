@@ -25,7 +25,7 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 - Live status table with real-time updates when a process dies
 - Deterministic port allocation: same service always gets the same port across multiple runs (either from config pinning or intelligent assignment)
 
-![portfwd demo](https://github.com/user-attachments/assets/98e91737-8bed-4b2d-a760-4d685ecdb1a9)
+![portfwd demo](https://github.com/user-attachments/assets/0768a6a8-52f2-4d76-9102-d632efbb30f6)
 
 → [Full documentation](kubectl-portfwd/README.md)
 
