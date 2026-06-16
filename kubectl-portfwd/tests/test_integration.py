@@ -173,7 +173,7 @@ def test_run_from_spec():
     assert cells == [
         [expected_snapshot_1.namespace, expected_snapshot_2.namespace],
         [expected_snapshot_1.service_name, expected_snapshot_2.service_name],
-        [f":{expected_snapshot_1.remote_port}", f":{expected_snapshot_2.remote_port}"],
+        [f"{expected_snapshot_1.remote_port}", f"{expected_snapshot_2.remote_port}"],
         [
             f"localhost:{expected_snapshot_1.local_port}",
             f"localhost:{expected_snapshot_2.local_port}",
@@ -235,7 +235,7 @@ def test_run_from_spec_file(tmp_path: Path):
     assert cells == [
         [expected_snapshot_1.namespace],
         [expected_snapshot_1.service_name],
-        [f":{expected_snapshot_1.remote_port}"],
+        [f"{expected_snapshot_1.remote_port}"],
         [f"localhost:{expected_snapshot_1.local_port}"],
         [str(expected_snapshot_1.pid)],
         [
