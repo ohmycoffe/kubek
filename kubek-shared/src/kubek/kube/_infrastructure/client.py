@@ -75,8 +75,9 @@ class KubeSession:
             or active.get("context", {}).get("namespace")
             or DEFAULT_NAMESPACE
         )
+        context = cfg.context or active["name"]
         return ResolvedKubeConfig(
-            context=active["name"],
+            context=context,
             namespace=ns,
             kubeconfig=cfg.kubeconfig,
         )
