@@ -2,20 +2,16 @@ class PortForwardError(Exception):
     """Base error for portfwd. Failed to set up or run port-forwards."""
 
 
-class ConfigLoadError(PortForwardError):
-    """Config file could not be loaded or parsed."""
+class SpecFileLoadError(PortForwardError):
+    """Spec file could not be loaded or parsed."""
+
+
+class EmptySpecFileError(PortForwardError):
+    """Spec file has no service entries."""
 
 
 class InvalidServiceSpecError(PortForwardError):
-    """A --service argument did not match the expected format."""
-
-
-class UnknownGroupError(PortForwardError):
-    """The requested --group is not defined in the config."""
-
-
-class NoGroupsDefinedError(PortForwardError):
-    """The config file has no groups, but a group was requested."""
+    """A service spec did not match the expected format."""
 
 
 class MissingNamespaceError(PortForwardError):

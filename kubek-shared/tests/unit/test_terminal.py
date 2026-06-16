@@ -188,3 +188,14 @@ def test_create_output_returns_cli_output() -> None:
     output = create_output(verbosity_count=1)
 
     assert isinstance(output, CLIOutput)
+
+
+def test_console_exposes_the_underlying_rich_console() -> None:
+    console = Console(stderr=True)
+    output = CLIOutput(
+        console=console,
+        formatter=MessageFormatter(styles=DEFAULT_MESSAGE_STYLES),
+        verbosity=Verbosity.from_count(0),
+    )
+
+    assert output.console is console

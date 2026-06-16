@@ -54,14 +54,19 @@ def test_from_string_valid(tested, expected):
 )
 def test_from_string_invalid_syntax(tested):
     """Rejects malformed --service values before Pydantic port validation."""
-    with pytest.raises(
-        InvalidServiceSpecError,
-        match=(
-            r'error: invalid value ".*": '
-            r'expected format "\[namespace/\]name\[:remote_port\]\[::local_port\]"'
-        ),
-    ):
+    with pytest.raises(InvalidServiceSpecError, match="expected \\[namespace/\\]name"):
         parse_spec(tested)
+
+
+def test_format_invalid_spec_includes_example():
+    from portfwd.presentation.service_parser import format_invalid_spec
+
+    message = format_invalid_spec("ns/nginx:80:50001")
+    assert message == (
+        'invalid "ns/nginx:80:50001"; '
+        "expected [namespace/]name[:remote_port][::local_port]; "
+        "example ns-kubectl-portfwd/nginx:80::50001"
+    )
 
 
 @pytest.mark.parametrize(

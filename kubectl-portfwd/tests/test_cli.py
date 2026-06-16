@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, Mock, patch
@@ -20,7 +21,6 @@ from portfwd.application.ports import (
     PortForwardSession,
 )
 from portfwd.application.use_case import PortForwardUseCase
-from portfwd.domain.config import PortFwdConfig, SpecialGroups
 from portfwd.domain.models import (
     NamespacedServiceNameSpec,
     ServicePortForwardSpec,
@@ -110,29 +110,29 @@ class _FakePortForwardLauncher(PortForwardLauncher):
         )
 
 
-def test_run_port_forwards_raises_when_group_and_service_both_provided():
-    """group and service flags are mutually exclusive at the dispatch layer."""
+def test_run_port_forwards_raises_when_file_and_service_both_provided():
+    """file and service flags are mutually exclusive at the dispatch layer."""
     api = _create_fake_api()
     use_case = PortForwardUseCase(
-        config=PortFwdConfig(),
         streamer=PortForwardEventStreamer(launcher=_FakePortForwardLauncher([])),
         api=api,
     )
 
     with pytest.raises(ValueError, match="cannot both be provided"):
         run_port_forwards_from_cli(
-            cfg=PortFwdConfig(),
-            group="backend",
+            file=Path("forwards"),
             service=["ns/svc:80::8080"],
             api=api,
             out=create_output(),
             use_case=use_case,
-            display=PortForwardLiveDisplay(context=None),
+            display=PortForwardLiveDisplay(
+                context=None, console=create_output().console
+            ),
         )
 
 
 def test_run_port_forwards_custom_flow_uses_selected_services():
-    """Interactive custom flow fetches services and forwards the user's selection."""
+    """Interactive flow fetches services and forwards the user's selection."""
     api = _create_fake_api()
     svc1, _ = _build_services()
     selected = ServicePortForwardSpec(
@@ -144,19 +144,17 @@ def test_run_port_forwards_custom_flow_uses_selected_services():
         local_port=3030,
     )
     use_case = PortForwardUseCase(
-        config=PortFwdConfig(),
         streamer=PortForwardEventStreamer(
             launcher=_FakePortForwardLauncher([{"pid": 123, "returncode": 0}])
         ),
         api=api,
     )
-    display = PortForwardLiveDisplay(context=api.current_config.context)
+    display = PortForwardLiveDisplay(
+        context=api.current_config.context,
+        console=create_output().console,
+    )
 
     with (
-        patch(
-            "portfwd.presentation.cli.ask_for_group",
-            return_value=SpecialGroups.CUSTOM,
-        ),
         patch(
             "portfwd.presentation.cli.ask_for_namespace",
             return_value=["ns-kubectl-portfwd"],
@@ -167,8 +165,7 @@ def test_run_port_forwards_custom_flow_uses_selected_services():
         ),
     ):
         run_port_forwards_from_cli(
-            cfg=PortFwdConfig(),
-            group=None,
+            file=None,
             service=None,
             api=api,
             out=create_output(),

@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-from typing import TypeAlias
-
 import questionary
 from kubek.term import DEFAULT_QUESTIONARY_THEME
 
-from portfwd.domain.config import GroupSpec, SpecialGroups
 from portfwd.domain.models import ServicePortForwardSpec
-
-GroupNamesSelection: TypeAlias = GroupSpec | SpecialGroups
 
 QUESTIONARY_STYLE = questionary.Style(DEFAULT_QUESTIONARY_THEME)
 
@@ -58,27 +53,6 @@ def ask_for_service(
         "Select services to forward:",
         choices=choices,
         use_search_filter=True,
-        use_jk_keys=False,
-        style=QUESTIONARY_STYLE,
-    ).ask()
-
-
-def ask_for_group(groups: list[GroupSpec]) -> GroupNamesSelection:
-    """Prompt the user to pick a group, or fall back to the interactive flow."""
-    if not groups:
-        return SpecialGroups.CUSTOM
-
-    choices = [
-        *(questionary.Choice(title=group.name, value=group) for group in groups),
-        questionary.Choice(
-            title="custom",
-            value=SpecialGroups.CUSTOM,
-            description="(interactive: select services to forward)",
-        ),
-    ]
-    return questionary.select(
-        "Select a group to run:",
-        choices=choices,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
     ).ask()

@@ -6,9 +6,9 @@
 
 **kubek** (**kub**ernetes **e**xtension **k**it) is a collection of CLI tools that plug into `kubectl` and add interactive, developer-friendly shortcuts on top of it.
 
-![CI](https://github.com/ohmycoffe/kubek/actions/workflows/ci.yml/badge.svg?branch=main)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![CI](https://github.com/ohmycoffe/kubek/actions/workflows/ci.yml/badge.svg?branch=main)
 [![coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fohmycoffe%2Fdde6edd698fb5f25063c01f49ba251d7%2Fraw%2Fcoverage.json)](https://gist.github.com/ohmycoffe/dde6edd698fb5f25063c01f49ba251d7)
 </div>
 
@@ -25,7 +25,7 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 - Live status table with real-time updates when a process dies
 - Deterministic port allocation: same service always gets the same port across multiple runs (either from config pinning or intelligent assignment)
 
-![portfwd demo](https://github.com/user-attachments/assets/98e91737-8bed-4b2d-a760-4d685ecdb1a9)
+![portfwd demo](https://github.com/user-attachments/assets/0768a6a8-52f2-4d76-9102-d632efbb30f6)
 
 → [Full documentation](kubectl-portfwd/README.md)
 

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 from kubek.kube.config import ResolvedKubeConfig
 
+from portfwd.application.port_forwarding.events import OutputLine, OutputStream
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.application.ports import (
     PortForwardLauncher,
@@ -45,6 +47,46 @@ class PortForwardProcess(PortForwardSession):
         except ProcessLookupError:
             pass
 
+    async def stream_output(self) -> AsyncIterator[OutputLine]:
+        """Read stdout and stderr concurrently, yielding lines as they arrive."""
+
+        queue: asyncio.Queue[OutputLine | None] = asyncio.Queue()
+
+        async def read(reader: asyncio.StreamReader, stream: OutputStream) -> None:
+            try:
+                while True:
+                    raw = await reader.readline()
+                    if not raw:
+                        break
+                    # Decode bytes to string, replacing invalid characters, and strip trailing newline.
+                    # In case of decoding errors, we don't want to lose the line, so we replace undecodable bytes with a placeholder.
+                    text = raw.decode(errors="replace").rstrip("\n")
+                    await queue.put(OutputLine(stream=stream, text=text))
+            finally:
+                await queue.put(None)
+
+        tasks: list[asyncio.Task[None]] = []
+        if self.process.stdout is not None:
+            tasks.append(
+                asyncio.create_task(read(self.process.stdout, OutputStream.STDOUT))
+            )
+        if self.process.stderr is not None:
+            tasks.append(
+                asyncio.create_task(read(self.process.stderr, OutputStream.STDERR))
+            )
+
+        streams_remaining = len(tasks)
+        try:
+            while streams_remaining > 0:
+                item = await queue.get()
+                if item is not None:
+                    yield item
+                else:
+                    streams_remaining -= 1
+        finally:
+            for task in tasks:
+                task.cancel()
+
 
 class KubectlPortForwardLauncher(PortForwardLauncher):
     def __init__(self, config: ResolvedKubeConfig) -> None:
@@ -77,8 +119,8 @@ class KubectlPortForwardLauncher(PortForwardLauncher):
         logger.debug(" ".join(cmd))
         process = await asyncio.create_subprocess_exec(
             *cmd,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=None,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
 
         logger.debug(

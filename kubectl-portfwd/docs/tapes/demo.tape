@@ -22,17 +22,11 @@ Sleep 2s
 Enter
 Sleep 2s
 
-# Group selection — type to filter, then confirm
-Down
-Sleep 2s
-Enter
-Sleep 2s
-
 # Namespace selection — type to filter, then confirm
 Enter
 Sleep 2s
 
-# # Service checkbox — select httpd (first item) and nginx (second)
+# Service checkbox — select httpd (first item) and nginx (second)
 Space
 Sleep 600ms
 Down
