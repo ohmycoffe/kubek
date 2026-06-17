@@ -8,6 +8,7 @@ from typing import Annotated
 
 import typer
 from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConfig
+from kubek.net import is_port_free
 from kubek.term import CLIOutput, create_output, setup_logging_from_count
 
 from portfwd.application.port_forwarding.events import PortForwardEvent
@@ -129,7 +130,8 @@ def port_forward(
         use_case = PortForwardUseCase(
             api=api,
             streamer=PortForwardEventStreamer(
-                launcher=KubectlPortForwardLauncher(config=api.current_config)
+                launcher=KubectlPortForwardLauncher(config=api.current_config),
+                is_local_port_free=is_port_free,
             ),
         )
         run_port_forwards_from_cli(

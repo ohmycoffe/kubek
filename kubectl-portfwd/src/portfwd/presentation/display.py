@@ -16,8 +16,13 @@ from rich.text import Text
 from portfwd.application.port_forwarding.events import (
     OutputLine,
     OutputStream,
+    PortForwardDied,
     PortForwardEvent,
-    PortForwardEventType,
+    PortForwardLaunchFailed,
+    PortForwardOutput,
+    PortForwardReconnecting,
+    PortForwardStarted,
+    PortForwardStopped,
 )
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 
@@ -34,6 +39,7 @@ class _Status(StrEnum):
     LIVE = "live"
     STOPPED = "stopped"
     DIED = "died"
+    RECONNECTING = "reconnecting"
 
 
 @dataclass(frozen=True)
@@ -42,7 +48,6 @@ class _RowKey:
     service_name: str
     remote_port: int
     local_port: int
-    pid: int
 
     @classmethod
     def from_snapshot(
@@ -54,13 +59,13 @@ class _RowKey:
             service_name=snapshot.service_name,
             remote_port=snapshot.remote_port,
             local_port=snapshot.local_port,
-            pid=snapshot.pid,
         )
 
 
 @dataclass
 class _RowState:
     status: _Status
+    pid: int
     returncode: int | None = None
 
 
@@ -79,21 +84,44 @@ class _PortForwardStatusTable:
 
         self.__rows[key] = _RowState(
             status=_Status.LIVE,
-            returncode=snapshot.returncode,
+            pid=snapshot.pid,
+            returncode=None,
         )
 
     def mark_stopped(self, snapshot: PortForwardProcessSnapshot) -> None:
-        self.__ensure_finished(snapshot)
-        key = _RowKey.from_snapshot(snapshot)
-        row = self.__rows.get(key)
-
-        if row is None:
-            raise ValueError(f"Process is not tracked: {key}")
-
-        row.status = _Status.STOPPED
-        row.returncode = snapshot.returncode
+        self.__finish(snapshot, status=_Status.STOPPED)
 
     def mark_died(self, snapshot: PortForwardProcessSnapshot) -> None:
+        self.__finish(snapshot, status=_Status.DIED)
+
+    def mark_reconnecting(
+        self,
+        *,
+        namespace: str,
+        service_name: str,
+        remote_port: int,
+        local_port: int,
+    ) -> None:
+        """Flag an existing row as awaiting reconnect; no-op if it isn't tracked yet."""
+        key = _RowKey(
+            namespace=namespace,
+            service_name=service_name,
+            remote_port=remote_port,
+            local_port=local_port,
+        )
+        row = self.__rows.get(key)
+        if row is None:
+            return
+
+        row.status = _Status.RECONNECTING
+        row.returncode = None
+
+    def __finish(
+        self,
+        snapshot: PortForwardProcessSnapshot,
+        *,
+        status: _Status,
+    ) -> None:
         self.__ensure_finished(snapshot)
         key = _RowKey.from_snapshot(snapshot)
         row = self.__rows.get(key)
@@ -101,7 +129,7 @@ class _PortForwardStatusTable:
         if row is None:
             raise ValueError(f"Process is not tracked: {key}")
 
-        row.status = _Status.DIED
+        row.status = status
         row.returncode = snapshot.returncode
 
     def render(self) -> Table:
@@ -119,14 +147,22 @@ class _PortForwardStatusTable:
         table.add_column("Local", style=Color.HIGHLIGHT, justify="right")
         table.add_column("PID", style=Color.MUTED, justify="right")
         table.add_column("Status")
-        for row_key, row_state in self.__rows.items():
-            key = row_key
+        # Stable order, independent of which process started first.
+        for key, row_state in sorted(
+            self.__rows.items(),
+            key=lambda item: (
+                item[0].namespace,
+                item[0].service_name,
+                item[0].remote_port,
+                item[0].local_port,
+            ),
+        ):
             table.add_row(
                 key.namespace,
                 key.service_name,
                 f"{key.remote_port}",
                 f"localhost:{key.local_port}",
-                str(key.pid),
+                str(row_state.pid),
                 self.__format_status(row_state),
             )
         return table
@@ -138,6 +174,9 @@ class _PortForwardStatusTable:
 
         if row.status == _Status.STOPPED:
             return f"[{Color.WARNING}]■ stopped[/{Color.WARNING}]"
+
+        if row.status == _Status.RECONNECTING:
+            return f"[{Color.WARNING}]⟳ reconnecting…[/{Color.WARNING}]"
 
         return f"[{Color.ERROR}]✗ died (exit {row.returncode})[/{Color.ERROR}]"
 
@@ -162,14 +201,20 @@ class _LogPanel:
         snapshot: PortForwardProcessSnapshot,
         output: OutputLine,
     ) -> None:
-        source = f"{snapshot.service_name}:{snapshot.local_port}"
         body_style = (
             Color.ERROR if output.stream == OutputStream.STDERR else Color.MUTED
         )
+        self.add_line(
+            source=f"{snapshot.service_name}:{snapshot.local_port}",
+            text=output.text,
+            style=body_style,
+        )
 
+    def add_line(self, *, source: str, text: str, style: str) -> None:
+        """Append one `source <text>` line to the buffer with the given body style."""
         log_line = Text(no_wrap=False)
         log_line.append(f"{source} ", style=Color.HIGHLIGHT)
-        log_line.append(output.text, style=body_style)
+        log_line.append(text, style=style)
         self.__log_buffer.append(log_line)
 
     def render(self, height: int, width: int | None = None) -> Panel:
@@ -214,16 +259,60 @@ class PortForwardLiveDisplay:
                 self._live = None
 
     def apply(self, event: PortForwardEvent) -> None:
-        """Update the status table and logs from a port-forward event."""
-        if event.type == PortForwardEventType.STARTED:
-            self._table.track(event.snapshot)
-        elif event.type == PortForwardEventType.STOPPED:
-            self._table.mark_stopped(event.snapshot)
-        elif event.type == PortForwardEventType.DIED:
-            self._table.mark_died(event.snapshot)
-        elif event.type == PortForwardEventType.OUTPUT and event.output is not None:
-            self._logs.append(event.snapshot, event.output)
+        """Update the status table and logs from a port-forward event.
+
+        Lifecycle transitions update the status table and also append a line to
+        the Logs panel so the panel reads as a chronological history.
+        """
+        match event:
+            case PortForwardStarted(snapshot=snapshot):
+                self._table.track(snapshot)
+                self._log(snapshot, "port-forward started", Color.SUCCESS)
+            case PortForwardStopped(snapshot=snapshot):
+                self._table.mark_stopped(snapshot)
+                self._log(snapshot, "port-forward stopped", Color.WARNING)
+            case PortForwardDied(snapshot=snapshot):
+                self._table.mark_died(snapshot)
+                self._log(
+                    snapshot,
+                    f"port-forward died (exit {snapshot.returncode})",
+                    Color.ERROR,
+                )
+            case PortForwardOutput(snapshot=snapshot, output=output):
+                self._logs.append(snapshot, output)
+            case PortForwardLaunchFailed():
+                self._logs.add_line(
+                    source=f"{event.service_name}:{event.local_port}",
+                    text=f"failed to start: {event.reason}",
+                    style=Color.ERROR,
+                )
+            case PortForwardReconnecting():
+                self._table.mark_reconnecting(
+                    namespace=event.namespace,
+                    service_name=event.service_name,
+                    remote_port=event.remote_port,
+                    local_port=event.local_port,
+                )
+                self._logs.add_line(
+                    source=f"{event.service_name}:{event.local_port}",
+                    text=f"local port {event.local_port} in use; waiting to reconnect…",
+                    style=Color.WARNING,
+                )
+            case _:
+                return
         self._refresh()
+
+    def _log(
+        self,
+        snapshot: PortForwardProcessSnapshot,
+        text: str,
+        style: str,
+    ) -> None:
+        self._logs.add_line(
+            source=f"{snapshot.service_name}:{snapshot.local_port}",
+            text=text,
+            style=style,
+        )
 
     def _refresh(self) -> None:
         if self._live is not None:
