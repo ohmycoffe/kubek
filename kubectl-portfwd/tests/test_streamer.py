@@ -1,174 +1,236 @@
 import asyncio
 import signal
-from collections.abc import AsyncIterator
-from contextlib import contextmanager
-from unittest.mock import patch
 
 import pytest
 from portfwd.application.port_forwarding.events import (
     OutputLine,
     OutputStream,
-    PortForwardEventType,
+    PortForwardDied,
+    PortForwardLaunchFailed,
+    PortForwardOutput,
+    PortForwardReconnecting,
+    PortForwardStarted,
+    PortForwardStopped,
 )
-from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
-from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
-from portfwd.application.ports import PortForwardLauncher, PortForwardSession
-from portfwd.domain.errors import PortForwardStartError
-from portfwd.domain.models import NamespacedServiceNamePlan, ServicePortForwardPlan
+from portfwd.application.port_forwarding.streamer import (
+    PortForwardEventStreamer,
+    RestartDelays,
+)
+from portfwd.domain.models import (
+    NamespacedServiceNamePlan,
+    ServicePortForwardPlan,
+)
+from portfwd_test_utils.fakes import (
+    FailingLauncher,
+    FakeSession,
+    RecordingSleep,
+    ScriptedPortChecker,
+    SequentialLauncher,
+    StaticLauncher,
+    make_snapshot,
+)
 
-_PLAN = ServicePortForwardPlan(
+_PLAN_LOCAL_PORT = 9000
+PLAN = ServicePortForwardPlan(
     target=NamespacedServiceNamePlan(namespace="ns", name="svc"),
     remote_port=80,
-    local_port=9000,
+    local_port=_PLAN_LOCAL_PORT,
 )
 
-
-class FakeSession(PortForwardSession):
-    """Session that exits immediately, or blocks until terminate() is called."""
-
-    def __init__(
-        self,
-        *,
-        returncode: int | None,
-        block_exit: bool = False,
-        output: list[OutputLine] | None = None,
-    ) -> None:
-        self._returncode = returncode
-        self._exit = asyncio.Event()
-        self._output = output or []
-        if not block_exit:
-            self._exit.set()
-
-    async def stream_output(self) -> AsyncIterator[OutputLine]:
-        for line in self._output:
-            yield line
-
-    def snapshot(self) -> PortForwardProcessSnapshot:
-        return PortForwardProcessSnapshot(
-            namespace="ns",
-            service_name="svc",
-            remote_port=80,
-            local_port=9000,
-            pid=1234,
-            returncode=self._returncode,
-        )
-
-    async def wait(self) -> None:
-        await self._exit.wait()
-
-    def terminate(self) -> None:
-        self._exit.set()
+_INSTANT_DELAYS = RestartDelays(min_s=0, poll_s=0, max_s=0)
 
 
-class FakeLauncher(PortForwardLauncher):
-    def __init__(self, session: PortForwardSession) -> None:
-        self._session = session
-
-    async def launch(self, plan: ServicePortForwardPlan) -> PortForwardSession:
-        return self._session
-
-
-class FailingLauncher(PortForwardLauncher):
-    async def launch(self, plan: ServicePortForwardPlan) -> PortForwardSession:
-        raise RuntimeError("launch failed")
-
-
-@contextmanager
-def _capture_signal_handlers():
-    """
-    Record signal handlers instead of registering them with the event loop.
-
-    Note:
-    The streamer registers real SIGINT/SIGTERM handlers on the event loop. In tests we
-    intercept those calls, store the callbacks, and invoke them manually (see STOPPED test).
-    """
-    handlers: dict[int, object] = {}
-    loop = asyncio.get_running_loop()
-
-    def register(sig: int, callback: object) -> None:
-        handlers[sig] = callback
-
-    with (
-        patch.object(loop, "add_signal_handler", side_effect=register),
-        patch.object(loop, "remove_signal_handler"),
-    ):
-        yield handlers
+def _make_streamer(
+    launcher,
+    *,
+    restart_delays: RestartDelays = _INSTANT_DELAYS,
+    sleep_for=None,
+    is_local_port_free=None,
+) -> PortForwardEventStreamer:
+    return PortForwardEventStreamer(
+        launcher,
+        restart_delays=restart_delays,
+        sleep_for=sleep_for or RecordingSleep(),
+        is_local_port_free=is_local_port_free or (lambda port: True),
+    )
 
 
 @pytest.mark.asyncio
 async def test_stream_yields_nothing_when_plans_empty():
     """No events are yielded when there are no plans to run."""
-    launcher = FakeLauncher(FakeSession(returncode=0))
+    streamer = _make_streamer(StaticLauncher(FakeSession(make_snapshot())))
 
-    with _capture_signal_handlers():
-        streamer = PortForwardEventStreamer(launcher)
-        events = [event async for event in streamer.stream_port_forwards([])]
+    events = [event async for event in streamer.stream([])]
 
     assert events == []
 
 
 @pytest.mark.asyncio
-async def test_stream_raises_port_forward_start_error_when_launch_fails():
-    """PortForwardStartError is raised when kubectl launch fails."""
-    with _capture_signal_handlers():
-        streamer = PortForwardEventStreamer(FailingLauncher())
+async def test_stream_retries_launch_until_process_starts(captured_signal_handlers):
+    """Launch failures are retried (and surfaced) until a subprocess starts."""
+    launcher = FailingLauncher(fail_count=2)
+    streamer = _make_streamer(launcher)
 
-        with pytest.raises(PortForwardStartError, match="failed to start"):
-            async for _ in streamer.stream_port_forwards([_PLAN]):
-                pass
+    events = []
+    async for event in streamer.stream([PLAN]):
+        events.append(event)
+        if isinstance(event, PortForwardStarted):
+            captured_signal_handlers[signal.SIGINT]()
 
-
-@pytest.mark.asyncio
-async def test_stream_yields_died_when_process_exits_unexpectedly():
-    """DIED is yielded when the process exits and shutdown was not expected."""
-    launcher = FakeLauncher(FakeSession(returncode=1))
-
-    with _capture_signal_handlers():
-        streamer = PortForwardEventStreamer(launcher)
-
-        events = [event async for event in streamer.stream_port_forwards([_PLAN])]
-
-    assert events[0].type == PortForwardEventType.STARTED
-    assert events[-1].type == PortForwardEventType.DIED
-    assert events[-1].snapshot.returncode == 1
+    types = [type(event) for event in events]
+    assert launcher.attempts == 3
+    assert types.count(PortForwardLaunchFailed) == 2
+    assert PortForwardStarted in types
+    assert isinstance(events[-1], PortForwardStopped)
 
 
 @pytest.mark.asyncio
-async def test_stream_yields_output_events_from_subprocess_streams():
+async def test_launch_failed_event_carries_target_and_reason(captured_signal_handlers):
+    """A LAUNCH_FAILED event names the forward and the underlying error."""
+    streamer = _make_streamer(FailingLauncher(fail_count=1))
+
+    failures = []
+    async for event in streamer.stream([PLAN]):
+        if isinstance(event, PortForwardLaunchFailed):
+            failures.append(event)
+        if isinstance(event, PortForwardStarted):
+            captured_signal_handlers[signal.SIGINT]()
+
+    assert len(failures) == 1
+    assert failures[0].service_name == PLAN.target.name
+    assert failures[0].local_port == PLAN.local_port
+    assert "launch failed" in failures[0].reason
+
+
+@pytest.mark.asyncio
+async def test_stream_yields_died_then_restarts_on_unexpected_exit(
+    captured_signal_handlers,
+):
+    """DIED is yielded and the same plan is relaunched when a process exits unexpectedly."""
+    first = FakeSession(
+        make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=111, returncode=1)
+    )
+    second = FakeSession(
+        make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=222, returncode=0),
+        block_exit=True,
+    )
+    streamer = _make_streamer(SequentialLauncher([first, second]))
+
+    events = []
+    async for event in streamer.stream([PLAN]):
+        events.append(event)
+        started = sum(1 for e in events if isinstance(e, PortForwardStarted))
+        if started == 2:
+            captured_signal_handlers[signal.SIGINT]()
+
+    assert [type(event) for event in events] == [
+        PortForwardStarted,
+        PortForwardDied,
+        PortForwardStarted,
+        PortForwardStopped,
+    ]
+    assert events[0].snapshot.pid == 111
+    assert events[2].snapshot.pid == 222
+    assert events[0].snapshot.local_port == PLAN.local_port
+    assert events[2].snapshot.local_port == PLAN.local_port
+
+
+@pytest.mark.asyncio
+async def test_stream_yields_output_events_from_subprocess_streams(
+    captured_signal_handlers,
+):
     """OUTPUT events carry real stdout/stderr lines and don't end the stream early."""
     session = FakeSession(
-        returncode=0,
+        make_snapshot(),
+        block_exit=True,
         output=[
             OutputLine(stream=OutputStream.STDOUT, text="Forwarding from 127.0.0.1"),
             OutputLine(stream=OutputStream.STDERR, text="lost connection to pod"),
         ],
     )
-    launcher = FakeLauncher(session)
+    streamer = _make_streamer(StaticLauncher(session))
 
-    with _capture_signal_handlers():
-        streamer = PortForwardEventStreamer(launcher)
-        events = [event async for event in streamer.stream_port_forwards([_PLAN])]
+    events = []
+    async for event in streamer.stream([PLAN]):
+        events.append(event)
+        if isinstance(event, PortForwardOutput):
+            captured_signal_handlers[signal.SIGINT]()
 
-    outputs = [e for e in events if e.type == PortForwardEventType.OUTPUT]
-    assert {(o.output.stream, o.output.text) for o in outputs if o.output} == {
+    outputs = [e for e in events if isinstance(e, PortForwardOutput)]
+    assert {(o.output.stream, o.output.text) for o in outputs} == {
         (OutputStream.STDOUT, "Forwarding from 127.0.0.1"),
         (OutputStream.STDERR, "lost connection to pod"),
     }
-    assert any(e.type == PortForwardEventType.DIED for e in events)
+    assert isinstance(events[-1], PortForwardStopped)
 
 
 @pytest.mark.asyncio
-async def test_stream_yields_stopped_when_shutdown_expected():
+async def test_stream_yields_stopped_when_shutdown_expected(captured_signal_handlers):
     """STOPPED is yielded when the process exits after an expected shutdown."""
-    launcher = FakeLauncher(FakeSession(returncode=0, block_exit=True))
+    streamer = _make_streamer(
+        StaticLauncher(FakeSession(make_snapshot(returncode=0), block_exit=True))
+    )
 
-    with _capture_signal_handlers() as handlers:
-        events = []
-        streamer = PortForwardEventStreamer(launcher)
-        async for event in streamer.stream_port_forwards([_PLAN]):
-            events.append(event)
-            if event.type == PortForwardEventType.STARTED:
-                handlers[signal.SIGINT]()  # simulate Ctrl+C
+    events = []
+    async for event in streamer.stream([PLAN]):
+        events.append(event)
+        if isinstance(event, PortForwardStarted):
+            captured_signal_handlers[signal.SIGINT]()  # simulate Ctrl+C
 
-    assert events[0].type == PortForwardEventType.STARTED
-    assert events[-1].type == PortForwardEventType.STOPPED
+    assert isinstance(events[0], PortForwardStarted)
+    assert isinstance(events[-1], PortForwardStopped)
+
+
+@pytest.mark.asyncio
+async def test_stream_waits_for_local_port_before_restarting(captured_signal_handlers):
+    """Restart polls until the local port is released, sleeping the poll delay."""
+    first = FakeSession(
+        make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=111, returncode=1)
+    )
+    second = FakeSession(
+        make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=222, returncode=0),
+        block_exit=True,
+    )
+    sleep = RecordingSleep()
+    # First launch: port free. Restart: busy twice, then free.
+    port_checker = ScriptedPortChecker([True, False, False, True])
+    streamer = _make_streamer(
+        SequentialLauncher([first, second]),
+        restart_delays=RestartDelays(min_s=0, poll_s=1.0, max_s=30.0),
+        sleep_for=sleep,
+        is_local_port_free=port_checker,
+    )
+
+    started = 0
+    types = []
+    async for event in streamer.stream([PLAN]):
+        types.append(type(event))
+        if isinstance(event, PortForwardStarted):
+            started += 1
+            if started == 2:
+                captured_signal_handlers[signal.SIGINT]()
+
+    assert port_checker.calls == 4
+    assert sleep.delays == [1.0, 1.0]
+    assert types.count(PortForwardReconnecting) == 2
+
+
+@pytest.mark.asyncio
+async def test_wait_before_reconnect_proceeds_after_min_delay():
+    """When no shutdown arrives within the min delay, reconnect proceeds (True)."""
+    streamer = _make_streamer(StaticLauncher(FakeSession(make_snapshot())))
+
+    assert await streamer._wait_before_reconnect(asyncio.Event()) is True
+
+
+@pytest.mark.asyncio
+async def test_wait_before_reconnect_aborts_on_shutdown():
+    """When shutdown is already requested, reconnect aborts immediately (False)."""
+    streamer = _make_streamer(
+        StaticLauncher(FakeSession(make_snapshot())),
+        restart_delays=RestartDelays(min_s=999, poll_s=0, max_s=0),
+    )
+    shutdown = asyncio.Event()
+    shutdown.set()
+
+    assert await streamer._wait_before_reconnect(shutdown) is False

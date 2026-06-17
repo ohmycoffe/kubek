@@ -4,14 +4,6 @@ from enum import StrEnum
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 
 
-class PortForwardEventType(StrEnum):
-    STARTED = "started"
-    STOPPED = "stopped"
-    DIED = "died"
-    OUTPUT = "output"
-    SESSION_DONE = "session_done"
-
-
 class OutputStream(StrEnum):
     STDOUT = "stdout"
     STDERR = "stderr"
@@ -26,12 +18,65 @@ class OutputLine:
 
 
 @dataclass(frozen=True)
-class PortForwardEvent:
-    type: PortForwardEventType
-    snapshot: PortForwardProcessSnapshot
-    output: OutputLine | None = None
+class PortForwardStarted:
+    """A port-forward subprocess has started running."""
 
-    @property
-    def is_control(self) -> bool:
-        """True for internal coordination events not meant for the UI."""
-        return self.type == PortForwardEventType.SESSION_DONE
+    snapshot: PortForwardProcessSnapshot
+
+
+@dataclass(frozen=True)
+class PortForwardStopped:
+    """A port-forward subprocess was stopped as part of an expected shutdown."""
+
+    snapshot: PortForwardProcessSnapshot
+
+
+@dataclass(frozen=True)
+class PortForwardDied:
+    """A port-forward subprocess exited unexpectedly and will be restarted."""
+
+    snapshot: PortForwardProcessSnapshot
+
+
+@dataclass(frozen=True)
+class PortForwardOutput:
+    """A line of stdout/stderr from a running port-forward subprocess."""
+
+    snapshot: PortForwardProcessSnapshot
+    output: OutputLine
+
+
+@dataclass(frozen=True)
+class PortForwardReconnecting:
+    """A restart is blocked because the local port is still in use."""
+
+    namespace: str
+    service_name: str
+    remote_port: int
+    local_port: int
+
+
+@dataclass(frozen=True)
+class PortForwardLaunchFailed:
+    """An attempt to launch the port-forward failed; ``reason`` is the error."""
+
+    namespace: str
+    service_name: str
+    remote_port: int
+    local_port: int
+    reason: str
+
+
+PortForwardEvent = (
+    PortForwardStarted
+    | PortForwardStopped
+    | PortForwardDied
+    | PortForwardOutput
+    | PortForwardReconnecting
+    | PortForwardLaunchFailed
+)
+"""Everything the streamer yields to the presentation layer about a port-forward.
+
+A closed set of standalone events; consumers discriminate with ``match`` /
+``isinstance``. The user-facing wording is the presentation layer's job.
+"""

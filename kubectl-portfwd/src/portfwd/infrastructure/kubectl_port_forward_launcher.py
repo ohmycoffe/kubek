@@ -48,7 +48,29 @@ class PortForwardProcess(PortForwardSession):
             pass
 
     async def stream_output(self) -> AsyncIterator[OutputLine]:
-        """Read stdout and stderr concurrently, yielding lines as they arrive."""
+        """Read stdout and stderr concurrently, yielding lines as they arrive.
+
+        Implementation detail — why a queue is used below:
+
+        A single async generator can only await one stream at a time, so reading
+        stdout and stderr sequentially would block stderr until stdout closes and
+        would yield all stdout before any stderr. Background tasks read each pipe
+        concurrently and push lines into a queue; the generator yields whichever
+        stream produces a line first.
+
+        Example — sequential reads (wrong)::
+
+            async for line in read_stdout(): yield line  # stderr blocked until stdout EOF
+            async for line in read_stderr(): yield line
+
+        Proper — one background task per stream, merged via a queue::
+
+            asyncio.create_task(read(stdout, STDOUT))  # each task awaits readline()
+            asyncio.create_task(read(stderr, STDERR))  # on its own pipe
+            while streams_remaining:
+                yield await queue.get()                # yield whichever arrives first
+
+        """
 
         queue: asyncio.Queue[OutputLine | None] = asyncio.Queue()
 
