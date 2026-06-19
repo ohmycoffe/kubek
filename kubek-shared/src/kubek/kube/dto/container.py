@@ -62,6 +62,19 @@ class EnvFromSource(BaseModel):
     secret_ref: SecretRef | None = None
 
 
+class ContainerPort(BaseModel):
+    """A single port exposed by a container."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        frozen=True,
+    )
+
+    container_port: int
+    protocol: str | None = None
+
+
 class Container(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -71,3 +84,4 @@ class Container(BaseModel):
 
     env: list[EnvVar] | None = Field(default_factory=list)
     env_from: list[EnvFromSource] | None = Field(default_factory=list)
+    ports: list[ContainerPort] = Field(default_factory=list)

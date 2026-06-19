@@ -9,17 +9,20 @@ QUESTIONARY_STYLE = questionary.Style(DEFAULT_QUESTIONARY_THEME)
 
 
 def ask_for_kinds() -> list[TargetKind]:
-    """Prompt the user to pick which resource types to forward (pods, services)."""
+    """Prompt the user to pick which resource types to forward."""
     choices = [
         questionary.Choice(
-            title="Services ",
+            title="Services",
             value=TargetKind.SERVICE,
             checked=True,
         ),
         questionary.Choice(
             title="Pods",
             value=TargetKind.POD,
-            checked=False,
+        ),
+        questionary.Choice(
+            title="Deployments",
+            value=TargetKind.DEPLOYMENT,
         ),
     ]
     return questionary.checkbox(

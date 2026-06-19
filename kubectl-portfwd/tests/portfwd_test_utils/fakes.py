@@ -14,14 +14,16 @@ from types import SimpleNamespace
 from typing import cast
 
 from kubek.kube.config import ResolvedKubeConfig
-from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
-from kubek.kube.dto.pod import (
-    Pod,
-    PodContainer,
-    PodContainerPort,
-    PodMetadata,
-    PodSpec,
+from kubek.kube.dto.container import Container, ContainerPort
+from kubek.kube.dto.deployment import (
+    Deployment,
+    DeploymentMetadata,
+    DeploymentSpec,
+    Template,
+    TemplateSpec,
 )
+from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
+from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
 from kubek.kube.dto.service import (
     Service,
     ServiceMetadata,
@@ -261,7 +263,7 @@ def make_pod(
         metadata=PodMetadata(name=name, namespace=namespace),
         spec=PodSpec(
             containers=[
-                PodContainer(ports=[PodContainerPort(container_port=p) for p in ports])
+                Container(ports=[ContainerPort(container_port=p) for p in ports])
                 for ports in containers
             ]
         ),
@@ -276,13 +278,47 @@ def build_pods() -> list[Pod]:
     ]
 
 
+def make_deployment(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> Deployment:
+    """Build a Deployment; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return Deployment(
+        metadata=DeploymentMetadata(name=name, namespace=namespace),
+        spec=DeploymentSpec(
+            template=Template(
+                spec=TemplateSpec(
+                    containers=[
+                        Container(
+                            ports=[ContainerPort(container_port=p) for p in ports]
+                        )
+                        for ports in containers
+                    ]
+                )
+            )
+        ),
+    )
+
+
+def build_deployments() -> list[Deployment]:
+    """Two deployments in the shared test namespace, each with one container port."""
+    return [
+        make_deployment("deploy-foo", container_ports=[[70]]),
+        make_deployment("deploy-bar", container_ports=[[80]]),
+    ]
+
+
 def make_fake_api(
     services: list[Service] | None = None,
     pods: list[Pod] | None = None,
+    deployments: list[Deployment] | None = None,
 ) -> KubeGateway:
-    """An in-memory `KubeGateway` backed by the given (or default) services/pods."""
+    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments."""
     services = build_services() if services is None else services
     pods = build_pods() if pods is None else pods
+    deployments = build_deployments() if deployments is None else deployments
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
     return cast(
         KubeGateway,
@@ -290,6 +326,7 @@ def make_fake_api(
             namespace=_InMemoryRepository([namespace]),
             service=_InMemoryRepository(services),
             pod=_InMemoryRepository(pods),
+            deployment=_InMemoryRepository(deployments),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
         ),
     )

@@ -49,6 +49,26 @@ def _spec(name, namespace=None, remote=None, local=None, kind=TargetKind.POD):
         ("pods/api", _spec(name="api", kind=TargetKind.POD)),
         ("service/api:80", _spec(name="api", remote=80, kind=TargetKind.SERVICE)),
         ("services/api", _spec(name="api", kind=TargetKind.SERVICE)),
+        # Deployment aliases.
+        ("deploy/api", _spec(name="api", kind=TargetKind.DEPLOYMENT)),
+        ("deployment/api", _spec(name="api", kind=TargetKind.DEPLOYMENT)),
+        ("deployments/api", _spec(name="api", kind=TargetKind.DEPLOYMENT)),
+        (
+            "default/deployment/api:8080",
+            _spec(
+                name="api", namespace="default", remote=8080, kind=TargetKind.DEPLOYMENT
+            ),
+        ),
+        (
+            "ns/deploy/api:80::9000",
+            _spec(
+                name="api",
+                namespace="ns",
+                remote=80,
+                local=9000,
+                kind=TargetKind.DEPLOYMENT,
+            ),
+        ),
     ],
 )
 def test_from_string_valid(tested, expected):
@@ -83,12 +103,13 @@ def test_from_string_invalid_syntax(tested):
 
 
 def test_format_invalid_spec_includes_example():
+    """format_invalid_spec produces a message listing pod, service, and deployment as valid types."""
     from portfwd.presentation.spec_parser import format_invalid_spec
 
     message = format_invalid_spec("ns/nginx:80:50001")
     assert message == (
         'invalid "ns/nginx:80:50001"; '
-        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service); "
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment); "
         "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )
 

@@ -1,11 +1,14 @@
-from kubek.kube import Pod, Service
+from kubek.kube import Deployment, Pod, Service
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
-from portfwd.application.port_forwarding.pod import container_ports
+from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
+    AmbiguousDeploymentPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
+    DeploymentNotFoundError,
     MissingNamespaceError,
+    NoDeploymentPortsError,
     NoPodPortsError,
     NoServicePortsError,
     PodNotFoundError,
@@ -37,7 +40,7 @@ def resolve_service_remote_port(service: Service) -> int:
 def resolve_pod_remote_port(pod: Pod) -> int:
     """Pick the single declared container port of a Pod or raise if ambiguous."""
     ref = f"{pod.metadata.namespace}/{pod.metadata.name}"
-    ports = container_ports(pod)
+    ports = get_unique_ports(pod.spec.containers)
     if not ports:
         raise NoPodPortsError(
             f'pod "{ref}" declares no container ports; '
@@ -100,15 +103,58 @@ def _remote_port_from_pod(
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
+    """Resolve the remote port for a pod target."""
     pod = _fetch_pod(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_pod_remote_port(pod)
 
 
+def resolve_deployment_remote_port(deployment: Deployment) -> int:
+    """Pick the single declared container port of a Deployment or raise if ambiguous."""
+    ref = f"{deployment.metadata.namespace}/{deployment.metadata.name}"
+    ports = get_unique_ports(deployment.spec.template.spec.containers)
+    if not ports:
+        raise NoDeploymentPortsError(
+            f'deployment "{ref}" declares no container ports; '
+            "specify one with :port in the deployment spec"
+        )
+    if len(ports) > 1:
+        port_list = ", ".join(str(p) for p in sorted(ports))
+        raise AmbiguousDeploymentPortError(
+            f'deployment "{ref}" has multiple container ports ({port_list}); '
+            "specify one with :port in the deployment spec"
+        )
+    return min(ports)
+
+
+def _fetch_deployment(name: str, namespace: str, api: KubeGateway) -> Deployment:
+    """Fetch a deployment or raise DeploymentNotFoundError."""
+    deployment = api.deployment.get(name=name, namespace=namespace)
+    if not deployment:
+        raise DeploymentNotFoundError(
+            f'deployment "{name}" not found in namespace "{namespace}"'
+        )
+    return deployment
+
+
+def _remote_port_from_deployment(
+    name: str,
+    namespace: str,
+    api: KubeGateway,
+    explicit_port: int | None,
+) -> int:
+    """Resolve the remote port for a deployment target."""
+    deployment = _fetch_deployment(name, namespace, api)
+    if explicit_port is not None:
+        return explicit_port
+    return resolve_deployment_remote_port(deployment)
+
+
 _REMOTE_PORT_BY_KIND = {
     TargetKind.SERVICE: _remote_port_from_service,
     TargetKind.POD: _remote_port_from_pod,
+    TargetKind.DEPLOYMENT: _remote_port_from_deployment,
 }
 
 

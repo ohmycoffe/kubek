@@ -42,8 +42,20 @@ class AmbiguousPodPortError(PortForwardError):
     """A Kubernetes Pod declares multiple container ports and none was selected."""
 
 
+class DeploymentNotFoundError(PortForwardError):
+    """A Kubernetes Deployment was not found in the given namespace."""
+
+
+class NoDeploymentPortsError(PortForwardError):
+    """A Kubernetes Deployment declares no container ports and none was specified."""
+
+
+class AmbiguousDeploymentPortError(PortForwardError):
+    """A Kubernetes Deployment declares multiple container ports and none was selected."""
+
+
 class NoTargetsFoundError(PortForwardError):
-    """Target discovery returned no services or pods for the selected namespaces."""
+    """Target discovery returned no services, pods, or deployments for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):
@@ -52,3 +64,7 @@ class NoSelectionError(PortForwardError):
 
 class PortForwardStartError(PortForwardError):
     """kubectl port-forward subprocess failed to start."""
+
+
+class DuplicateLocalPortError(PortForwardError):
+    """Two or more plans resolve to the same local port."""

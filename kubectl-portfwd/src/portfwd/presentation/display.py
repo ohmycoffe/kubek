@@ -210,7 +210,7 @@ class _LogPanel:
             Color.ERROR if output.stream == OutputStream.STDERR else Color.MUTED
         )
         self.add_line(
-            source=f"{snapshot.name}:{snapshot.local_port}",
+            source=f"{snapshot.kind}/{snapshot.name}:{snapshot.local_port}",
             text=output.text,
             style=body_style,
         )
@@ -289,7 +289,7 @@ class PortForwardLiveDisplay:
                 self._logs.append(snapshot, output)
             case PortForwardLaunchFailed():
                 self._logs.add_line(
-                    source=f"{event.name}:{event.local_port}",
+                    source=f"{event.kind}/{event.name}:{event.local_port}",
                     text=f"failed to start: {event.reason}",
                     style=Color.ERROR,
                 )
@@ -302,7 +302,7 @@ class PortForwardLiveDisplay:
                     local_port=event.local_port,
                 )
                 self._logs.add_line(
-                    source=f"{event.name}:{event.local_port}",
+                    source=f"{event.kind}/{event.name}:{event.local_port}",
                     text=f"local port {event.local_port} in use; waiting to reconnect…",
                     style=Color.WARNING,
                 )
@@ -317,7 +317,7 @@ class PortForwardLiveDisplay:
         style: str,
     ) -> None:
         self._logs.add_line(
-            source=f"{snapshot.name}:{snapshot.local_port}",
+            source=f"{snapshot.kind}/{snapshot.name}:{snapshot.local_port}",
             text=text,
             style=style,
         )

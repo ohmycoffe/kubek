@@ -96,3 +96,27 @@ async def test_stream_forwards_selected_pod(fake_api, captured_signal_handlers):
                 captured_signal_handlers[signal.SIGINT]()
 
     assert set(rendered_rows_by_name(display)) == {"pod-foo"}
+
+
+@pytest.mark.asyncio
+async def test_stream_forwards_selected_deployment(fake_api, captured_signal_handlers):
+    """Streaming a selected deployment renders it as a row in the live display."""
+    selected = parse_spec(f"{NAMESPACE}/deployment/deploy-foo:70::7070")
+    use_case = _make_use_case(
+        PlannedLauncher(
+            {"deploy-foo": [FakeLaunch(pid=456, returncode=0, block_exit=True)]}
+        ),
+        fake_api,
+    )
+    display = PortForwardLiveDisplay(
+        context=fake_api.current_config.context,
+        console=create_output().console,
+    )
+
+    with display.live():
+        async for event in use_case.stream_specs([selected]):
+            display.apply(event)
+            if isinstance(event, PortForwardStarted):
+                captured_signal_handlers[signal.SIGINT]()
+
+    assert set(rendered_rows_by_name(display)) == {"deploy-foo"}
