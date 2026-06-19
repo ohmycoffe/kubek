@@ -7,15 +7,19 @@ from kubek.kube.dto.service import Service
 from kubek.net import get_deterministic_port
 from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
+    resolve_deployment_remote_port,
     resolve_local_port,
     resolve_pod_remote_port,
     resolve_service_remote_port,
 )
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
+    AmbiguousDeploymentPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
+    DeploymentNotFoundError,
     MissingNamespaceError,
+    NoDeploymentPortsError,
     NoPodPortsError,
     NoServicePortsError,
     PodNotFoundError,
@@ -26,7 +30,7 @@ from portfwd.domain.models import (
     TargetKind,
     TargetRef,
 )
-from portfwd_test_utils.fakes import make_pod
+from portfwd_test_utils.fakes import make_deployment, make_pod
 
 _FALLBACK_PORT = 50_000
 _SVC_DETERMINISTIC_PORT = get_deterministic_port(
@@ -59,10 +63,15 @@ def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
     )
 
 
-def _make_api(namespace=None, services=None, pods=None) -> KubeGateway:
+def _make_api(
+    namespace=None, services=None, pods=None, deployments=None
+) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
     pods_map = {(ns, name): pod for (ns, name), pod in (pods or {}).items()}
+    deployments_map = {
+        (ns, name): dep for (ns, name), dep in (deployments or {}).items()
+    }
 
     class FakeServiceRepo:
         def get(self, name, namespace=None):
@@ -72,12 +81,17 @@ def _make_api(namespace=None, services=None, pods=None) -> KubeGateway:
         def get(self, name, namespace=None):
             return pods_map.get((namespace, name))
 
+    class FakeDeploymentRepo:
+        def get(self, name, namespace=None):
+            return deployments_map.get((namespace, name))
+
     return cast(
         KubeGateway,
         SimpleNamespace(
             current_config=SimpleNamespace(namespace=namespace, context=None),
             service=FakeServiceRepo(),
             pod=FakePodRepo(),
+            deployment=FakeDeploymentRepo(),
         ),
     )
 
@@ -258,3 +272,64 @@ class TestBuildPortForwardPlan:
         )
         with pytest.raises(PodNotFoundError):
             build_port_forward_plan(spec, api)
+
+    def test_resolves_remote_port_from_deployment(self):
+        """A deployment spec without a remote_port reads the single declared container port."""
+        deployment = make_deployment("worker", "ns", [[9090]])
+        api = _make_api(namespace="ns", deployments={("ns", "worker"): deployment})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.DEPLOYMENT, name="worker", namespace="ns"),
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.target.kind == TargetKind.DEPLOYMENT
+        assert plan.remote_port == 9090
+
+    def test_deployment_spec_explicit_port_used_directly(self):
+        """An explicit remote_port in the spec is forwarded unchanged for deployments."""
+        deployment = make_deployment("worker", "ns", [[9090]])
+        api = _make_api(namespace="ns", deployments={("ns", "worker"): deployment})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.DEPLOYMENT, name="worker", namespace="ns"),
+            remote_port=8080,
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.remote_port == 8080
+
+    def test_raises_when_deployment_not_found(self):
+        """DeploymentNotFoundError is raised when the Deployment does not exist."""
+        api = _make_api(namespace="ns")
+        spec = PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.DEPLOYMENT, name="missing", namespace="ns"
+            ),
+            remote_port=80,
+            local_port=9000,
+        )
+        with pytest.raises(DeploymentNotFoundError):
+            build_port_forward_plan(spec, api)
+
+
+class TestResolveDeploymentRemotePort:
+    def test_returns_single_port(self):
+        """Returns the container port when the deployment declares exactly one."""
+        deployment = make_deployment("api", "ns", [[8080]])
+        assert resolve_deployment_remote_port(deployment) == 8080
+
+    def test_returns_single_unique_port_across_containers(self):
+        """Duplicate container ports across containers collapse to one unique port."""
+        deployment = make_deployment("api", "ns", [[8080], [8080]])
+        assert resolve_deployment_remote_port(deployment) == 8080
+
+    def test_raises_when_no_ports(self):
+        """NoDeploymentPortsError is raised when no container ports are declared."""
+        deployment = make_deployment("api", "ns", [[]])
+        with pytest.raises(NoDeploymentPortsError):
+            resolve_deployment_remote_port(deployment)
+
+    def test_raises_when_multiple_ports(self):
+        """AmbiguousDeploymentPortError is raised when more than one port is declared."""
+        deployment = make_deployment("api", "ns", [[80, 8080]])
+        with pytest.raises(AmbiguousDeploymentPortError):
+            resolve_deployment_remote_port(deployment)
