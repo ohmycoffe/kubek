@@ -16,6 +16,7 @@ Shared library lives in `kubek-shared/src/kubek/`.
 - Commit format: `type(scope): description`. Example: `fix(portfwd): handle kubectl crash without breaking live table`
 - Do not drop a docstring when you edit a file. If a function lacks one, add it when you touch the function.
 - Always add a docstring to any new test function that explains what it verifies and any important setup details.
+- Do not add tests for questionnaire prompts.
 
 ## Setup
 
