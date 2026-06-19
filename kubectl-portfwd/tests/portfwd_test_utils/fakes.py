@@ -23,13 +23,7 @@ from kubek.kube.dto.deployment import (
     TemplateSpec,
 )
 from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
-from kubek.kube.dto.pod import (
-    Pod,
-    PodContainer,
-    PodContainerPort,
-    PodMetadata,
-    PodSpec,
-)
+from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
 from kubek.kube.dto.service import (
     Service,
     ServiceMetadata,
@@ -269,7 +263,7 @@ def make_pod(
         metadata=PodMetadata(name=name, namespace=namespace),
         spec=PodSpec(
             containers=[
-                PodContainer(ports=[PodContainerPort(container_port=p) for p in ports])
+                Container(ports=[ContainerPort(container_port=p) for p in ports])
                 for ports in containers
             ]
         ),

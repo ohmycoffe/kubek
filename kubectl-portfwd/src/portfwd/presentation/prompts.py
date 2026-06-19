@@ -3,26 +3,27 @@ from __future__ import annotations
 import questionary
 from kubek.term import DEFAULT_QUESTIONARY_THEME
 
-from portfwd.domain.models import TARGET_KIND_LABELS, PortForwardSpec, TargetKind
+from portfwd.domain.models import PortForwardSpec, TargetKind
 
 QUESTIONARY_STYLE = questionary.Style(DEFAULT_QUESTIONARY_THEME)
-
-_KIND_PICKER_ORDER = [
-    TargetKind.SERVICE,
-    TargetKind.POD,
-    TargetKind.DEPLOYMENT,
-]
 
 
 def ask_for_kinds() -> list[TargetKind]:
     """Prompt the user to pick which resource types to forward."""
     choices = [
         questionary.Choice(
-            title=TARGET_KIND_LABELS[kind],
-            value=kind,
-            checked=(kind == TargetKind.SERVICE),
-        )
-        for kind in _KIND_PICKER_ORDER
+            title="Services",
+            value=TargetKind.SERVICE,
+            checked=True,
+        ),
+        questionary.Choice(
+            title="Pods",
+            value=TargetKind.POD,
+        ),
+        questionary.Choice(
+            title="Deployments",
+            value=TargetKind.DEPLOYMENT,
+        ),
     ]
     return questionary.checkbox(
         "Select resource types to forward:",

@@ -1,8 +1,8 @@
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
 
+from kubek.kube.dto.container import Container
 from kubek.kube.dto.kind import Kind
 
 
@@ -13,31 +13,10 @@ class PodMetadata(BaseModel):
     namespace: str
 
 
-class PodContainerPort(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-        frozen=True,
-    )
-
-    container_port: int
-    protocol: str | None = None
-
-
-class PodContainer(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-        frozen=True,
-    )
-
-    ports: list[PodContainerPort] = Field(default_factory=list)
-
-
 class PodSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    containers: list[PodContainer] = Field(default_factory=list)
+    containers: list[Container] = Field(default_factory=list)
 
 
 class Pod(BaseModel):

@@ -2,12 +2,7 @@ import itertools
 from collections.abc import Iterable
 
 from kubek.kube import Deployment, Pod, Service
-from portfwd.application.port_forwarding.deployment import (
-    container_ports as deployment_container_ports,
-)
-from portfwd.application.port_forwarding.pod import (
-    container_ports as pod_container_ports,
-)
+from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.models import (
     PortForwardSpec,
@@ -50,7 +45,7 @@ def _convert_pods_to_specs(
             remote_port=container_port,
         )
         for pod in sorted(pods, key=lambda p: (p.metadata.namespace, p.metadata.name))
-        for container_port in sorted(pod_container_ports(pod))
+        for container_port in sorted(get_unique_ports(pod.spec.containers))
     ]
 
 
@@ -86,7 +81,9 @@ def _convert_deployments_to_specs(
         for deployment in sorted(
             deployments, key=lambda d: (d.metadata.namespace, d.metadata.name)
         )
-        for container_port in sorted(deployment_container_ports(deployment))
+        for container_port in sorted(
+            get_unique_ports(deployment.spec.template.spec.containers)
+        )
     ]
 
 

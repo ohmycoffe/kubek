@@ -11,13 +11,6 @@ class TargetKind(StrEnum):
     DEPLOYMENT = "deployment"
 
 
-TARGET_KIND_LABELS: dict[TargetKind, str] = {
-    TargetKind.SERVICE: "Services",
-    TargetKind.POD: "Pods",
-    TargetKind.DEPLOYMENT: "Deployments",
-}
-
-
 class TargetRef(BaseModel):
     """A user-provided reference to a port-forward target (namespace optional)."""
 

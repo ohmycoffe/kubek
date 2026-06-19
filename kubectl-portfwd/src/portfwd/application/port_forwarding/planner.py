@@ -1,11 +1,6 @@
 from kubek.kube import Deployment, Pod, Service
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
-from portfwd.application.port_forwarding.deployment import (
-    container_ports as deployment_container_ports,
-)
-from portfwd.application.port_forwarding.pod import (
-    container_ports as pod_container_ports,
-)
+from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
     AmbiguousDeploymentPortError,
@@ -45,7 +40,7 @@ def resolve_service_remote_port(service: Service) -> int:
 def resolve_pod_remote_port(pod: Pod) -> int:
     """Pick the single declared container port of a Pod or raise if ambiguous."""
     ref = f"{pod.metadata.namespace}/{pod.metadata.name}"
-    ports = pod_container_ports(pod)
+    ports = get_unique_ports(pod.spec.containers)
     if not ports:
         raise NoPodPortsError(
             f'pod "{ref}" declares no container ports; '
@@ -118,7 +113,7 @@ def _remote_port_from_pod(
 def resolve_deployment_remote_port(deployment: Deployment) -> int:
     """Pick the single declared container port of a Deployment or raise if ambiguous."""
     ref = f"{deployment.metadata.namespace}/{deployment.metadata.name}"
-    ports = deployment_container_ports(deployment)
+    ports = get_unique_ports(deployment.spec.template.spec.containers)
     if not ports:
         raise NoDeploymentPortsError(
             f'deployment "{ref}" declares no container ports; '
