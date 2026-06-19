@@ -1,8 +1,13 @@
 import itertools
 from collections.abc import Iterable
 
-from kubek.kube import Pod, Service
-from portfwd.application.port_forwarding.pod import container_ports
+from kubek.kube import Deployment, Pod, Service
+from portfwd.application.port_forwarding.deployment import (
+    container_ports as deployment_container_ports,
+)
+from portfwd.application.port_forwarding.pod import (
+    container_ports as pod_container_ports,
+)
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.models import (
     PortForwardSpec,
@@ -45,7 +50,7 @@ def _convert_pods_to_specs(
             remote_port=container_port,
         )
         for pod in sorted(pods, key=lambda p: (p.metadata.namespace, p.metadata.name))
-        for container_port in sorted(container_ports(pod))
+        for container_port in sorted(pod_container_ports(pod))
     ]
 
 
@@ -65,9 +70,40 @@ def fetch_pods_for_namespaces(
     return _convert_pods_to_specs(raw)
 
 
+def _convert_deployments_to_specs(
+    deployments: Iterable[Deployment],
+) -> list[PortForwardSpec]:
+    """Flatten Deployment list to (target, remote_port) specs, one per declared container port."""
+    return [
+        PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.DEPLOYMENT,
+                namespace=deployment.metadata.namespace,
+                name=deployment.metadata.name,
+            ),
+            remote_port=container_port,
+        )
+        for deployment in sorted(
+            deployments, key=lambda d: (d.metadata.namespace, d.metadata.name)
+        )
+        for container_port in sorted(deployment_container_ports(deployment))
+    ]
+
+
+def fetch_deployments_for_namespaces(
+    namespaces: list[str], api: KubeGateway
+) -> list[PortForwardSpec]:
+    """Fetch deployments with declared container ports for the picker."""
+    raw = itertools.chain.from_iterable(
+        api.deployment.list(namespace=ns) for ns in namespaces
+    )
+    return _convert_deployments_to_specs(raw)
+
+
 _FETCH_BY_KIND = {
     TargetKind.SERVICE: fetch_services_for_namespaces,
     TargetKind.POD: fetch_pods_for_namespaces,
+    TargetKind.DEPLOYMENT: fetch_deployments_for_namespaces,
 }
 
 

@@ -1,15 +1,16 @@
 from types import SimpleNamespace
 from typing import cast
 
-from kubek.kube.dto import Pod, Service
+from kubek.kube.dto import Deployment, Pod, Service
 from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import (
+    fetch_deployments_for_namespaces,
     fetch_pods_for_namespaces,
     fetch_services_for_namespaces,
     fetch_targets_for_namespaces,
 )
 from portfwd.domain.models import TargetKind
-from portfwd_test_utils.fakes import make_pod
+from portfwd_test_utils.fakes import make_deployment, make_pod
 
 
 def _service(name: str, namespace: str, ports: list[int]) -> Service:
@@ -25,8 +26,16 @@ def _pod(name: str, namespace: str, container_ports: list[int]) -> Pod:
     return make_pod(name, namespace, [container_ports])
 
 
-def _make_api(service=None, pod=None) -> KubeGateway:
-    return cast(KubeGateway, SimpleNamespace(service=service, pod=pod))
+def _deployment(name: str, namespace: str, container_ports: list[int]) -> Deployment:
+    """One single-container deployment expressed in terms of make_deployment."""
+    return make_deployment(name, namespace, [container_ports])
+
+
+def _make_api(service=None, pod=None, deployment=None) -> KubeGateway:
+    """Minimal fake KubeGateway with optional repo attributes."""
+    return cast(
+        KubeGateway, SimpleNamespace(service=service, pod=pod, deployment=deployment)
+    )
 
 
 def test_fetch_services_for_namespaces_combines_services_from_each_namespace():
@@ -151,4 +160,86 @@ def test_fetch_targets_honors_selected_kinds():
     svcs_only = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.SERVICE])
     assert {(s.target.kind, s.target.name) for s in svcs_only} == {
         (TargetKind.SERVICE, "alpha")
+    }
+
+
+def test_fetch_deployments_for_namespaces_flattens_declared_container_ports():
+    """Deployments with declared container ports produce one spec per unique port; portless deployments are omitted."""
+    dep_a = _deployment("worker", "ns-1", [9090])
+    dep_b = _deployment("api", "ns-2", [8080, 8443])
+    dep_no_ports = _deployment("sidecar", "ns-1", [])
+
+    class FakeDeploymentRepo:
+        def list(self, namespace: str) -> list[Deployment]:
+            return {
+                "ns-1": [dep_a, dep_no_ports],
+                "ns-2": [dep_b],
+            }.get(namespace, [])
+
+    api = _make_api(deployment=FakeDeploymentRepo())
+    specs = fetch_deployments_for_namespaces(["ns-1", "ns-2"], api)
+
+    keys = [
+        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
+    ]
+    assert keys == [
+        (TargetKind.DEPLOYMENT, "ns-1", "worker", 9090),
+        (TargetKind.DEPLOYMENT, "ns-2", "api", 8080),
+        (TargetKind.DEPLOYMENT, "ns-2", "api", 8443),
+    ]
+
+
+def test_fetch_targets_includes_deployments():
+    """The combined picker returns services, pods, and deployments when all three are selected."""
+    svc = _service("alpha", "ns-1", [80])
+    pod = _pod("worker", "ns-1", [9090])
+    dep = _deployment("api", "ns-1", [8080])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakePodRepo:
+        def list(self, namespace: str) -> list[Pod]:
+            return {"ns-1": [pod]}.get(namespace, [])
+
+    class FakeDeploymentRepo:
+        def list(self, namespace: str) -> list[Deployment]:
+            return {"ns-1": [dep]}.get(namespace, [])
+
+    api = _make_api(
+        service=FakeServiceRepo(),
+        pod=FakePodRepo(),
+        deployment=FakeDeploymentRepo(),
+    )
+    specs = fetch_targets_for_namespaces(
+        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.POD, TargetKind.DEPLOYMENT]
+    )
+
+    kinds = {(s.target.kind, s.target.name) for s in specs}
+    assert kinds == {
+        (TargetKind.SERVICE, "alpha"),
+        (TargetKind.POD, "worker"),
+        (TargetKind.DEPLOYMENT, "api"),
+    }
+
+
+def test_fetch_targets_honors_deployment_kind_filter():
+    """Only deployment specs are returned when kinds=[TargetKind.DEPLOYMENT]."""
+    svc = _service("alpha", "ns-1", [80])
+    dep = _deployment("api", "ns-1", [8080])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeDeploymentRepo:
+        def list(self, namespace: str) -> list[Deployment]:
+            return {"ns-1": [dep]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), deployment=FakeDeploymentRepo())
+    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.DEPLOYMENT])
+
+    assert {(s.target.kind, s.target.name) for s in specs} == {
+        (TargetKind.DEPLOYMENT, "api")
     }
