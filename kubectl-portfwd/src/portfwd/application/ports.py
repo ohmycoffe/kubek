@@ -4,6 +4,7 @@ from typing import Protocol
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.contracts.repositories import (
+    DeploymentRepository,
     NamespaceRepository,
     PodRepository,
     ServiceRepository,
@@ -35,6 +36,9 @@ class KubeGateway(Protocol):
 
     @property
     def pod(self) -> PodRepository: ...
+
+    @property
+    def deployment(self) -> DeploymentRepository: ...
 
 
 class PortForwardSession(ABC):
