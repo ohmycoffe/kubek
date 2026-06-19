@@ -5,16 +5,16 @@ from portfwd.presentation.prompts import ask_for_kinds
 
 
 @patch("portfwd.presentation.prompts.questionary.checkbox")
-def test_ask_for_kinds_offers_both_kinds_prechecked(mock_checkbox):
-    """Both kinds are offered as pre-checked choices."""
-    mock_checkbox.return_value.ask.return_value = [TargetKind.POD, TargetKind.SERVICE]
+def test_ask_for_kinds_offers_both_kinds_with_services_prechecked(mock_checkbox):
+    """Both kinds are offered; services are pre-checked by default."""
+    mock_checkbox.return_value.ask.return_value = [TargetKind.SERVICE]
 
     result = ask_for_kinds()
 
-    assert result == [TargetKind.POD, TargetKind.SERVICE]
+    assert result == [TargetKind.SERVICE]
     choices = mock_checkbox.call_args.kwargs["choices"]
     assert {c.value for c in choices} == {TargetKind.POD, TargetKind.SERVICE}
-    assert all(c.checked for c in choices)
+    assert [c.checked for c in choices] == [True, False]
     assert mock_checkbox.call_args.kwargs["initial_choice"] == TargetKind.SERVICE
     assert [c.value for c in choices] == [TargetKind.SERVICE, TargetKind.POD]
 
