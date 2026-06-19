@@ -18,14 +18,21 @@
 
 ### 🔌 portfwd — Interactive port forwarding
 
-Forwarding ports to Kubernetes services usually means running a separate `kubectl port-forward` command for each service, keeping track of which local port maps to what. **portfwd** (**port** **f**or**w**ar**d**) replaces all of that with a single interactive command — pick your services, and it handles the rest.
+**portfwd** (**port** **f**or**w**ar**d**) manages many `kubectl port-forward` sessions as one. You choose what to forward — Services, Pods, or Deployments — and it runs and supervises every session under a single live dashboard.
 
-- Fuzzy-search namespaces and services interactively
-- Forward multiple services simultaneously in one command
-- Live status table with real-time updates when a process dies
-- Deterministic port allocation: same service always gets the same port across multiple runs (either from config pinning or intelligent assignment)
+At its core it does three things:
 
-![portfwd demo](https://github.com/user-attachments/assets/ddce2625-3c33-45a9-8758-e5f5b146a9df)
+- **Select** targets — interactively, via `-t`, or from a spec file ([example](./kubectl-portfwd/docs/.portfwd-spec))
+- **Forward** them all at once — the same target always gets the same local port across new runs
+- **Supervise** them — a live status view with automatic reconnection
+
+```bash
+kubectl portfwd # interactive mode
+kubectl portfwd -t ns1/svc/auth-service -t ns2/pod/worker-xyz # via CLI options (no prompts)
+kubectl portfwd -f .portfwd-plan # via spec file (no prompts)
+```
+
+![portfwd demo](demo-kubectl-portfwd.gif)
 
 → [Full documentation](kubectl-portfwd/README.md)
 
@@ -33,13 +40,21 @@ Forwarding ports to Kubernetes services usually means running a separate `kubect
 
 ### 📦 export-dotenv — Export env vars from cluster resources
 
-Getting credentials out of a running deployment usually means digging through `kubectl get deployment -o yaml`, copying values by hand, and reformatting them into a `.env` file. **export-dotenv** does it in one command — pick any Deployment or Argo WorkflowTemplate in your cluster and get its env vars exported instantly (including values resolved from ConfigMaps and Secrets).
+**export-dotenv** reads the environment of a running Kubernetes resource and hands it back ready to use — no manual YAML digging or copy-paste.
 
-- Interactive resource picker (kind and name; namespace comes from your kubectl context)
-- Output as `.env` or JSON
-- Pipe directly: `kubectl export-dotenv ... > .env` to produce a dotenv file
+At its core it does three things:
 
-![export-dotenv demo](https://github.com/user-attachments/assets/05ed2fad-6a51-4816-a1b3-24ddc9520dec)
+- **Pick** a resource — a Deployment or Argo WorkflowTemplate, interactively or by flag
+- **Resolve** its full environment — including values referenced from ConfigMaps and Secrets
+- **Emit** it as `.env` or JSON — to stdout for piping
+
+```bash
+kubectl export-dotenv
+kubectl export-dotenv --kind deployment --name my-service --namespace prod > .env
+kubectl export-dotenv --kind workflowtemplate --name my-workflow --output json
+```
+
+![export-dotenv demo](demo-kubectl-export-dotenv.gif)
 
 → [Full documentation](kubectl-export-dotenv/README.md)
 
