@@ -4,6 +4,7 @@ from collections import deque
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 
 from kubek.term.style import Color
@@ -25,6 +26,7 @@ from portfwd.application.port_forwarding.events import (
     PortForwardStopped,
 )
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
+from portfwd.domain.models import TargetKind
 
 BORDER_STYLE = "bright_black"
 _LOG_PANEL_MAX_LINES = 12
@@ -44,8 +46,9 @@ class _Status(StrEnum):
 
 @dataclass(frozen=True)
 class _RowKey:
+    kind: TargetKind
     namespace: str
-    service_name: str
+    name: str
     remote_port: int
     local_port: int
 
@@ -55,8 +58,9 @@ class _RowKey:
         snapshot: PortForwardProcessSnapshot,
     ) -> _RowKey:
         return cls(
+            kind=snapshot.kind,
             namespace=snapshot.namespace,
-            service_name=snapshot.service_name,
+            name=snapshot.name,
             remote_port=snapshot.remote_port,
             local_port=snapshot.local_port,
         )
@@ -97,15 +101,17 @@ class _PortForwardStatusTable:
     def mark_reconnecting(
         self,
         *,
+        kind: TargetKind,
         namespace: str,
-        service_name: str,
+        name: str,
         remote_port: int,
         local_port: int,
     ) -> None:
         """Flag an existing row as awaiting reconnect; no-op if it isn't tracked yet."""
         key = _RowKey(
+            kind=kind,
             namespace=namespace,
-            service_name=service_name,
+            name=name,
             remote_port=remote_port,
             local_port=local_port,
         )
@@ -142,8 +148,7 @@ class _PortForwardStatusTable:
             show_lines=False,
         )
         table.add_column("Namespace", style=Color.HIGHLIGHT, no_wrap=True)
-        table.add_column("Service", style="bold", no_wrap=True)
-        table.add_column("Port", style=Color.HIGHLIGHT, justify="right")
+        table.add_column("Remote", style="bold", no_wrap=True)
         table.add_column("Local", style=Color.HIGHLIGHT, justify="right")
         table.add_column("PID", style=Color.MUTED, justify="right")
         table.add_column("Status")
@@ -152,15 +157,15 @@ class _PortForwardStatusTable:
             self.__rows.items(),
             key=lambda item: (
                 item[0].namespace,
-                item[0].service_name,
+                item[0].kind,
+                item[0].name,
                 item[0].remote_port,
                 item[0].local_port,
             ),
         ):
             table.add_row(
                 key.namespace,
-                key.service_name,
-                f"{key.remote_port}",
+                f"{key.kind}/{key.name}:{key.remote_port}",
                 f"localhost:{key.local_port}",
                 str(row_state.pid),
                 self.__format_status(row_state),
@@ -205,14 +210,16 @@ class _LogPanel:
             Color.ERROR if output.stream == OutputStream.STDERR else Color.MUTED
         )
         self.add_line(
-            source=f"{snapshot.service_name}:{snapshot.local_port}",
+            source=f"{snapshot.name}:{snapshot.local_port}",
             text=output.text,
             style=body_style,
         )
 
     def add_line(self, *, source: str, text: str, style: str) -> None:
-        """Append one `source <text>` line to the buffer with the given body style."""
+        """Append one timestamped `source <text>` line to the buffer."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
         log_line = Text(no_wrap=False)
+        log_line.append(f"[{timestamp}] ", style=Color.SUBTLE)
         log_line.append(f"{source} ", style=Color.HIGHLIGHT)
         log_line.append(text, style=style)
         self.__log_buffer.append(log_line)
@@ -282,19 +289,20 @@ class PortForwardLiveDisplay:
                 self._logs.append(snapshot, output)
             case PortForwardLaunchFailed():
                 self._logs.add_line(
-                    source=f"{event.service_name}:{event.local_port}",
+                    source=f"{event.name}:{event.local_port}",
                     text=f"failed to start: {event.reason}",
                     style=Color.ERROR,
                 )
             case PortForwardReconnecting():
                 self._table.mark_reconnecting(
+                    kind=event.kind,
                     namespace=event.namespace,
-                    service_name=event.service_name,
+                    name=event.name,
                     remote_port=event.remote_port,
                     local_port=event.local_port,
                 )
                 self._logs.add_line(
-                    source=f"{event.service_name}:{event.local_port}",
+                    source=f"{event.name}:{event.local_port}",
                     text=f"local port {event.local_port} in use; waiting to reconnect…",
                     style=Color.WARNING,
                 )
@@ -309,7 +317,7 @@ class PortForwardLiveDisplay:
         style: str,
     ) -> None:
         self._logs.add_line(
-            source=f"{snapshot.service_name}:{snapshot.local_port}",
+            source=f"{snapshot.name}:{snapshot.local_port}",
             text=text,
             style=style,
         )

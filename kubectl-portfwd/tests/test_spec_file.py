@@ -51,14 +51,15 @@ def test_load_spec_file_empty_file_raises(tmp_path: Path):
     spec_file = tmp_path / "forwards"
     spec_file.write_text("# only comments\n\n", encoding="utf-8")
 
-    with pytest.raises(EmptySpecFileError, match="no services"):
+    with pytest.raises(EmptySpecFileError, match="no targets"):
         _load_spec_file(spec_file)
 
 
 def test_load_spec_file_invalid_line_error_message(tmp_path: Path, monkeypatch):
     spec_file = tmp_path / ".portfwd-spec"
     spec_file.write_text(
-        "ns-kubectl-portfwd/httpd:8080::50000\nns-kubectl-portfwd/nginx:80:50001\n",
+        "ns-kubectl-portfwd/svc/httpd:8080::50000\n"
+        "ns-kubectl-portfwd/svc/nginx:80:50001\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
@@ -67,7 +68,8 @@ def test_load_spec_file_invalid_line_error_message(tmp_path: Path, monkeypatch):
         _load_spec_file(spec_file)
 
     assert str(exc_info.value) == (
-        'invalid spec in .portfwd-spec at line 2: "ns-kubectl-portfwd/nginx:80:50001"; '
-        "expected [namespace/]name[:remote_port][::local_port]; "
-        "example ns-kubectl-portfwd/nginx:80::50001"
+        "invalid spec in .portfwd-spec at line 2: "
+        '"ns-kubectl-portfwd/svc/nginx:80:50001"; '
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service); "
+        "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )

@@ -4,6 +4,7 @@ from kubek.kube.dto import WorkflowTemplate
 from kubek.kube.dto.configmap import ConfigMap
 from kubek.kube.dto.deployment import Deployment
 from kubek.kube.dto.namespace import Namespace
+from kubek.kube.dto.pod import Pod
 from kubek.kube.dto.secret import Secret
 from kubek.kube.dto.service import Service
 
@@ -21,6 +22,11 @@ class DeploymentRepository(Protocol):
 class NamespaceRepository(Protocol):
     def list(self) -> list[Namespace]: ...
     def get(self, name: str) -> Namespace | None: ...
+
+
+class PodRepository(Protocol):
+    def list(self, namespace: str | None = None) -> list[Pod]: ...
+    def get(self, name: str, namespace: str | None = None) -> Pod | None: ...
 
 
 class SecretRepository(Protocol):

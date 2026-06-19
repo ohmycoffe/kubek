@@ -14,29 +14,30 @@ from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
 from portfwd.application.ports import KubeGateway
-from portfwd.application.queries import fetch_services_for_namespaces
+from portfwd.application.queries import fetch_targets_for_namespaces
 from portfwd.application.use_case import (
     PortForwardUseCase,
 )
 from portfwd.domain.errors import (
     EmptySpecFileError,
-    InvalidServiceSpecError,
+    InvalidTargetSpecError,
     NoSelectionError,
-    NoServicesFoundError,
+    NoTargetsFoundError,
     PortForwardError,
     SpecFileLoadError,
 )
-from portfwd.domain.models import ServicePortForwardSpec
+from portfwd.domain.models import PortForwardSpec
 from portfwd.infrastructure.kubectl_port_forward_launcher import (
     KubectlPortForwardLauncher,
 )
 from portfwd.infrastructure.spec_file_loader import load_spec_file
 from portfwd.presentation.display import PortForwardLiveDisplay
 from portfwd.presentation.prompts import (
+    ask_for_kinds,
     ask_for_namespace,
-    ask_for_service,
+    ask_for_targets,
 )
-from portfwd.presentation.service_parser import (
+from portfwd.presentation.spec_parser import (
     format_spec_file_line_error,
     parse_spec,
 )
@@ -57,7 +58,10 @@ def port_forward(
             file_okay=True,
             dir_okay=False,
             resolve_path=True,
-            help="Path to a spec file listing services to forward (one per line).",
+            help=(
+                "Path to a spec file listing targets to forward, one per line "
+                '(each "[namespace/]type/name[:remote_port][::local_port]").'
+            ),
         ),
     ] = None,
     context: Annotated[
@@ -77,13 +81,15 @@ def port_forward(
             help="Path to a kubeconfig file (single path). Omit to use kubectl's default.",
         ),
     ] = None,
-    service: Annotated[
+    target: Annotated[
         list[str] | None,
         typer.Option(
-            "--service",
-            "-s",
+            "--target",
+            "-t",
             help=(
-                'Service to forward as "[namespace/]name[:remote_port][::local_port]". '
+                "Target to forward as "
+                '"[namespace/]type/name[:remote_port][::local_port]", '
+                "where type is pod or svc (e.g. kube-public/svc/auth:8080). "
                 "Can be specified multiple times."
             ),
         ),
@@ -98,22 +104,22 @@ def port_forward(
         ),
     ] = 0,
 ) -> None:
-    """Interactive kubectl port-forward for Kubernetes services.
+    """Interactive kubectl port-forward for Kubernetes services and pods.
 
     \b
     Examples:
         kubectl portfwd
         kubectl portfwd -f .portfwd-plan
-        kubectl portfwd -s kube-public/auth-service
-        kubectl portfwd -s kube-public/auth-service:8080
-        kubectl portfwd -s kube-public/auth-service:8080::50000
-        kubectl portfwd -s kube-public/auth -s kube-public/api
+        kubectl portfwd -t kube-public/svc/auth-service
+        kubectl portfwd -t kube-public/svc/auth-service:8080
+        kubectl portfwd -t kube-public/svc/auth-service:8080::50000
+        kubectl portfwd -t kube-public/svc/auth -t kube-public/pod/worker-xyz:9000
     """
     setup_logging_from_count(verbose, "kubek", "portfwd")
     out: CLIOutput = create_output(verbosity_count=verbose)
 
-    if file is not None and service is not None:
-        raise typer.BadParameter("'--file' and '--service' are mutually exclusive.")
+    if file is not None and target is not None:
+        raise typer.BadParameter("'--file' and '--target' are mutually exclusive.")
 
     kubeconfig_str = str(kubeconfig) if kubeconfig else None
 
@@ -136,7 +142,7 @@ def port_forward(
         )
         run_port_forwards_from_cli(
             file=file,
-            service=service,
+            target=target,
             api=api,
             out=out,
             use_case=use_case,
@@ -172,7 +178,7 @@ async def _run_event_stream(
 def run_port_forwards_from_cli(
     *,
     file: Path | None,
-    service: list[str] | None,
+    target: list[str] | None,
     api: KubeGateway,
     out: CLIOutput,
     use_case: PortForwardUseCase,
@@ -180,15 +186,15 @@ def run_port_forwards_from_cli(
 ) -> None:
     """Dispatch to the correct port-forward flow based on CLI flags.
 
-    - ``--service`` wins outright.
-    - ``--file`` loads services from a spec file.
-    - Otherwise prompt the user to pick services interactively.
+    - ``--target`` wins outright.
+    - ``--file`` loads targets from a spec file.
+    - Otherwise prompt the user to pick targets interactively.
     """
-    if service is not None and file is not None:
-        raise ValueError("'file' and 'service' cannot both be provided")
+    if target is not None and file is not None:
+        raise ValueError("'file' and 'target' cannot both be provided")
 
-    if service is not None:
-        specs = [parse_spec(value) for value in service]
+    if target is not None:
+        specs = [parse_spec(value) for value in target]
         asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
         return
     if file is not None:
@@ -196,25 +202,25 @@ def run_port_forwards_from_cli(
         asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
         return
 
-    specs = _ask_for_custom_services(api=api, out=out)
+    specs = _ask_for_targets(api=api, out=out)
     asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
 
 
-def _load_spec_file(path: Path) -> list[ServicePortForwardSpec]:
+def _load_spec_file(path: Path) -> list[PortForwardSpec]:
     try:
         lines = load_spec_file(path)
     except FileNotFoundError as e:
         raise SpecFileLoadError(f"spec file not found: {e.filename}") from e
 
     if not lines:
-        raise EmptySpecFileError(f"spec file contains no services: {path}")
+        raise EmptySpecFileError(f"spec file contains no targets: {path}")
 
     display_path = _display_path(path)
-    specs: list[ServicePortForwardSpec] = []
+    specs: list[PortForwardSpec] = []
     for entry in lines:
         try:
             specs.append(parse_spec(entry.value))
-        except InvalidServiceSpecError as e:
+        except InvalidTargetSpecError as e:
             raise SpecFileLoadError(
                 format_spec_file_line_error(
                     path=display_path,
@@ -232,10 +238,12 @@ def _display_path(path: Path) -> str:
         return str(path)
 
 
-def _ask_for_custom_services(
-    api: KubeGateway,
-    out: CLIOutput,
-) -> list[ServicePortForwardSpec]:
+def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
+    selected_kinds = ask_for_kinds()
+
+    if not selected_kinds:
+        raise NoSelectionError("no resource types selected")
+
     with out.progress("Fetching namespaces…"):
         namespaces = [ns.metadata.name for ns in api.namespace.list()]
 
@@ -247,18 +255,21 @@ def _ask_for_custom_services(
     if not selected_namespaces:
         raise NoSelectionError("no namespaces selected")
 
-    with out.progress("Fetching services…"):
-        specs = fetch_services_for_namespaces(
+    with out.progress("Fetching resources…"):
+        specs = fetch_targets_for_namespaces(
             api=api,
             namespaces=selected_namespaces,
+            kinds=selected_kinds,
         )
 
     if not specs:
-        raise NoServicesFoundError("no services found in the selected namespaces")
+        raise NoTargetsFoundError(
+            "no matching services or pods found in the selected namespaces"
+        )
 
-    selected_services = ask_for_service(specs)
+    selected_targets = ask_for_targets(specs)
 
-    if not selected_services:
-        raise NoSelectionError("no services selected")
+    if not selected_targets:
+        raise NoSelectionError("no targets selected")
 
-    return selected_services
+    return selected_targets

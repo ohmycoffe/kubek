@@ -5,6 +5,7 @@ from kubek.kube._infrastructure import (
     KubernetesConfigMapRepository,
     KubernetesDeploymentRepository,
     KubernetesNamespaceRepository,
+    KubernetesPodRepository,
     KubernetesSecretRepository,
     KubernetesServiceRepository,
     KubernetesWorkflowTemplateRepository,
@@ -22,6 +23,7 @@ class KubeFacade:
         namespace: KubernetesNamespaceRepository,
         deployment: KubernetesDeploymentRepository,
         service: KubernetesServiceRepository,
+        pod: KubernetesPodRepository,
         workflowtemplate: KubernetesWorkflowTemplateRepository,
         secret: KubernetesSecretRepository,
         configmap: KubernetesConfigMapRepository,
@@ -29,6 +31,7 @@ class KubeFacade:
         self.namespace = namespace
         self.deployment = deployment
         self.service = service
+        self.pod = pod
         self.workflowtemplate = workflowtemplate
         self.secret = secret
         self.configmap = configmap
@@ -47,6 +50,7 @@ class KubeFacade:
             namespace=KubernetesNamespaceRepository(client),
             deployment=KubernetesDeploymentRepository(client),
             service=KubernetesServiceRepository(client),
+            pod=KubernetesPodRepository(client),
             workflowtemplate=KubernetesWorkflowTemplateRepository(client),
             secret=KubernetesSecretRepository(client),
             configmap=KubernetesConfigMapRepository(client),

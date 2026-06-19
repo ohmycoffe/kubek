@@ -1,3 +1,5 @@
+import re
+
 from portfwd.application.port_forwarding.events import (
     OutputLine,
     OutputStream,
@@ -9,6 +11,7 @@ from portfwd.application.port_forwarding.events import (
     PortForwardStopped,
 )
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
+from portfwd.domain.models import TargetKind
 from portfwd.presentation.display import (
     PortForwardLiveDisplay,
     _LogPanel,
@@ -21,15 +24,17 @@ _CONSOLE = Console()
 
 
 def _make_snapshot(
-    service_name: str,
+    name: str,
     remote_port: int = 80,
     local_port: int = 9000,
     pid: int = 1234,
     returncode: int | None = None,
+    kind: TargetKind = TargetKind.SERVICE,
 ) -> PortForwardProcessSnapshot:
     return PortForwardProcessSnapshot(
+        kind=kind,
         namespace="ns",
-        service_name=service_name,
+        name=name,
         remote_port=remote_port,
         local_port=local_port,
         pid=pid,
@@ -152,6 +157,7 @@ def test_log_panel_records_line_with_source_tag():
         OutputLine(stream=OutputStream.STDOUT, text="Forwarding from 127.0.0.1:5000"),
     )
     rendered = str(panel.render(height=5).renderable)
+    assert re.search(r"\[\d{2}:\d{2}:\d{2}\]", rendered)
     assert "svc-a:5000" in rendered
     assert "Forwarding from 127.0.0.1:5000" in rendered
 
@@ -206,8 +212,9 @@ def test_apply_launch_failed_shows_reason_in_log_panel():
 
     display.apply(
         PortForwardLaunchFailed(
+            kind=TargetKind.SERVICE,
             namespace="ns",
-            service_name="svc-a",
+            name="svc-a",
             remote_port=80,
             local_port=5000,
             reason="kubectl exited with code 1",
@@ -242,8 +249,9 @@ def test_apply_reconnecting_marks_row_and_logs_wait():
 
     display.apply(
         PortForwardReconnecting(
+            kind=TargetKind.SERVICE,
             namespace="ns",
-            service_name="svc",
+            name="svc",
             remote_port=80,
             local_port=9000,
         )
@@ -261,8 +269,9 @@ def test_apply_reconnecting_logs_each_attempt():
     display.apply(_make_event(PortForwardDied, "svc", pid=7, returncode=1))
 
     reconnect = PortForwardReconnecting(
+        kind=TargetKind.SERVICE,
         namespace="ns",
-        service_name="svc",
+        name="svc",
         remote_port=80,
         local_port=9000,
     )

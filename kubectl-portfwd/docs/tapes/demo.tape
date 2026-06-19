@@ -22,6 +22,10 @@ Sleep 2s
 Enter
 Sleep 2s
 
+# Kind selection — type to filter, then confirm
+Enter
+Sleep 2s
+
 # Namespace selection — type to filter, then confirm
 Enter
 Sleep 2s
@@ -34,7 +38,7 @@ Sleep 600ms
 Space
 Sleep 600ms
 Enter
-Sleep 2s
+Sleep 4s
 
 Ctrl+C
 Sleep 2s

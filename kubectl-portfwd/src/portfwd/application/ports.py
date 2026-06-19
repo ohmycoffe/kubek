@@ -3,19 +3,21 @@ from collections.abc import AsyncIterator
 from typing import Protocol
 
 from kubek.kube.config import ResolvedKubeConfig
-from kubek.kube.contracts.repositories import NamespaceRepository, ServiceRepository
+from kubek.kube.contracts.repositories import (
+    NamespaceRepository,
+    PodRepository,
+    ServiceRepository,
+)
 from portfwd.application.port_forwarding.events import OutputLine, PortForwardEvent
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
-from portfwd.domain.models import ServicePortForwardPlan
+from portfwd.domain.models import PortForwardPlan
 
 
 class PortForwardEventStream(ABC):
     """Streams lifecycle events for port-forward plans."""
 
     @abstractmethod
-    def stream(
-        self, plans: list[ServicePortForwardPlan]
-    ) -> AsyncIterator[PortForwardEvent]:
+    def stream(self, plans: list[PortForwardPlan]) -> AsyncIterator[PortForwardEvent]:
         raise NotImplementedError
 
 
@@ -30,6 +32,9 @@ class KubeGateway(Protocol):
 
     @property
     def service(self) -> ServiceRepository: ...
+
+    @property
+    def pod(self) -> PodRepository: ...
 
 
 class PortForwardSession(ABC):
@@ -61,5 +66,5 @@ class PortForwardLauncher(ABC):
     """Launches one port-forward session."""
 
     @abstractmethod
-    async def launch(self, plan: ServicePortForwardPlan) -> PortForwardSession:
+    async def launch(self, plan: PortForwardPlan) -> PortForwardSession:
         raise NotImplementedError

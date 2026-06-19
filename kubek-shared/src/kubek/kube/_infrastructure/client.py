@@ -194,6 +194,22 @@ class KubernetesClient:
 
     @as_dict
     @safe
+    def get_pods(self, namespace: str | None = None):
+        """List pods in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.core_v1.list_namespaced_pod(ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_pod(self, name: str, namespace: str | None = None):
+        """Look up a single pod by name."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.core_v1.read_namespaced_pod(name, ns)
+        return res
+
+    @as_dict
+    @safe
     def get_deployments(self, namespace: str | None = None):
         """List deployment names in the specified namespace."""
         ns = namespace or self.session.current_config.namespace

@@ -13,7 +13,7 @@ from portfwd.application.ports import (
     PortForwardLauncher,
     PortForwardSession,
 )
-from portfwd.domain.models import ServicePortForwardPlan
+from portfwd.domain.models import PortForwardPlan, TargetKind
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +23,17 @@ class PortForwardProcess(PortForwardSession):
     """A running `kubectl port-forward` subprocess and its parameters."""
 
     process: asyncio.subprocess.Process
+    kind: TargetKind
     local_port: int
     remote_port: int
-    service_name: str
+    name: str
     namespace: str
 
     def snapshot(self) -> PortForwardProcessSnapshot:
         return PortForwardProcessSnapshot(
+            kind=self.kind,
             namespace=self.namespace,
-            service_name=self.service_name,
+            name=self.name,
             remote_port=self.remote_port,
             local_port=self.local_port,
             pid=self.process.pid,
@@ -114,11 +116,12 @@ class KubectlPortForwardLauncher(PortForwardLauncher):
     def __init__(self, config: ResolvedKubeConfig) -> None:
         self._config = config
 
-    async def launch(self, plan: ServicePortForwardPlan) -> PortForwardProcess:
+    async def launch(self, plan: PortForwardPlan) -> PortForwardProcess:
         """Spawn a `kubectl port-forward` subprocess and return its handle."""
 
         namespace = plan.target.namespace
-        service = plan.target.name
+        name = plan.target.name
+        kind = plan.target.kind
         local_port = plan.local_port
         remote_port = plan.remote_port
         context = self._config.context
@@ -133,7 +136,7 @@ class KubectlPortForwardLauncher(PortForwardLauncher):
             "kubectl",
             *args,
             "port-forward",
-            f"svc/{service}",
+            f"{kind}/{name}",
             f"{local_port}:{remote_port}",
             "--namespace",
             namespace,
@@ -146,16 +149,18 @@ class KubectlPortForwardLauncher(PortForwardLauncher):
         )
 
         logger.debug(
-            "Started port forward for %s:%d → localhost:%d [PID: %d]",
-            service,
+            "Started port forward for %s/%s:%d → localhost:%d [PID: %d]",
+            kind,
+            name,
             remote_port,
             local_port,
             process.pid,
         )
         return PortForwardProcess(
             process=process,
+            kind=kind,
             local_port=local_port,
             remote_port=remote_port,
-            service_name=service,
+            name=name,
             namespace=namespace,
         )

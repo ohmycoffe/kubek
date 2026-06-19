@@ -11,11 +11,11 @@ class SpecFileLine:
 
 
 def load_spec_file(path: Path) -> list[SpecFileLine]:
-    """Load port-forward service lines from a text file.
+    """Load port-forward target lines from a text file.
 
     Returns each non-empty, non-comment line with its 1-based file line number.
-    Each line is expected to use the same format as ``--service``:
-    ``[namespace/]name[:remote_port][::local_port]``.
+    Each line is expected to use the same format as ``--target``:
+    ``[namespace/]type/name[:remote_port][::local_port]``.
     """
     lines: list[SpecFileLine] = []
     with path.open(encoding="utf-8") as f:

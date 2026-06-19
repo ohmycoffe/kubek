@@ -2,7 +2,11 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from kubek.kube.config import ResolvedKubeConfig
-from portfwd.domain.models import NamespacedServiceNamePlan, ServicePortForwardPlan
+from portfwd.domain.models import (
+    PortForwardPlan,
+    ResolvedTargetRef,
+    TargetKind,
+)
 from portfwd.infrastructure.kubectl_port_forward_launcher import (
     KubectlPortForwardLauncher,
     PortForwardProcess,
@@ -16,9 +20,10 @@ async def _launch(
     remote_port: int,
     context: str | None = None,
     kubeconfig: str | None = None,
+    kind: TargetKind = TargetKind.SERVICE,
 ) -> tuple:
-    plan = ServicePortForwardPlan(
-        target=NamespacedServiceNamePlan(namespace=namespace, name=service),
+    plan = PortForwardPlan(
+        target=ResolvedTargetRef(kind=kind, namespace=namespace, name=service),
         remote_port=remote_port,
         local_port=local_port,
     )
@@ -60,6 +65,20 @@ async def test_start_port_forward_builds_correct_command():
 
 
 @pytest.mark.asyncio
+async def test_start_port_forward_builds_pod_command():
+    cmd = await _launch(
+        namespace="my-ns",
+        service="my-pod",
+        local_port=5000,
+        remote_port=80,
+        kind=TargetKind.POD,
+    )
+
+    assert "pod/my-pod" in cmd
+    assert "svc/my-pod" not in cmd
+
+
+@pytest.mark.asyncio
 async def test_start_port_forward_includes_kubeconfig_and_context_when_given():
     cmd = await _launch(
         namespace="ns",
@@ -84,9 +103,10 @@ async def test_port_forward_process_snapshot_reflects_subprocess_state():
 
     session = PortForwardProcess(
         process=mock_proc,
+        kind=TargetKind.SERVICE,
         local_port=5000,
         remote_port=80,
-        service_name="svc",
+        name="svc",
         namespace="ns",
     )
 
@@ -94,7 +114,7 @@ async def test_port_forward_process_snapshot_reflects_subprocess_state():
     assert snapshot.pid == 42
     assert snapshot.returncode == 0
     assert snapshot.local_port == 5000
-    assert snapshot.service_name == "svc"
+    assert snapshot.name == "svc"
 
 
 @pytest.mark.asyncio
@@ -107,9 +127,10 @@ async def test_port_forward_process_terminate_ignores_missing_process():
 
     session = PortForwardProcess(
         process=mock_proc,
+        kind=TargetKind.SERVICE,
         local_port=5000,
         remote_port=80,
-        service_name="svc",
+        name="svc",
         namespace="ns",
     )
 
