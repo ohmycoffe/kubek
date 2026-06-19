@@ -1,6 +1,6 @@
 [project]
 name = "kubek"
-version = "0.7.2"
+version = "0.8.0"
 description = "kubectl extensions"
 readme = "README.md"
 authors = [
