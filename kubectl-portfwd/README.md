@@ -3,19 +3,22 @@
 ## Usage
 
 ```bash
-kubectl portfwd                                            # interactive: pick services
-kubectl portfwd -f .portfwd-plan                           # forward services from a spec file
-kubectl portfwd -s kube-public/auth-service                # forward a single service
-kubectl portfwd -s kube-public/auth-service:8080           # specify remote port explicitly
-kubectl portfwd -s kube-public/auth-service:8080::50000    # specify remote and local ports
-kubectl portfwd -s kube-public/auth-service -s kube-public/user-service  # forward multiple services
-kubectl portfwd -v / -vv                                   # INFO / DEBUG logging
-kubectl portfwd --context my-cluster                       # use a specific kube context
-kubectl portfwd --kubeconfig ~/.kube/other-config          # use a specific kubeconfig file
-kubectl portfwd --help                                     # full option reference
+kubectl portfwd                                              # interactive: pick types, then targets
+kubectl portfwd -f .portfwd-plan                             # forward targets from a spec file
+kubectl portfwd -t kube-public/svc/auth-service              # forward a single service
+kubectl portfwd -t kube-public/pod/worker-xyz                # forward a single pod
+kubectl portfwd -t kube-public/svc/auth-service:8080         # specify remote port explicitly
+kubectl portfwd -t kube-public/svc/auth-service:8080::50000  # specify remote and local ports
+kubectl portfwd -t kube-public/svc/auth -t kube-public/pod/worker-xyz  # forward multiple targets
+kubectl portfwd -v / -vv                                     # INFO / DEBUG logging
+kubectl portfwd --context my-cluster                         # use a specific kube context
+kubectl portfwd --kubeconfig ~/.kube/other-config            # use a specific kubeconfig file
+kubectl portfwd --help                                       # full option reference
 ```
 
-`--file` and `--service` are mutually exclusive.
+`--file` and `--target` are mutually exclusive. Every target names its type
+explicitly with a `svc/` or `pod/` segment (aliases: `service`/`services`,
+`po`/`pods`); there is no implicit default.
 
 ### Context
 
@@ -42,17 +45,17 @@ The path is forwarded to every `kubectl` call, including each `port-forward` sub
 
 ## Spec file
 
-List services to forward, one per line. Blank lines and `#` comments are ignored.
+List targets to forward, one per line. Blank lines and `#` comments are ignored.
 The filename is arbitrary; `.portfwd-plan` is a common convention in this repo.
 
 ```
 # backend
-ns-kubectl-portfwd/httpd:8080::50000
-ns-kubectl-portfwd/nginx:80::50001
+ns-kubectl-portfwd/svc/httpd:8080::50000
+ns-kubectl-portfwd/pod/nginx:80::50001
 ```
 
-Each line uses the same format as `--service`: `[namespace/]name[:remote_port][::local_port]`.
+Each line uses the same format as `--target`: `[namespace/]type/name[:remote_port][::local_port]`, where `type` is `svc` or `pod`.
 
-When ports are omitted, remote port is read from the Kubernetes Service (single-port services only) and local port is chosen automatically.
+When ports are omitted, the remote port is read from the target (single-port services/pods only) and the local port is chosen automatically.
 
-Interactive mode (no `--file` or `--service`) prompts for namespaces, then services to forward.
+Interactive mode (no `--file` or `--target`) prompts for the types to forward, then namespaces, then the targets.

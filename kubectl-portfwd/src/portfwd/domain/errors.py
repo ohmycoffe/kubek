@@ -7,11 +7,11 @@ class SpecFileLoadError(PortForwardError):
 
 
 class EmptySpecFileError(PortForwardError):
-    """Spec file has no service entries."""
+    """Spec file has no target entries."""
 
 
-class InvalidServiceSpecError(PortForwardError):
-    """A service spec did not match the expected format."""
+class InvalidTargetSpecError(PortForwardError):
+    """A target spec did not match the expected format."""
 
 
 class MissingNamespaceError(PortForwardError):
@@ -30,8 +30,20 @@ class AmbiguousServicePortError(PortForwardError):
     """A Kubernetes Service has multiple ports and none was selected."""
 
 
-class NoServicesFoundError(PortForwardError):
-    """Service discovery returned no services for the selected namespaces."""
+class PodNotFoundError(PortForwardError):
+    """A Kubernetes Pod was not found in the given namespace."""
+
+
+class NoPodPortsError(PortForwardError):
+    """A Kubernetes Pod declares no container ports and none was specified."""
+
+
+class AmbiguousPodPortError(PortForwardError):
+    """A Kubernetes Pod declares multiple container ports and none was selected."""
+
+
+class NoTargetsFoundError(PortForwardError):
+    """Target discovery returned no services or pods for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):

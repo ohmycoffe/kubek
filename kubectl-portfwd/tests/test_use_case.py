@@ -6,9 +6,10 @@ from kubek.kube.dto.service import Service
 from portfwd.application.ports import KubeGateway, PortForwardEventStream
 from portfwd.application.use_case import PortForwardUseCase
 from portfwd.domain.models import (
-    NamespacedServiceNameSpec,
-    ServicePortForwardPlan,
-    ServicePortForwardSpec,
+    PortForwardPlan,
+    PortForwardSpec,
+    TargetKind,
+    TargetRef,
 )
 
 
@@ -16,9 +17,9 @@ class SpyRunner(PortForwardEventStream):
     """Records every call to stream() without executing real kubectl."""
 
     def __init__(self) -> None:
-        self.calls: list[list[ServicePortForwardPlan]] = []
+        self.calls: list[list[PortForwardPlan]] = []
 
-    def stream(self, plans: list[ServicePortForwardPlan]):
+    def stream(self, plans: list[PortForwardPlan]):
         self.calls.append(plans)
         return self._empty_event_stream()
 
@@ -63,8 +64,8 @@ async def test_stream_specs_builds_plan_from_spec_and_passes_to_runner():
     """stream_specs resolves each spec to a plan and forwards them to the runner."""
     svc = _make_service("auth", "ns", [80])
     api = _make_api(namespace="ns", services={("ns", "auth"): svc})
-    spec = ServicePortForwardSpec(
-        target=NamespacedServiceNameSpec(name="auth", namespace="ns"),
+    spec = PortForwardSpec(
+        target=TargetRef(kind=TargetKind.SERVICE, name="auth", namespace="ns"),
         remote_port=80,
         local_port=9000,
     )

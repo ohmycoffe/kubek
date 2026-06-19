@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
+from portfwd.domain.models import TargetKind
 
 
 class OutputStream(StrEnum):
@@ -50,8 +51,9 @@ class PortForwardOutput:
 class PortForwardReconnecting:
     """A restart is blocked because the local port is still in use."""
 
+    kind: TargetKind
     namespace: str
-    service_name: str
+    name: str
     remote_port: int
     local_port: int
 
@@ -60,8 +62,9 @@ class PortForwardReconnecting:
 class PortForwardLaunchFailed:
     """An attempt to launch the port-forward failed; ``reason`` is the error."""
 
+    kind: TargetKind
     namespace: str
-    service_name: str
+    name: str
     remote_port: int
     local_port: int
     reason: str

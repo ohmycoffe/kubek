@@ -1,4 +1,3 @@
-import asyncio
 import signal
 
 import pytest
@@ -13,12 +12,13 @@ from portfwd.application.port_forwarding.events import (
     PortForwardStopped,
 )
 from portfwd.application.port_forwarding.streamer import (
+    Backoff,
     PortForwardEventStreamer,
-    RestartDelays,
 )
 from portfwd.domain.models import (
-    NamespacedServiceNamePlan,
-    ServicePortForwardPlan,
+    PortForwardPlan,
+    ResolvedTargetRef,
+    TargetKind,
 )
 from portfwd_test_utils.fakes import (
     FailingLauncher,
@@ -31,25 +31,25 @@ from portfwd_test_utils.fakes import (
 )
 
 _PLAN_LOCAL_PORT = 9000
-PLAN = ServicePortForwardPlan(
-    target=NamespacedServiceNamePlan(namespace="ns", name="svc"),
+PLAN = PortForwardPlan(
+    target=ResolvedTargetRef(kind=TargetKind.SERVICE, namespace="ns", name="svc"),
     remote_port=80,
     local_port=_PLAN_LOCAL_PORT,
 )
 
-_INSTANT_DELAYS = RestartDelays(min_s=0, poll_s=0, max_s=0)
+_NO_BACKOFF = Backoff(min_s=0, max_s=0)
 
 
 def _make_streamer(
     launcher,
     *,
-    restart_delays: RestartDelays = _INSTANT_DELAYS,
+    backoff: Backoff = _NO_BACKOFF,
     sleep_for=None,
     is_local_port_free=None,
 ) -> PortForwardEventStreamer:
     return PortForwardEventStreamer(
         launcher,
-        restart_delays=restart_delays,
+        backoff=backoff,
         sleep_for=sleep_for or RecordingSleep(),
         is_local_port_free=is_local_port_free or (lambda port: True),
     )
@@ -97,7 +97,7 @@ async def test_launch_failed_event_carries_target_and_reason(captured_signal_han
             captured_signal_handlers[signal.SIGINT]()
 
     assert len(failures) == 1
-    assert failures[0].service_name == PLAN.target.name
+    assert failures[0].name == PLAN.target.name
     assert failures[0].local_port == PLAN.local_port
     assert "launch failed" in failures[0].reason
 
@@ -196,7 +196,7 @@ async def test_stream_waits_for_local_port_before_restarting(captured_signal_han
     port_checker = ScriptedPortChecker([True, False, False, True])
     streamer = _make_streamer(
         SequentialLauncher([first, second]),
-        restart_delays=RestartDelays(min_s=0, poll_s=1.0, max_s=30.0),
+        backoff=Backoff(min_s=1.0, max_s=30.0),
         sleep_for=sleep,
         is_local_port_free=port_checker,
     )
@@ -211,26 +211,5 @@ async def test_stream_waits_for_local_port_before_restarting(captured_signal_han
                 captured_signal_handlers[signal.SIGINT]()
 
     assert port_checker.calls == 4
-    assert sleep.delays == [1.0, 1.0]
+    assert sleep.delays == [1.0, 1.0, 1.0, 2.0]
     assert types.count(PortForwardReconnecting) == 2
-
-
-@pytest.mark.asyncio
-async def test_wait_before_reconnect_proceeds_after_min_delay():
-    """When no shutdown arrives within the min delay, reconnect proceeds (True)."""
-    streamer = _make_streamer(StaticLauncher(FakeSession(make_snapshot())))
-
-    assert await streamer._wait_before_reconnect(asyncio.Event()) is True
-
-
-@pytest.mark.asyncio
-async def test_wait_before_reconnect_aborts_on_shutdown():
-    """When shutdown is already requested, reconnect aborts immediately (False)."""
-    streamer = _make_streamer(
-        StaticLauncher(FakeSession(make_snapshot())),
-        restart_delays=RestartDelays(min_s=999, poll_s=0, max_s=0),
-    )
-    shutdown = asyncio.Event()
-    shutdown.set()
-
-    assert await streamer._wait_before_reconnect(shutdown) is False

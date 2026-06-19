@@ -8,20 +8,29 @@ from kubek.net import get_deterministic_port
 from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
     resolve_local_port,
-    resolve_remote_port,
+    resolve_pod_remote_port,
+    resolve_service_remote_port,
 )
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
+    AmbiguousPodPortError,
     AmbiguousServicePortError,
     MissingNamespaceError,
+    NoPodPortsError,
     NoServicePortsError,
+    PodNotFoundError,
     ServiceNotFoundError,
 )
-from portfwd.domain.models import NamespacedServiceNameSpec, ServicePortForwardSpec
+from portfwd.domain.models import (
+    PortForwardSpec,
+    TargetKind,
+    TargetRef,
+)
+from portfwd_test_utils.fakes import make_pod
 
 _FALLBACK_PORT = 50_000
 _SVC_DETERMINISTIC_PORT = get_deterministic_port(
-    service="svc", namespace="ns", service_port=80
+    name="svc", namespace="ns", service_port=80
 )
 
 
@@ -50,39 +59,47 @@ def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
     )
 
 
-def _make_api(namespace=None, services=None) -> KubeGateway:
+def _make_api(namespace=None, services=None, pods=None) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
+    pods_map = {(ns, name): pod for (ns, name), pod in (pods or {}).items()}
 
     class FakeServiceRepo:
         def get(self, name, namespace=None):
             return services_map.get((namespace, name))
+
+    class FakePodRepo:
+        def get(self, name, namespace=None):
+            return pods_map.get((namespace, name))
 
     return cast(
         KubeGateway,
         SimpleNamespace(
             current_config=SimpleNamespace(namespace=namespace, context=None),
             service=FakeServiceRepo(),
+            pod=FakePodRepo(),
         ),
     )
 
 
-class TestNamespacedServiceNameSpec:
+class TestTargetRef:
     def test_str_without_namespace(self):
-        spec = NamespacedServiceNameSpec(name="api")
-        assert str(spec) == "api"
+        ref = TargetRef(kind=TargetKind.POD, name="api")
+        assert str(ref) == "pod/api"
 
     def test_str_with_namespace(self):
-        spec = NamespacedServiceNameSpec(name="api", namespace="default")
-        assert str(spec) == "default/api"
+        ref = TargetRef(kind=TargetKind.SERVICE, name="api", namespace="default")
+        assert str(ref) == "svc/default/api"
 
 
-class TestNamespacedServiceNamePlan:
-    def test_str_includes_namespace(self):
-        from portfwd.domain.models import NamespacedServiceNamePlan
+class TestResolvedTargetRef:
+    def test_str_includes_kind_and_namespace(self):
+        from portfwd.domain.models import ResolvedTargetRef, TargetKind
 
-        plan = NamespacedServiceNamePlan(name="api", namespace="default")
-        assert str(plan) == "default/api"
+        ref = ResolvedTargetRef(
+            kind=TargetKind.SERVICE, name="api", namespace="default"
+        )
+        assert str(ref) == "svc/default/api"
 
 
 class TestResolveLocalPort:
@@ -104,19 +121,43 @@ class TestResolveRemotePort:
     def test_returns_single_port(self):
         """Returns the port number when the service has exactly one port."""
         service = _make_service("svc", "ns", [8080])
-        assert resolve_remote_port(service) == 8080
+        assert resolve_service_remote_port(service) == 8080
 
     def test_raises_when_no_ports(self):
         """NoServicePortsError is raised for services with no declared ports."""
         service = _make_service("svc", "ns", [])
         with pytest.raises(NoServicePortsError):
-            resolve_remote_port(service)
+            resolve_service_remote_port(service)
 
     def test_raises_when_multiple_ports(self):
         """AmbiguousServicePortError is raised when the service exposes more than one port."""
         service = _make_service("svc", "ns", [80, 8080])
         with pytest.raises(AmbiguousServicePortError):
-            resolve_remote_port(service)
+            resolve_service_remote_port(service)
+
+
+class TestResolvePodRemotePort:
+    def test_returns_single_port(self):
+        """Returns the container port when the pod declares exactly one."""
+        pod = make_pod("api", "ns", [[8080]])
+        assert resolve_pod_remote_port(pod) == 8080
+
+    def test_returns_single_unique_port_across_containers(self):
+        """Duplicate container ports across containers collapse to one."""
+        pod = make_pod("api", "ns", [[8080], [8080]])
+        assert resolve_pod_remote_port(pod) == 8080
+
+    def test_raises_when_no_ports(self):
+        """NoPodPortsError is raised when the pod declares no container ports."""
+        pod = make_pod("api", "ns", [[]])
+        with pytest.raises(NoPodPortsError):
+            resolve_pod_remote_port(pod)
+
+    def test_raises_when_multiple_ports(self):
+        """AmbiguousPodPortError is raised when the pod exposes more than one port."""
+        pod = make_pod("api", "ns", [[80, 8080]])
+        with pytest.raises(AmbiguousPodPortError):
+            resolve_pod_remote_port(pod)
 
 
 class TestBuildPortForwardPlan:
@@ -124,8 +165,8 @@ class TestBuildPortForwardPlan:
         """Ports declared in the spec are forwarded unchanged."""
         svc = _make_service("auth", "ns", [80])
         api = _make_api(namespace="ns", services={("ns", "auth"): svc})
-        spec = ServicePortForwardSpec(
-            target=NamespacedServiceNameSpec(name="auth", namespace="ns"),
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.SERVICE, name="auth", namespace="ns"),
             remote_port=443,
             local_port=9443,
         )
@@ -141,8 +182,8 @@ class TestBuildPortForwardPlan:
         api = _make_api(
             namespace="kube-public", services={("kube-public", "auth"): svc}
         )
-        spec = ServicePortForwardSpec(
-            target=NamespacedServiceNameSpec(name="auth"),
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.SERVICE, name="auth"),
             remote_port=80,
             local_port=9000,
         )
@@ -153,8 +194,8 @@ class TestBuildPortForwardPlan:
         """MissingNamespaceError is raised when neither spec nor api supplies a namespace."""
         svc = _make_service("auth", "ns", [80])
         api = _make_api(namespace=None, services={("ns", "auth"): svc})
-        spec = ServicePortForwardSpec(
-            target=NamespacedServiceNameSpec(name="auth"),
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.SERVICE, name="auth"),
             remote_port=80,
             local_port=9000,
         )
@@ -164,8 +205,8 @@ class TestBuildPortForwardPlan:
     def test_raises_when_service_not_found(self):
         """ServiceNotFoundError is raised when the Service does not exist in the namespace."""
         api = _make_api(namespace="ns")
-        spec = ServicePortForwardSpec(
-            target=NamespacedServiceNameSpec(name="missing", namespace="ns"),
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.SERVICE, name="missing", namespace="ns"),
             remote_port=80,
             local_port=9000,
         )
@@ -176,9 +217,44 @@ class TestBuildPortForwardPlan:
         """When spec has no remote_port, it is read from the service's single declared port."""
         svc = _make_service("auth", "ns", [8080])
         api = _make_api(namespace="ns", services={("ns", "auth"): svc})
-        spec = ServicePortForwardSpec(
-            target=NamespacedServiceNameSpec(name="auth", namespace="ns"),
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.SERVICE, name="auth", namespace="ns"),
             local_port=9000,
         )
         plan = build_port_forward_plan(spec, api)
         assert plan.remote_port == 8080
+
+    def test_resolves_remote_port_from_pod(self):
+        """A pod spec without a remote_port reads the pod's single container port."""
+        pod = make_pod("worker", "ns", [[9090]])
+        api = _make_api(namespace="ns", pods={("ns", "worker"): pod})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.POD, name="worker", namespace="ns"),
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.target.kind == TargetKind.POD
+        assert plan.remote_port == 9090
+
+    def test_pod_spec_port_used_directly(self):
+        """An explicit remote_port is forwarded unchanged for pods."""
+        pod = make_pod("worker", "ns", [[9090]])
+        api = _make_api(namespace="ns", pods={("ns", "worker"): pod})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.POD, name="worker", namespace="ns"),
+            remote_port=8080,
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.remote_port == 8080
+
+    def test_raises_when_pod_not_found(self):
+        """PodNotFoundError is raised when the Pod does not exist in the namespace."""
+        api = _make_api(namespace="ns")
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.POD, name="missing", namespace="ns"),
+            remote_port=80,
+            local_port=9000,
+        )
+        with pytest.raises(PodNotFoundError):
+            build_port_forward_plan(spec, api)

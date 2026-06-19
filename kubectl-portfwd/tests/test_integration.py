@@ -6,28 +6,27 @@ from kubek.term.output import create_output
 from kubek.term.style import Color
 from portfwd.application.port_forwarding.events import PortForwardStarted
 from portfwd.application.port_forwarding.streamer import (
+    Backoff,
     PortForwardEventStreamer,
-    RestartDelays,
 )
 from portfwd.application.use_case import PortForwardUseCase
 from portfwd.presentation.display import PortForwardLiveDisplay
-from portfwd.presentation.service_parser import parse_spec
+from portfwd.presentation.spec_parser import parse_spec
 from portfwd_test_utils.fakes import (
     COL_LOCAL,
     COL_NAMESPACE,
     COL_PID,
-    COL_REMOTE_PORT,
-    COL_SERVICE,
+    COL_REMOTE,
     COL_STATUS,
     NAMESPACE,
     FakeLaunch,
     PlannedLauncher,
     RecordingSleep,
     build_services,
-    rendered_rows_by_service,
+    rendered_rows_by_name,
 )
 
-_INSTANT_DELAYS = RestartDelays(min_s=0, poll_s=0, max_s=0)
+_NO_BACKOFF = Backoff(min_s=0, max_s=0)
 _STOPPED = f"[{Color.WARNING}]■ stopped[/{Color.WARNING}]"
 
 
@@ -35,7 +34,7 @@ def _make_use_case(launcher: PlannedLauncher, api) -> PortForwardUseCase:
     """Use case whose streamer never really sleeps or probes ports."""
     streamer = PortForwardEventStreamer(
         launcher,
-        restart_delays=_INSTANT_DELAYS,
+        backoff=_NO_BACKOFF,
         sleep_for=RecordingSleep(),
         is_local_port_free=lambda port: True,
     )
@@ -43,7 +42,7 @@ def _make_use_case(launcher: PlannedLauncher, api) -> PortForwardUseCase:
 
 
 def _spec(*, service: str, remote_port: int, local_port: int) -> str:
-    return f"{NAMESPACE}/{service}:{remote_port}::{local_port}"
+    return f"{NAMESPACE}/svc/{service}:{remote_port}::{local_port}"
 
 
 async def _drive_until_started(
@@ -106,7 +105,7 @@ async def test_run_from_spec_restarts_after_death(fake_api, captured_signal_hand
         handlers=captured_signal_handlers,
     )
 
-    rows = rendered_rows_by_service(display)
+    rows = rendered_rows_by_name(display)
     assert rows[foo.metadata.name] == _row(
         service=foo.metadata.name, remote_port=30, local=foo_local, pid=foo_restart_pid
     )
@@ -151,7 +150,7 @@ async def test_run_from_spec_file(fake_api, captured_signal_handlers, tmp_path: 
         handlers=captured_signal_handlers,
     )
 
-    rows = rendered_rows_by_service(display)
+    rows = rendered_rows_by_name(display)
     assert rows[foo.metadata.name] == _row(
         service=foo.metadata.name, remote_port=30, local=foo_local, pid=foo_restart_pid
     )
@@ -159,10 +158,9 @@ async def test_run_from_spec_file(fake_api, captured_signal_handlers, tmp_path: 
 
 def _row(*, service: str, remote_port: int, local: int, pid: int) -> tuple[str, ...]:
     """Expected fully-rendered table row for a stopped, restarted forward."""
-    cells = [""] * 6
+    cells = [""] * 5
     cells[COL_NAMESPACE] = NAMESPACE
-    cells[COL_SERVICE] = service
-    cells[COL_REMOTE_PORT] = str(remote_port)
+    cells[COL_REMOTE] = f"svc/{service}:{remote_port}"
     cells[COL_LOCAL] = f"localhost:{local}"
     cells[COL_PID] = str(pid)
     cells[COL_STATUS] = _STOPPED

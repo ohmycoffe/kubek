@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import signal
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
 
 from portfwd.application.port_forwarding.events import (
@@ -19,16 +19,22 @@ from portfwd.application.ports import (
     PortForwardLauncher,
     PortForwardSession,
 )
-from portfwd.domain.models import ServicePortForwardPlan
+from portfwd.domain.models import PortForwardPlan
 
 
 @dataclass(frozen=True)
-class RestartDelays:
-    """Delays governing how a dead port-forward is restarted."""
+class Backoff:
+    """Retry sleeps for launch failures and port-busy polls (exponential backoff in seconds)."""
 
-    min_s: float = 5.0
-    poll_s: float = 1.0
+    min_s: float = 0.5
     max_s: float = 30.0
+
+    def retry_delays(self) -> Iterator[float]:
+        """Yield sleep durations (in seconds)"""
+        delay_s = self.min_s
+        while True:
+            yield delay_s
+            delay_s = min(delay_s * 2, self.max_s)
 
 
 class _SupervisorExited:
@@ -52,22 +58,20 @@ class PortForwardEventStreamer(PortForwardEventStream):
         launcher: PortForwardLauncher,
         *,
         is_local_port_free: Callable[[int], bool],
-        restart_delays: RestartDelays | None = None,
+        backoff: Backoff | None = None,
         sleep_for: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._launcher = launcher
         self._is_local_port_free = is_local_port_free
-        self._restart_delays = restart_delays or RestartDelays()
+        self._backoff = backoff or Backoff()
         self._sleep_for = sleep_for
 
-    def stream(
-        self, plans: list[ServicePortForwardPlan]
-    ) -> AsyncIterator[PortForwardEvent]:
+    def stream(self, plans: list[PortForwardPlan]) -> AsyncIterator[PortForwardEvent]:
         return self._stream_port_forwards(plans=plans)
 
     async def _stream_port_forwards(
         self,
-        plans: list[ServicePortForwardPlan],
+        plans: list[PortForwardPlan],
     ) -> AsyncIterator[PortForwardEvent]:
         """Start kubectl port-forwards from `plans` and yield events until shutdown."""
         if not plans:
@@ -112,21 +116,14 @@ class PortForwardEventStreamer(PortForwardEventStream):
     async def _supervise_port_forward(
         self,
         *,
-        plan: ServicePortForwardPlan,
+        plan: PortForwardPlan,
         events: asyncio.Queue[_Queued],
         expected_shutdown: asyncio.Event,
         active_processes: list[PortForwardSession],
     ) -> None:
         """Keep one port-forward alive, restarting it on the same local port until shutdown."""
-        after_death = False
-
         try:
             while not expected_shutdown.is_set():
-                if after_death:
-                    if not await self._wait_before_reconnect(expected_shutdown):
-                        return
-                    after_death = False
-
                 process = await self._launch_with_retry(
                     plan=plan,
                     events=events,
@@ -153,14 +150,13 @@ class PortForwardEventStreamer(PortForwardEventStream):
                     return
 
                 events.put_nowait(PortForwardDied(snapshot=process.snapshot()))
-                after_death = True
         finally:
             events.put_nowait(_SUPERVISOR_EXITED)
 
     async def _launch_with_retry(
         self,
         *,
-        plan: ServicePortForwardPlan,
+        plan: PortForwardPlan,
         events: asyncio.Queue[_Queued],
         expected_shutdown: asyncio.Event,
     ) -> PortForwardSession | None:
@@ -169,9 +165,12 @@ class PortForwardEventStreamer(PortForwardEventStream):
         Returns the running session, or ``None`` if shutdown was requested first.
         Each failed attempt emits a ``LAUNCH_FAILED`` event so the UI can show it.
         """
-        retry_delay_s = self._restart_delays.poll_s
+        backoff = self._backoff.retry_delays()
 
         while not expected_shutdown.is_set():
+            # Minimal delay before each launch attempt (including the first)
+            await self._sleep_for(next(backoff))
+
             if not await self._wait_for_local_port(
                 plan=plan,
                 events=events,
@@ -186,22 +185,21 @@ class PortForwardEventStreamer(PortForwardEventStream):
                     return None
                 events.put_nowait(
                     PortForwardLaunchFailed(
+                        kind=plan.target.kind,
                         namespace=plan.target.namespace,
-                        service_name=plan.target.name,
+                        name=plan.target.name,
                         remote_port=plan.remote_port,
                         local_port=plan.local_port,
                         reason=str(exc),
                     )
                 )
-                await self._sleep_for(retry_delay_s)
-                retry_delay_s = min(retry_delay_s * 2, self._restart_delays.max_s)
 
         return None
 
     async def _wait_for_local_port(
         self,
         *,
-        plan: ServicePortForwardPlan,
+        plan: PortForwardPlan,
         events: asyncio.Queue[_Queued],
         expected_shutdown: asyncio.Event,
     ) -> bool:
@@ -210,37 +208,25 @@ class PortForwardEventStreamer(PortForwardEventStream):
         Emits a ``PortForwardReconnecting`` event on each poll while the port
         stays busy so the UI logs every reconnect attempt.
         """
+        backoff = self._backoff.retry_delays()
+
         while not expected_shutdown.is_set():
             if self._is_local_port_free(plan.local_port):
                 return True
 
             events.put_nowait(
                 PortForwardReconnecting(
+                    kind=plan.target.kind,
                     namespace=plan.target.namespace,
-                    service_name=plan.target.name,
+                    name=plan.target.name,
                     remote_port=plan.remote_port,
                     local_port=plan.local_port,
                 )
             )
 
-            await self._sleep_for(self._restart_delays.poll_s)
+            await self._sleep_for(next(backoff))
 
         return False
-
-    async def _wait_before_reconnect(self, expected_shutdown: asyncio.Event) -> bool:
-        """Wait at least the minimum delay before reconnecting.
-
-        Returns ``True`` if the delay elapsed and a reconnect should proceed, or
-        ``False`` if shutdown was requested during the wait.
-        """
-        try:
-            await asyncio.wait_for(
-                expected_shutdown.wait(),
-                timeout=self._restart_delays.min_s,
-            )
-            return False
-        except TimeoutError:
-            return True
 
     async def emit_output(
         self,

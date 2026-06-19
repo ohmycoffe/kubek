@@ -15,6 +15,13 @@ from typing import cast
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
+from kubek.kube.dto.pod import (
+    Pod,
+    PodContainer,
+    PodContainerPort,
+    PodMetadata,
+    PodSpec,
+)
 from kubek.kube.dto.service import (
     Service,
     ServiceMetadata,
@@ -28,22 +35,23 @@ from portfwd.application.ports import (
     PortForwardLauncher,
     PortForwardSession,
 )
+from portfwd.domain.models import TargetKind
 from portfwd.presentation.display import PortForwardLiveDisplay
 
 NAMESPACE = "ns-kubectl-portfwd"
 
 # Status-table column positions, by header order.
 COL_NAMESPACE = 0
-COL_SERVICE = 1
-COL_REMOTE_PORT = 2
-COL_LOCAL = 3
-COL_PID = 4
-COL_STATUS = 5
+COL_REMOTE = 1
+COL_LOCAL = 2
+COL_PID = 3
+COL_STATUS = 4
 
 
 def make_snapshot(
     *,
-    service_name: str = "svc",
+    kind: TargetKind = TargetKind.SERVICE,
+    name: str = "svc",
     namespace: str = "ns",
     remote_port: int = 80,
     local_port: int = 9000,
@@ -52,8 +60,9 @@ def make_snapshot(
 ) -> PortForwardProcessSnapshot:
     """Build a process snapshot with sensible defaults for tests."""
     return PortForwardProcessSnapshot(
+        kind=kind,
         namespace=namespace,
-        service_name=service_name,
+        name=name,
         remote_port=remote_port,
         local_port=local_port,
         pid=pid,
@@ -156,19 +165,20 @@ class FakeLaunch:
 
 
 class PlannedLauncher(PortForwardLauncher):
-    """Returns scripted sessions per service, built from the incoming plan."""
+    """Returns scripted sessions per target name, built from the incoming plan."""
 
-    def __init__(self, launches_by_service: dict[str, list[FakeLaunch]]) -> None:
-        self._by_service = {
-            service: list(launches) for service, launches in launches_by_service.items()
+    def __init__(self, launches_by_name: dict[str, list[FakeLaunch]]) -> None:
+        self._by_name = {
+            name: list(launches) for name, launches in launches_by_name.items()
         }
 
     async def launch(self, plan) -> PortForwardSession:
-        launch = self._by_service[plan.target.name].pop(0)
+        launch = self._by_name[plan.target.name].pop(0)
         return FakeSession(
             make_snapshot(
+                kind=plan.target.kind,
                 namespace=plan.target.namespace,
-                service_name=plan.target.name,
+                name=plan.target.name,
                 remote_port=plan.remote_port,
                 local_port=plan.local_port,
                 pid=launch.pid,
@@ -240,24 +250,60 @@ def build_services() -> list[Service]:
     ]
 
 
-def make_fake_api(services: list[Service] | None = None) -> KubeGateway:
-    """An in-memory `KubeGateway` backed by the given (or default) services."""
+def make_pod(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> Pod:
+    """Build a Pod; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return Pod(
+        metadata=PodMetadata(name=name, namespace=namespace),
+        spec=PodSpec(
+            containers=[
+                PodContainer(ports=[PodContainerPort(container_port=p) for p in ports])
+                for ports in containers
+            ]
+        ),
+    )
+
+
+def build_pods() -> list[Pod]:
+    """Two pods in the shared test namespace, each with one container port."""
+    return [
+        make_pod("pod-foo", container_ports=[[50]]),
+        make_pod("pod-bar", container_ports=[[60]]),
+    ]
+
+
+def make_fake_api(
+    services: list[Service] | None = None,
+    pods: list[Pod] | None = None,
+) -> KubeGateway:
+    """An in-memory `KubeGateway` backed by the given (or default) services/pods."""
     services = build_services() if services is None else services
+    pods = build_pods() if pods is None else pods
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
     return cast(
         KubeGateway,
         SimpleNamespace(
             namespace=_InMemoryRepository([namespace]),
             service=_InMemoryRepository(services),
+            pod=_InMemoryRepository(pods),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
         ),
     )
 
 
-def rendered_rows_by_service(
+def _name_from_remote(remote_cell: str) -> str:
+    """Extract the bare target name from a ``kind/name:remote_port`` cell."""
+    return remote_cell.split("/", 1)[1].rsplit(":", 1)[0]
+
+
+def rendered_rows_by_name(
     display: PortForwardLiveDisplay,
 ) -> dict[str, tuple[str, ...]]:
-    """Render the status table and key each row's cells by service name.
+    """Render the status table and key each row's cells by target name.
 
     Order-independent: supervisor tasks emit STARTED concurrently, so row order
     is not deterministic across runs.
@@ -265,4 +311,4 @@ def rendered_rows_by_service(
     table = display._table.render()
     columns = [list(col.cells) for col in table.columns]
     rows = [tuple(str(cell) for cell in row) for row in zip(*columns, strict=True)]
-    return {row[COL_SERVICE]: row for row in rows}
+    return {_name_from_remote(row[COL_REMOTE]): row for row in rows}
