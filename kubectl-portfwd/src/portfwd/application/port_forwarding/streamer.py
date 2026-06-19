@@ -105,7 +105,7 @@ class PortForwardEventStreamer(PortForwardEventStream):
                 plans_remaining = len(plans)
                 while plans_remaining > 0:
                     event = await events.get()
-                    if event is _SUPERVISOR_EXITED:
+                    if isinstance(event, _SupervisorExited):
                         plans_remaining -= 1
                         continue
                     yield event
