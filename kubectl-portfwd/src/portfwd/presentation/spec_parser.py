@@ -7,9 +7,7 @@ from portfwd.domain.models import (
     TargetRef,
 )
 
-SPEC_FORMAT = (
-    "[namespace/][type/]name[:remote_port][::local_port] (type: pod | service)"
-)
+SPEC_FORMAT = "[namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment)"
 SPEC_EXAMPLE = "ns-kubectl-portfwd/pod/nginx:80::50001"
 
 # kubectl-style resource type aliases for the required ``type/`` segment.
@@ -20,6 +18,9 @@ _KIND_ALIASES: dict[str, TargetKind] = {
     "svc": TargetKind.SERVICE,
     "service": TargetKind.SERVICE,
     "services": TargetKind.SERVICE,
+    "deployment": TargetKind.DEPLOYMENT,
+    "deploy": TargetKind.DEPLOYMENT,
+    "deployments": TargetKind.DEPLOYMENT,
 }
 
 
