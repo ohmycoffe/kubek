@@ -64,3 +64,7 @@ class NoSelectionError(PortForwardError):
 
 class PortForwardStartError(PortForwardError):
     """kubectl port-forward subprocess failed to start."""
+
+
+class DuplicateLocalPortError(PortForwardError):
+    """Two or more plans resolve to the same local port."""

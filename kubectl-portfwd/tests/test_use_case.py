@@ -5,6 +5,7 @@ import pytest
 from kubek.kube.dto.service import Service
 from portfwd.application.ports import KubeGateway, PortForwardEventStream
 from portfwd.application.use_case import PortForwardUseCase
+from portfwd.domain.errors import DuplicateLocalPortError
 from portfwd.domain.models import (
     PortForwardPlan,
     PortForwardSpec,
@@ -93,3 +94,33 @@ async def test_stream_specs_passes_empty_list_to_runner_when_no_specs():
         pass
 
     assert runner.calls == [[]]
+
+
+@pytest.mark.asyncio
+async def test_stream_specs_raises_on_duplicate_local_port():
+    """stream_specs raises DuplicateLocalPortError when two plans share a local port."""
+    svc_a = _make_service("alpha", "ns", [80])
+    svc_b = _make_service("beta", "ns", [80])
+    api = _make_api(
+        namespace="ns",
+        services={("ns", "alpha"): svc_a, ("ns", "beta"): svc_b},
+    )
+    spec_a = PortForwardSpec(
+        target=TargetRef(kind=TargetKind.SERVICE, name="alpha", namespace="ns"),
+        remote_port=80,
+        local_port=9000,
+    )
+    spec_b = PortForwardSpec(
+        target=TargetRef(kind=TargetKind.SERVICE, name="beta", namespace="ns"),
+        remote_port=80,
+        local_port=9000,
+    )
+    runner = SpyRunner()
+    uc = PortForwardUseCase(streamer=runner, api=api)
+
+    with pytest.raises(
+        DuplicateLocalPortError,
+        match="svc/ns/alpha.*svc/ns/beta|svc/ns/beta.*svc/ns/alpha",
+    ):
+        async for _ in uc.stream_specs([spec_a, spec_b]):
+            pass
