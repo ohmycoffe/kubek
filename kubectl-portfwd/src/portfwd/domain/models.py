@@ -8,6 +8,14 @@ class TargetKind(StrEnum):
 
     POD = "pod"
     SERVICE = "svc"
+    DEPLOYMENT = "deployment"
+
+
+TARGET_KIND_LABELS: dict[TargetKind, str] = {
+    TargetKind.SERVICE: "Services",
+    TargetKind.POD: "Pods",
+    TargetKind.DEPLOYMENT: "Deployments",
+}
 
 
 class TargetRef(BaseModel):
