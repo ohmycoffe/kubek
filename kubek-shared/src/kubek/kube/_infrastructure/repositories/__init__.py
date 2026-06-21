@@ -5,6 +5,7 @@ from .deployment import KubernetesDeploymentRepository
 from .job import KubernetesJobRepository
 from .namespace import KubernetesNamespaceRepository
 from .pod import KubernetesPodRepository
+from .replicaset import KubernetesReplicaSetRepository
 from .secret import KubernetesSecretRepository
 from .service import KubernetesServiceRepository
 from .statefulset import KubernetesStatefulSetRepository
@@ -18,6 +19,7 @@ __all__ = [
     "KubernetesJobRepository",
     "KubernetesNamespaceRepository",
     "KubernetesPodRepository",
+    "KubernetesReplicaSetRepository",
     "KubernetesSecretRepository",
     "KubernetesServiceRepository",
     "KubernetesStatefulSetRepository",

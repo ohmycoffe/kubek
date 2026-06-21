@@ -261,6 +261,22 @@ class KubernetesClient:
 
     @as_dict
     @safe
+    def get_replica_sets(self, namespace: str | None = None):
+        """List replicasets in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.apps_v1.list_namespaced_replica_set(ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_replica_set(self, name: str, namespace: str | None = None):
+        """Get replicaset by name in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.apps_v1.read_namespaced_replica_set(name, ns)
+        return res
+
+    @as_dict
+    @safe
     def get_jobs(self, namespace: str | None = None):
         """List jobs in the specified namespace."""
         ns = namespace or self.session.current_config.namespace

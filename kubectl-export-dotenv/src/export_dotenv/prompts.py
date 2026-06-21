@@ -13,6 +13,7 @@ def ask_for_kind() -> (
         Kind.DEPLOYMENT,
         Kind.STATEFULSET,
         Kind.DAEMONSET,
+        Kind.REPLICASET,
         Kind.JOB,
         Kind.CRONJOB,
         Kind.WORKFLOWTEMPLATE,
@@ -39,6 +40,11 @@ def ask_for_kind() -> (
                 title="DaemonSet",
                 value=Kind.DAEMONSET,
                 description="(Kubernetes DaemonSet)",
+            ),
+            questionary.Choice(
+                title="ReplicaSet",
+                value=Kind.REPLICASET,
+                description="(Kubernetes ReplicaSet)",
             ),
             questionary.Choice(
                 title="Job",

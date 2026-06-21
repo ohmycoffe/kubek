@@ -33,6 +33,10 @@ def ask_for_kinds() -> list[TargetKind]:
             value=TargetKind.DAEMONSET,
         ),
         questionary.Choice(
+            title="ReplicaSets",
+            value=TargetKind.REPLICASET,
+        ),
+        questionary.Choice(
             title="Jobs",
             value=TargetKind.JOB,
         ),

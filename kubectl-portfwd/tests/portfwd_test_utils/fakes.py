@@ -61,6 +61,17 @@ from kubek.kube.dto.job import (
 )
 from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
 from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
+from kubek.kube.dto.replicaset import (
+    ReplicaSet,
+    ReplicaSetMetadata,
+    ReplicaSetSpec,
+)
+from kubek.kube.dto.replicaset import (
+    Template as ReplicaSetTemplate,
+)
+from kubek.kube.dto.replicaset import (
+    TemplateSpec as ReplicaSetTemplateSpec,
+)
 from kubek.kube.dto.service import (
     Service,
     ServiceMetadata,
@@ -422,6 +433,38 @@ def build_daemonsets() -> list[DaemonSet]:
     ]
 
 
+def make_replicaset(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> ReplicaSet:
+    """Build a ReplicaSet; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return ReplicaSet(
+        metadata=ReplicaSetMetadata(name=name, namespace=namespace),
+        spec=ReplicaSetSpec(
+            template=ReplicaSetTemplate(
+                spec=ReplicaSetTemplateSpec(
+                    containers=[
+                        Container(
+                            ports=[ContainerPort(container_port=p) for p in ports]
+                        )
+                        for ports in containers
+                    ]
+                )
+            )
+        ),
+    )
+
+
+def build_replicasets() -> list[ReplicaSet]:
+    """Two replicasets in the shared test namespace, each with one container port."""
+    return [
+        make_replicaset("rs-foo", container_ports=[[105]]),
+        make_replicaset("rs-bar", container_ports=[[115]]),
+    ]
+
+
 def make_job(
     name: str,
     namespace: str = NAMESPACE,
@@ -498,6 +541,7 @@ def make_fake_api(
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
     daemonsets: list[DaemonSet] | None = None,
+    replicasets: list[ReplicaSet] | None = None,
     jobs: list[Job] | None = None,
     cronjobs: list[CronJob] | None = None,
 ) -> KubeGateway:
@@ -507,6 +551,7 @@ def make_fake_api(
     deployments = build_deployments() if deployments is None else deployments
     statefulsets = build_statefulsets() if statefulsets is None else statefulsets
     daemonsets = build_daemonsets() if daemonsets is None else daemonsets
+    replicasets = build_replicasets() if replicasets is None else replicasets
     jobs = build_jobs() if jobs is None else jobs
     cronjobs = build_cronjobs() if cronjobs is None else cronjobs
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
@@ -519,6 +564,7 @@ def make_fake_api(
             deployment=_InMemoryRepository(deployments),
             statefulset=_InMemoryRepository(statefulsets),
             daemonset=_InMemoryRepository(daemonsets),
+            replicaset=_InMemoryRepository(replicasets),
             job=_InMemoryRepository(jobs),
             cronjob=_InMemoryRepository(cronjobs),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),

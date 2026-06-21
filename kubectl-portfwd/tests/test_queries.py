@@ -7,6 +7,7 @@ from kubek.kube.dto import (
     Deployment,
     Job,
     Pod,
+    ReplicaSet,
     Service,
     StatefulSet,
 )
@@ -17,6 +18,7 @@ from portfwd.application.queries import (
     fetch_deployments_for_namespaces,
     fetch_jobs_for_namespaces,
     fetch_pods_for_namespaces,
+    fetch_replicasets_for_namespaces,
     fetch_services_for_namespaces,
     fetch_statefulsets_for_namespaces,
     fetch_targets_for_namespaces,
@@ -28,6 +30,7 @@ from portfwd_test_utils.fakes import (
     make_deployment,
     make_job,
     make_pod,
+    make_replicaset,
     make_statefulset,
 )
 
@@ -60,6 +63,11 @@ def _daemonset(name: str, namespace: str, container_ports: list[int]) -> DaemonS
     return make_daemonset(name, namespace, [container_ports])
 
 
+def _replicaset(name: str, namespace: str, container_ports: list[int]) -> ReplicaSet:
+    """One single-container replicaset expressed in terms of make_replicaset."""
+    return make_replicaset(name, namespace, [container_ports])
+
+
 def _job(name: str, namespace: str, container_ports: list[int]) -> Job:
     """One single-container job expressed in terms of make_job."""
     return make_job(name, namespace, [container_ports])
@@ -76,6 +84,7 @@ def _make_api(
     deployment=None,
     statefulset=None,
     daemonset=None,
+    replicaset=None,
     job=None,
     cronjob=None,
 ) -> KubeGateway:
@@ -88,6 +97,7 @@ def _make_api(
             deployment=deployment,
             statefulset=statefulset,
             daemonset=daemonset,
+            replicaset=replicaset,
             job=job,
             cronjob=cronjob,
         ),
@@ -442,6 +452,78 @@ def test_fetch_targets_honors_daemonset_kind_filter():
 
     assert {(s.target.kind, s.target.name) for s in specs} == {
         (TargetKind.DAEMONSET, "agent")
+    }
+
+
+def test_fetch_replicasets_for_namespaces_flattens_declared_container_ports():
+    """ReplicaSets with declared container ports produce one spec per unique port; portless replicasets are omitted."""
+    rs_a = _replicaset("worker", "ns-1", [9090])
+    rs_b = _replicaset("api", "ns-2", [8080, 8443])
+    rs_no_ports = _replicaset("sidecar", "ns-1", [])
+
+    class FakeReplicaSetRepo:
+        def list(self, namespace: str) -> list[ReplicaSet]:
+            return {
+                "ns-1": [rs_a, rs_no_ports],
+                "ns-2": [rs_b],
+            }.get(namespace, [])
+
+    api = _make_api(replicaset=FakeReplicaSetRepo())
+    specs = fetch_replicasets_for_namespaces(["ns-1", "ns-2"], api)
+
+    keys = [
+        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
+    ]
+    assert keys == [
+        (TargetKind.REPLICASET, "ns-1", "worker", 9090),
+        (TargetKind.REPLICASET, "ns-2", "api", 8080),
+        (TargetKind.REPLICASET, "ns-2", "api", 8443),
+    ]
+
+
+def test_fetch_targets_includes_replicasets():
+    """The combined picker returns replicasets when that kind is selected."""
+    svc = _service("alpha", "ns-1", [80])
+    rs = _replicaset("web", "ns-1", [8080])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeReplicaSetRepo:
+        def list(self, namespace: str) -> list[ReplicaSet]:
+            return {"ns-1": [rs]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), replicaset=FakeReplicaSetRepo())
+    specs = fetch_targets_for_namespaces(
+        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.REPLICASET]
+    )
+
+    kinds = {(s.target.kind, s.target.name) for s in specs}
+    assert kinds == {
+        (TargetKind.SERVICE, "alpha"),
+        (TargetKind.REPLICASET, "web"),
+    }
+
+
+def test_fetch_targets_honors_replicaset_kind_filter():
+    """Only replicaset specs are returned when kinds=[TargetKind.REPLICASET]."""
+    svc = _service("alpha", "ns-1", [80])
+    rs = _replicaset("web", "ns-1", [8080])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeReplicaSetRepo:
+        def list(self, namespace: str) -> list[ReplicaSet]:
+            return {"ns-1": [rs]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), replicaset=FakeReplicaSetRepo())
+    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.REPLICASET])
+
+    assert {(s.target.kind, s.target.name) for s in specs} == {
+        (TargetKind.REPLICASET, "web")
     }
 
 

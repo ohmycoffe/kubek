@@ -15,6 +15,7 @@ from export_dotenv.kube import (
     get_deployment_envs,
     get_job_envs,
     get_pod_envs,
+    get_replicaset_envs,
     get_statefulset_envs,
     get_workflowtemplate_envs,
 )
@@ -87,6 +88,19 @@ from kubek.kube.dto.job import (
 )
 from kubek.kube.dto.kind import Kind
 from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
+from kubek.kube.dto.replicaset import (
+    ReplicaSet as ReplicaSetDTO,
+)
+from kubek.kube.dto.replicaset import (
+    ReplicaSetMetadata,
+    ReplicaSetSpec,
+)
+from kubek.kube.dto.replicaset import (
+    Template as ReplicaSetTemplate,
+)
+from kubek.kube.dto.replicaset import (
+    TemplateSpec as ReplicaSetTemplateSpec,
+)
 from kubek.kube.dto.secret import Secret as SecretDTO
 from kubek.kube.dto.secret import SecretMetadata
 from kubek.kube.dto.statefulset import (
@@ -324,6 +338,43 @@ def build_daemonset():
     )
 
 
+def build_replicaset():
+    return ReplicaSetDTO(
+        metadata=ReplicaSetMetadata(name="log-agent-rs", namespace=NS),
+        spec=ReplicaSetSpec(
+            template=ReplicaSetTemplate(
+                spec=ReplicaSetTemplateSpec(
+                    containers=[
+                        Container(
+                            env=[
+                                EnvVar(
+                                    name="DB_PASSWORD",
+                                    value_from=EnvValueFrom(
+                                        secret_key_ref=SecretKeyRef(
+                                            name="app-secrets",
+                                            key="DATABASE_PASSWORD",
+                                        )
+                                    ),
+                                ),
+                                EnvVar(
+                                    name="DIRECT_VALUE",
+                                    value="hello-from-replicaset",
+                                ),
+                            ],
+                            env_from=[
+                                EnvFromSource(
+                                    config_map_ref=ConfigMapRef(name="app-config")
+                                ),
+                                EnvFromSource(secret_ref=SecretRef(name="app-secrets")),
+                            ],
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+
+
 def build_job():
     return JobDTO(
         metadata=JobMetadata(name="data-migration", namespace=NS),
@@ -458,6 +509,7 @@ def api():
         deployment=InMemoryRepository([build_deployment()]),
         statefulset=InMemoryRepository([build_statefulset()]),
         daemonset=InMemoryRepository([build_daemonset()]),
+        replicaset=InMemoryRepository([build_replicaset()]),
         job=InMemoryRepository([build_job()]),
         cronjob=InMemoryRepository([build_cronjob()]),
         pod=InMemoryRepository([build_pod()]),
@@ -626,6 +678,59 @@ def test_daemonset_with_multiple_containers_raises(api):
 
     with pytest.raises(AmbiguousResourceError, match="2 containers"):
         get_daemonset_envs(name="log-agent", api=api)
+
+
+def test_replicaset_env_vars(api):
+    """A single-container ReplicaSet resolves env, envFrom, and value refs like a Deployment."""
+    result = fetch_environment_values(
+        kind=Kind.REPLICASET,
+        name="log-agent-rs",
+        api=api,
+    )
+
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+        "DB_PASSWORD": "secretpassword",
+        "DIRECT_VALUE": "hello-from-replicaset",
+    }
+
+
+def test_replicaset_not_found_raises(api):
+    """A missing ReplicaSet name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="ReplicaSet missing"):
+        get_replicaset_envs(name="missing", api=api)
+
+
+def test_replicaset_with_multiple_containers_raises(api):
+    """A ReplicaSet with more than one container is rejected as ambiguous."""
+    api.replicaset = InMemoryRepository(
+        [
+            ReplicaSetDTO(
+                metadata=ReplicaSetMetadata(name="log-agent-rs", namespace=NS),
+                spec=ReplicaSetSpec(
+                    template=ReplicaSetTemplate(
+                        spec=ReplicaSetTemplateSpec(
+                            containers=[Container(), Container()]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_replicaset_envs(name="log-agent-rs", api=api)
 
 
 def test_job_env_vars(api):

@@ -51,6 +51,14 @@ class KubeClient(Protocol):
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
+    def get_replica_sets(self, namespace: str | None = None) -> KubeRawResponse: ...
+
+    def get_replica_set(
+        self,
+        name: str,
+        namespace: str | None = None,
+    ) -> KubeRawResponse: ...
+
     def get_jobs(self, namespace: str | None = None) -> KubeRawResponse: ...
 
     def get_job(

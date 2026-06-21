@@ -112,6 +112,26 @@ spec:
           ports:
             - containerPort: 2020
 ---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: log-agent-rs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-agent-rs
+  template:
+    metadata:
+      labels:
+        app: log-agent-rs
+    spec:
+      containers:
+        - name: log-agent-rs
+          image: fluent/fluent-bit:latest
+          ports:
+            - containerPort: 2020
+---
 apiVersion: batch/v1
 kind: Job
 metadata:

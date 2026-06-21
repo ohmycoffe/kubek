@@ -1,4 +1,13 @@
-from kubek.kube import CronJob, DaemonSet, Deployment, Job, Pod, Service, StatefulSet
+from kubek.kube import (
+    CronJob,
+    DaemonSet,
+    Deployment,
+    Job,
+    Pod,
+    ReplicaSet,
+    Service,
+    StatefulSet,
+)
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
@@ -8,6 +17,7 @@ from portfwd.domain.errors import (
     AmbiguousDeploymentPortError,
     AmbiguousJobPortError,
     AmbiguousPodPortError,
+    AmbiguousReplicaSetPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
     CronJobNotFoundError,
@@ -20,9 +30,11 @@ from portfwd.domain.errors import (
     NoDeploymentPortsError,
     NoJobPortsError,
     NoPodPortsError,
+    NoReplicaSetPortsError,
     NoServicePortsError,
     NoStatefulSetPortsError,
     PodNotFoundError,
+    ReplicaSetNotFoundError,
     ServiceNotFoundError,
     StatefulSetNotFoundError,
 )
@@ -245,6 +257,47 @@ def _remote_port_from_daemonset(
     return resolve_daemonset_remote_port(daemonset)
 
 
+def resolve_replicaset_remote_port(replicaset: ReplicaSet) -> int:
+    """Pick the single declared container port of a ReplicaSet or raise if ambiguous."""
+    ref = f"{replicaset.metadata.namespace}/{replicaset.metadata.name}"
+    ports = get_unique_ports(replicaset.spec.template.spec.containers)
+    if not ports:
+        raise NoReplicaSetPortsError(
+            f'replicaset "{ref}" declares no container ports; '
+            "specify one with :port in the replicaset spec"
+        )
+    if len(ports) > 1:
+        port_list = ", ".join(str(p) for p in sorted(ports))
+        raise AmbiguousReplicaSetPortError(
+            f'replicaset "{ref}" has multiple container ports ({port_list}); '
+            "specify one with :port in the replicaset spec"
+        )
+    return min(ports)
+
+
+def _fetch_replicaset(name: str, namespace: str, api: KubeGateway) -> ReplicaSet:
+    """Fetch a replicaset or raise ReplicaSetNotFoundError."""
+    replicaset = api.replicaset.get(name=name, namespace=namespace)
+    if not replicaset:
+        raise ReplicaSetNotFoundError(
+            f'replicaset "{name}" not found in namespace "{namespace}"'
+        )
+    return replicaset
+
+
+def _remote_port_from_replicaset(
+    name: str,
+    namespace: str,
+    api: KubeGateway,
+    explicit_port: int | None,
+) -> int:
+    """Resolve the remote port for a replicaset target."""
+    replicaset = _fetch_replicaset(name, namespace, api)
+    if explicit_port is not None:
+        return explicit_port
+    return resolve_replicaset_remote_port(replicaset)
+
+
 def resolve_job_remote_port(job: Job) -> int:
     """Pick the single declared container port of a Job or raise if ambiguous."""
     ref = f"{job.metadata.namespace}/{job.metadata.name}"
@@ -331,6 +384,7 @@ _REMOTE_PORT_BY_KIND = {
     TargetKind.DEPLOYMENT: _remote_port_from_deployment,
     TargetKind.STATEFULSET: _remote_port_from_statefulset,
     TargetKind.DAEMONSET: _remote_port_from_daemonset,
+    TargetKind.REPLICASET: _remote_port_from_replicaset,
     TargetKind.JOB: _remote_port_from_job,
     TargetKind.CRONJOB: _remote_port_from_cronjob,
 }

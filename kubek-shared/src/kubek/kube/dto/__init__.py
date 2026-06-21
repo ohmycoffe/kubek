@@ -7,6 +7,7 @@ from .job import Job, JobList
 from .kind import Kind
 from .namespace import Namespace
 from .pod import Pod, PodList
+from .replicaset import ReplicaSet, ReplicaSetList
 from .secret import Secret
 from .service import Service, ServiceList
 from .statefulset import StatefulSet, StatefulSetList
@@ -26,6 +27,8 @@ __all__ = [
     "DaemonSetList",
     "Job",
     "JobList",
+    "ReplicaSet",
+    "ReplicaSetList",
     "Secret",
     "Deployment",
     "Namespace",

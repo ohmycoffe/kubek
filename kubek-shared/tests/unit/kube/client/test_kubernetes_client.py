@@ -107,6 +107,22 @@ def _api_response(payload: dict) -> MagicMock:
             ("agent", "default"),
         ),
         (
+            "get_replica_sets",
+            "apps_v1",
+            "list_namespaced_replica_set",
+            (),
+            {},
+            ("default",),
+        ),
+        (
+            "get_replica_set",
+            "apps_v1",
+            "read_namespaced_replica_set",
+            ("web-rs",),
+            {},
+            ("web-rs", "default"),
+        ),
+        (
             "get_jobs",
             "batch_v1",
             "list_namespaced_job",

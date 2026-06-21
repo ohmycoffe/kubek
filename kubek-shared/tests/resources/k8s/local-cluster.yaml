@@ -179,6 +179,39 @@ spec:
               value: "hello-from-agent"
 ---
 apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: log-agent-rs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-agent-rs
+  template:
+    metadata:
+      labels:
+        app: log-agent-rs
+    spec:
+      containers:
+        - name: log-agent-rs
+          image: fluent/fluent-bit:latest
+          ports:
+            - containerPort: 2020
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_PASSWORD
+            - name: DIRECT_VALUE
+              value: "hello-from-replicaset"
+---
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: dummy-daemonset
@@ -199,6 +232,29 @@ spec:
           env:
             - name: DIRECT_VALUE
               value: "hello-from-dummy-daemonset"
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: dummy-replicaset
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dummy-replicaset
+  template:
+    metadata:
+      labels:
+        app: dummy-replicaset
+    spec:
+      containers:
+        - name: dummy-replicaset
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          env:
+            - name: DIRECT_VALUE
+              value: "hello-from-dummy-replicaset"
 ---
 apiVersion: batch/v1
 kind: Job

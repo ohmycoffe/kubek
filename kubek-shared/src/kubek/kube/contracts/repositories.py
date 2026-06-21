@@ -8,6 +8,7 @@ from kubek.kube.dto.deployment import Deployment
 from kubek.kube.dto.job import Job
 from kubek.kube.dto.namespace import Namespace
 from kubek.kube.dto.pod import Pod
+from kubek.kube.dto.replicaset import ReplicaSet
 from kubek.kube.dto.secret import Secret
 from kubek.kube.dto.service import Service
 from kubek.kube.dto.statefulset import StatefulSet
@@ -51,6 +52,11 @@ class StatefulSetRepository(Protocol):
 class DaemonSetRepository(Protocol):
     def list(self, namespace: str | None = None) -> list[DaemonSet]: ...
     def get(self, name: str, namespace: str | None = None) -> DaemonSet | None: ...
+
+
+class ReplicaSetRepository(Protocol):
+    def list(self, namespace: str | None = None) -> list[ReplicaSet]: ...
+    def get(self, name: str, namespace: str | None = None) -> ReplicaSet | None: ...
 
 
 class JobRepository(Protocol):

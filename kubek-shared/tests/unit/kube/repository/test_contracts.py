@@ -19,6 +19,9 @@ from kubek.kube._infrastructure.repositories.job import (
 from kubek.kube._infrastructure.repositories.namespace import (
     KubernetesNamespaceRepository,
 )
+from kubek.kube._infrastructure.repositories.replicaset import (
+    KubernetesReplicaSetRepository,
+)
 from kubek.kube._infrastructure.repositories.secret import KubernetesSecretRepository
 from kubek.kube._infrastructure.repositories.service import KubernetesServiceRepository
 from kubek.kube._infrastructure.repositories.statefulset import (
@@ -35,6 +38,7 @@ from kubek_test_utils.factories import (
     make_deployment,
     make_job,
     make_namespace,
+    make_replicaset,
     make_secret,
     make_service,
     make_statefulset,
@@ -49,6 +53,7 @@ _REPOSITORIES_MAP = {
     Kind.DEPLOYMENT: KubernetesDeploymentRepository,
     Kind.STATEFULSET: KubernetesStatefulSetRepository,
     Kind.DAEMONSET: KubernetesDaemonSetRepository,
+    Kind.REPLICASET: KubernetesReplicaSetRepository,
     Kind.JOB: KubernetesJobRepository,
     Kind.CRONJOB: KubernetesCronJobRepository,
     Kind.SECRET: KubernetesSecretRepository,
@@ -66,6 +71,8 @@ _EXPECTED_RESOURCES = [
     (Kind.STATEFULSET, _TEST_NAMESPACE, "statefulset2"),
     (Kind.DAEMONSET, _TEST_NAMESPACE, "daemonset1"),
     (Kind.DAEMONSET, _TEST_NAMESPACE, "daemonset2"),
+    (Kind.REPLICASET, _TEST_NAMESPACE, "replicaset1"),
+    (Kind.REPLICASET, _TEST_NAMESPACE, "replicaset2"),
     (Kind.JOB, _TEST_NAMESPACE, "job1"),
     (Kind.JOB, _TEST_NAMESPACE, "job2"),
     (Kind.CRONJOB, _TEST_NAMESPACE, "cronjob1"),
@@ -89,6 +96,7 @@ _FACTORIES: dict[Kind, Callable[[str, str], dict]] = {
     Kind.DEPLOYMENT: make_deployment,
     Kind.STATEFULSET: make_statefulset,
     Kind.DAEMONSET: make_daemonset,
+    Kind.REPLICASET: make_replicaset,
     Kind.JOB: make_job,
     Kind.CRONJOB: make_cronjob,
     Kind.SECRET: make_secret,
@@ -126,6 +134,7 @@ class TestCommonKubernetesRepositories:
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
             Kind.DAEMONSET,
+            Kind.REPLICASET,
             Kind.JOB,
             Kind.CRONJOB,
             Kind.SERVICE,
@@ -152,6 +161,7 @@ class TestCommonKubernetesRepositories:
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
             Kind.DAEMONSET,
+            Kind.REPLICASET,
             Kind.JOB,
             Kind.CRONJOB,
             Kind.SERVICE,
@@ -178,6 +188,7 @@ class TestCommonKubernetesRepositories:
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
             Kind.DAEMONSET,
+            Kind.REPLICASET,
             Kind.JOB,
             Kind.CRONJOB,
             Kind.SERVICE,
@@ -200,6 +211,7 @@ class TestCommonKubernetesRepositories:
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
             Kind.DAEMONSET,
+            Kind.REPLICASET,
             Kind.JOB,
             Kind.CRONJOB,
             Kind.SERVICE,

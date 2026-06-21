@@ -20,6 +20,9 @@ from kubek.kube._infrastructure.repositories.job import (
 from kubek.kube._infrastructure.repositories.namespace import (
     KubernetesNamespaceRepository,
 )
+from kubek.kube._infrastructure.repositories.replicaset import (
+    KubernetesReplicaSetRepository,
+)
 from kubek.kube._infrastructure.repositories.secret import KubernetesSecretRepository
 from kubek.kube._infrastructure.repositories.statefulset import (
     KubernetesStatefulSetRepository,
@@ -87,6 +90,12 @@ def real_data_client():
         ns = item["metadata"]["namespace"]
         name = item["metadata"]["name"]
         client.add_namespaced_resource(Kind.DAEMONSET, name, item, namespace=ns)
+
+    # Add replicasets
+    for item in _load_json("ReplicaSet.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.REPLICASET, name, item, namespace=ns)
 
     # Add jobs
     for item in _load_json("Job.json"):
@@ -197,6 +206,30 @@ class TestRepositoriesWithRealData:
         result = repo.list(namespace=self.NS)
 
         agent = next(d for d in result if d.metadata.name == "log-agent")
+        container = agent.spec.template.spec.containers[0]
+
+        assert container.env_from
+        assert any(e.config_map_ref for e in container.env_from)
+        assert any(e.secret_ref for e in container.env_from)
+
+        assert container.env
+        assert any(e.name == "DB_PASSWORD" for e in container.env)
+        assert any(e.name == "DIRECT_VALUE" for e in container.env)
+
+    def test_replicaset_names(self, real_data_client):
+        repo = KubernetesReplicaSetRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        assert {r.metadata.name for r in result} == {
+            "log-agent-rs",
+            "dummy-replicaset",
+        }
+
+    def test_replicaset_env_parsing(self, real_data_client):
+        repo = KubernetesReplicaSetRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        agent = next(r for r in result if r.metadata.name == "log-agent-rs")
         container = agent.spec.template.spec.containers[0]
 
         assert container.env_from
