@@ -3,6 +3,7 @@ from typing import Self
 from kubek.kube._infrastructure import (
     KubernetesClient,
     KubernetesConfigMapRepository,
+    KubernetesCronJobRepository,
     KubernetesDaemonSetRepository,
     KubernetesDeploymentRepository,
     KubernetesJobRepository,
@@ -28,6 +29,7 @@ class KubeFacade:
         statefulset: KubernetesStatefulSetRepository,
         daemonset: KubernetesDaemonSetRepository,
         job: KubernetesJobRepository,
+        cronjob: KubernetesCronJobRepository,
         service: KubernetesServiceRepository,
         pod: KubernetesPodRepository,
         workflowtemplate: KubernetesWorkflowTemplateRepository,
@@ -39,6 +41,7 @@ class KubeFacade:
         self.statefulset = statefulset
         self.daemonset = daemonset
         self.job = job
+        self.cronjob = cronjob
         self.service = service
         self.pod = pod
         self.workflowtemplate = workflowtemplate
@@ -61,6 +64,7 @@ class KubeFacade:
             statefulset=KubernetesStatefulSetRepository(client),
             daemonset=KubernetesDaemonSetRepository(client),
             job=KubernetesJobRepository(client),
+            cronjob=KubernetesCronJobRepository(client),
             service=KubernetesServiceRepository(client),
             pod=KubernetesPodRepository(client),
             workflowtemplate=KubernetesWorkflowTemplateRepository(client),

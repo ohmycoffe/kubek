@@ -1,5 +1,6 @@
 from .configmap import ConfigMap, ConfigMapList
 from .container import Container
+from .cronjob import CronJob, CronJobList
 from .daemonset import DaemonSet, DaemonSetList
 from .deployment import Deployment
 from .job import Job, JobList
@@ -19,6 +20,8 @@ __all__ = [
     "ConfigMap",
     "ConfigMapList",
     "Container",
+    "CronJob",
+    "CronJobList",
     "DaemonSet",
     "DaemonSetList",
     "Job",

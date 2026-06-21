@@ -1,18 +1,21 @@
-from kubek.kube import DaemonSet, Deployment, Job, Pod, Service, StatefulSet
+from kubek.kube import CronJob, DaemonSet, Deployment, Job, Pod, Service, StatefulSet
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
+    AmbiguousCronJobPortError,
     AmbiguousDaemonSetPortError,
     AmbiguousDeploymentPortError,
     AmbiguousJobPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
+    CronJobNotFoundError,
     DaemonSetNotFoundError,
     DeploymentNotFoundError,
     JobNotFoundError,
     MissingNamespaceError,
+    NoCronJobPortsError,
     NoDaemonSetPortsError,
     NoDeploymentPortsError,
     NoJobPortsError,
@@ -281,6 +284,47 @@ def _remote_port_from_job(
     return resolve_job_remote_port(job)
 
 
+def resolve_cronjob_remote_port(cronjob: CronJob) -> int:
+    """Pick the single declared container port of a CronJob or raise if ambiguous."""
+    ref = f"{cronjob.metadata.namespace}/{cronjob.metadata.name}"
+    ports = get_unique_ports(cronjob.spec.job_template.spec.template.spec.containers)
+    if not ports:
+        raise NoCronJobPortsError(
+            f'cronjob "{ref}" declares no container ports; '
+            "specify one with :port in the cronjob spec"
+        )
+    if len(ports) > 1:
+        port_list = ", ".join(str(p) for p in sorted(ports))
+        raise AmbiguousCronJobPortError(
+            f'cronjob "{ref}" has multiple container ports ({port_list}); '
+            "specify one with :port in the cronjob spec"
+        )
+    return min(ports)
+
+
+def _fetch_cronjob(name: str, namespace: str, api: KubeGateway) -> CronJob:
+    """Fetch a cronjob or raise CronJobNotFoundError."""
+    cronjob = api.cronjob.get(name=name, namespace=namespace)
+    if not cronjob:
+        raise CronJobNotFoundError(
+            f'cronjob "{name}" not found in namespace "{namespace}"'
+        )
+    return cronjob
+
+
+def _remote_port_from_cronjob(
+    name: str,
+    namespace: str,
+    api: KubeGateway,
+    explicit_port: int | None,
+) -> int:
+    """Resolve the remote port for a cronjob target."""
+    cronjob = _fetch_cronjob(name, namespace, api)
+    if explicit_port is not None:
+        return explicit_port
+    return resolve_cronjob_remote_port(cronjob)
+
+
 _REMOTE_PORT_BY_KIND = {
     TargetKind.SERVICE: _remote_port_from_service,
     TargetKind.POD: _remote_port_from_pod,
@@ -288,6 +332,7 @@ _REMOTE_PORT_BY_KIND = {
     TargetKind.STATEFULSET: _remote_port_from_statefulset,
     TargetKind.DAEMONSET: _remote_port_from_daemonset,
     TargetKind.JOB: _remote_port_from_job,
+    TargetKind.CRONJOB: _remote_port_from_cronjob,
 }
 
 

@@ -36,6 +36,10 @@ def ask_for_kinds() -> list[TargetKind]:
             title="Jobs",
             value=TargetKind.JOB,
         ),
+        questionary.Choice(
+            title="CronJobs",
+            value=TargetKind.CRONJOB,
+        ),
     ]
     return questionary.checkbox(
         "Select resource types to forward:",

@@ -4,6 +4,9 @@ import pytest
 from kubek.kube._infrastructure.repositories.configmap import (
     KubernetesConfigMapRepository,
 )
+from kubek.kube._infrastructure.repositories.cronjob import (
+    KubernetesCronJobRepository,
+)
 from kubek.kube._infrastructure.repositories.daemonset import (
     KubernetesDaemonSetRepository,
 )
@@ -27,6 +30,7 @@ from kubek.kube._infrastructure.repositories.workflowtemplate import (
 from kubek.kube.dto.kind import Kind
 from kubek_test_utils.factories import (
     make_configmap,
+    make_cronjob,
     make_daemonset,
     make_deployment,
     make_job,
@@ -46,6 +50,7 @@ _REPOSITORIES_MAP = {
     Kind.STATEFULSET: KubernetesStatefulSetRepository,
     Kind.DAEMONSET: KubernetesDaemonSetRepository,
     Kind.JOB: KubernetesJobRepository,
+    Kind.CRONJOB: KubernetesCronJobRepository,
     Kind.SECRET: KubernetesSecretRepository,
     Kind.CONFIGMAP: KubernetesConfigMapRepository,
     Kind.WORKFLOWTEMPLATE: KubernetesWorkflowTemplateRepository,
@@ -63,6 +68,8 @@ _EXPECTED_RESOURCES = [
     (Kind.DAEMONSET, _TEST_NAMESPACE, "daemonset2"),
     (Kind.JOB, _TEST_NAMESPACE, "job1"),
     (Kind.JOB, _TEST_NAMESPACE, "job2"),
+    (Kind.CRONJOB, _TEST_NAMESPACE, "cronjob1"),
+    (Kind.CRONJOB, _TEST_NAMESPACE, "cronjob2"),
     (Kind.SERVICE, _TEST_NAMESPACE, "service1"),
     (Kind.SERVICE, _TEST_NAMESPACE, "service2"),
     (Kind.SECRET, _TEST_NAMESPACE, "secret1"),
@@ -83,6 +90,7 @@ _FACTORIES: dict[Kind, Callable[[str, str], dict]] = {
     Kind.STATEFULSET: make_statefulset,
     Kind.DAEMONSET: make_daemonset,
     Kind.JOB: make_job,
+    Kind.CRONJOB: make_cronjob,
     Kind.SECRET: make_secret,
     Kind.CONFIGMAP: make_configmap,
     Kind.WORKFLOWTEMPLATE: make_workflowtemplate,
@@ -119,6 +127,7 @@ class TestCommonKubernetesRepositories:
             Kind.STATEFULSET,
             Kind.DAEMONSET,
             Kind.JOB,
+            Kind.CRONJOB,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,
@@ -144,6 +153,7 @@ class TestCommonKubernetesRepositories:
             Kind.STATEFULSET,
             Kind.DAEMONSET,
             Kind.JOB,
+            Kind.CRONJOB,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,
@@ -169,6 +179,7 @@ class TestCommonKubernetesRepositories:
             Kind.STATEFULSET,
             Kind.DAEMONSET,
             Kind.JOB,
+            Kind.CRONJOB,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,
@@ -190,6 +201,7 @@ class TestCommonKubernetesRepositories:
             Kind.STATEFULSET,
             Kind.DAEMONSET,
             Kind.JOB,
+            Kind.CRONJOB,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,

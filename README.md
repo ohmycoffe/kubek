@@ -18,7 +18,7 @@
 
 ### 🔌 portfwd — Interactive port forwarding
 
-**portfwd** (**port** **f**or**w**ar**d**) manages many `kubectl port-forward` sessions as one. You choose what to forward — Services, Pods, Deployments, StatefulSets, DaemonSets, or Jobs — and it runs and supervises every session under a single live dashboard.
+**portfwd** (**port** **f**or**w**ar**d**) manages many `kubectl port-forward` sessions as one. You choose what to forward — Services, Pods, Deployments, StatefulSets, DaemonSets, Jobs, or CronJobs — and it runs and supervises every session under a single live dashboard.
 
 At its core it does three things:
 
@@ -35,7 +35,7 @@ kubectl portfwd -f .portfwd-plan # via spec file (no prompts)
 ![portfwd demo](https://github.com/user-attachments/assets/a4686a82-b1d6-46ef-99bc-88fbbfe31c79)
 | Resource | Status |
 |---|:---|
-| CronJob | ❌ |
+| CronJob | ✅ |
 | DaemonSet | ✅ |
 | Deployment | ✅ |
 | Job | ✅ |
@@ -53,7 +53,7 @@ kubectl portfwd -f .portfwd-plan # via spec file (no prompts)
 
 At its core it does three things:
 
-- **Pick** a resource — a Deployment, StatefulSet, DaemonSet, Job, or Argo WorkflowTemplate, interactively or by flag
+- **Pick** a resource — a Deployment, StatefulSet, DaemonSet, Job, CronJob, or Argo WorkflowTemplate, interactively or by flag
 - **Resolve** its full environment — including values referenced from ConfigMaps and Secrets
 - **Emit** it as `.env` or JSON — to stdout for piping
 
@@ -70,7 +70,7 @@ kubectl export-dotenv --kind workflowtemplate --name my-workflow --output json
 | Resource | Status |
 |---|:---|
 | ConfigMap | ✅ |
-| CronJob | ❌ |
+| CronJob | ✅ |
 | DaemonSet | ✅ |
 | Deployment | ✅ |
 | Job | ✅ |

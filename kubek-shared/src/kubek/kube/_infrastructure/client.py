@@ -277,6 +277,22 @@ class KubernetesClient:
 
     @as_dict
     @safe
+    def get_cronjobs(self, namespace: str | None = None):
+        """List cronjobs in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.batch_v1.list_namespaced_cron_job(ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_cronjob(self, name: str, namespace: str | None = None):
+        """Get cronjob by name in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.batch_v1.read_namespaced_cron_job(name, ns)
+        return res
+
+    @as_dict
+    @safe
     def get_secret(self, name: str, namespace: str | None = None):
         ns = namespace or self.session.current_config.namespace
         res = self.session.core_v1.read_namespaced_secret(name, ns)

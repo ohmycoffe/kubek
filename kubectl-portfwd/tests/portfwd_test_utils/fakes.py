@@ -15,6 +15,21 @@ from typing import cast
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.dto.container import Container, ContainerPort
+from kubek.kube.dto.cronjob import (
+    CronJob,
+    CronJobJobSpec,
+    CronJobMetadata,
+    CronJobSpec,
+)
+from kubek.kube.dto.cronjob import (
+    JobTemplate as CronJobJobTemplate,
+)
+from kubek.kube.dto.cronjob import (
+    Template as CronJobPodTemplate,
+)
+from kubek.kube.dto.cronjob import (
+    TemplateSpec as CronJobPodTemplateSpec,
+)
 from kubek.kube.dto.daemonset import (
     DaemonSet,
     DaemonSetMetadata,
@@ -439,6 +454,44 @@ def build_jobs() -> list[Job]:
     ]
 
 
+def make_cronjob(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> CronJob:
+    """Build a CronJob; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return CronJob(
+        metadata=CronJobMetadata(name=name, namespace=namespace),
+        spec=CronJobSpec(
+            job_template=CronJobJobTemplate(
+                spec=CronJobJobSpec(
+                    template=CronJobPodTemplate(
+                        spec=CronJobPodTemplateSpec(
+                            containers=[
+                                Container(
+                                    ports=[
+                                        ContainerPort(container_port=p) for p in ports
+                                    ]
+                                )
+                                for ports in containers
+                            ]
+                        )
+                    )
+                )
+            )
+        ),
+    )
+
+
+def build_cronjobs() -> list[CronJob]:
+    """Two cronjobs in the shared test namespace, each with one container port."""
+    return [
+        make_cronjob("cj-foo", container_ports=[[150]]),
+        make_cronjob("cj-bar", container_ports=[[160]]),
+    ]
+
+
 def make_fake_api(
     services: list[Service] | None = None,
     pods: list[Pod] | None = None,
@@ -446,14 +499,16 @@ def make_fake_api(
     statefulsets: list[StatefulSet] | None = None,
     daemonsets: list[DaemonSet] | None = None,
     jobs: list[Job] | None = None,
+    cronjobs: list[CronJob] | None = None,
 ) -> KubeGateway:
-    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments/statefulsets/daemonsets/jobs."""
+    """An in-memory KubeGateway backed by the given (or default) resource lists."""
     services = build_services() if services is None else services
     pods = build_pods() if pods is None else pods
     deployments = build_deployments() if deployments is None else deployments
     statefulsets = build_statefulsets() if statefulsets is None else statefulsets
     daemonsets = build_daemonsets() if daemonsets is None else daemonsets
     jobs = build_jobs() if jobs is None else jobs
+    cronjobs = build_cronjobs() if cronjobs is None else cronjobs
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
     return cast(
         KubeGateway,
@@ -465,6 +520,7 @@ def make_fake_api(
             statefulset=_InMemoryRepository(statefulsets),
             daemonset=_InMemoryRepository(daemonsets),
             job=_InMemoryRepository(jobs),
+            cronjob=_InMemoryRepository(cronjobs),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
         ),
     )

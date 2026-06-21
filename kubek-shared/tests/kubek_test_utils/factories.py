@@ -30,6 +30,14 @@ def make_job(name: str, namespace: str) -> dict:
     }
 
 
+def make_cronjob(name: str, namespace: str) -> dict:
+    return {
+        "metadata": {"name": name, "namespace": namespace},
+        "spec": {"jobTemplate": {"spec": {"template": {"spec": {"containers": []}}}}},
+        "kind": "CronJob",
+    }
+
+
 def make_secret(name: str, namespace: str) -> dict:
     return {
         "metadata": {"name": name, "namespace": namespace},

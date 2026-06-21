@@ -181,6 +181,36 @@ spec:
               value: "hello-from-job"
       restartPolicy: Never
 ---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-backup
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: nightly-backup
+              image: postgres:alpine
+              ports:
+                - containerPort: 5432
+              envFrom:
+                - configMapRef:
+                    name: app-config
+                - secretRef:
+                    name: app-secrets
+              env:
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secrets
+                      key: DATABASE_PASSWORD
+                - name: DIRECT_VALUE
+                  value: "hello-from-cronjob"
+          restartPolicy: OnFailure
+---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:

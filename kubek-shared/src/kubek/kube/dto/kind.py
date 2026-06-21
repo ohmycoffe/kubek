@@ -6,6 +6,7 @@ class Kind(enum.StrEnum):
     STATEFULSET = "StatefulSet"
     DAEMONSET = "DaemonSet"
     JOB = "Job"
+    CRONJOB = "CronJob"
     WORKFLOWTEMPLATE = "WorkflowTemplate"
     CONFIG = "Config"
     NAMESPACE = "Namespace"

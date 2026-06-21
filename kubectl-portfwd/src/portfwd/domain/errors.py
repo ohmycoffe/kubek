@@ -90,8 +90,20 @@ class AmbiguousJobPortError(PortForwardError):
     """A Kubernetes Job declares multiple container ports and none was selected."""
 
 
+class CronJobNotFoundError(PortForwardError):
+    """A Kubernetes CronJob was not found in the given namespace."""
+
+
+class NoCronJobPortsError(PortForwardError):
+    """A Kubernetes CronJob declares no container ports and none was specified."""
+
+
+class AmbiguousCronJobPortError(PortForwardError):
+    """A Kubernetes CronJob declares multiple container ports and none was selected."""
+
+
 class NoTargetsFoundError(PortForwardError):
-    """Target discovery returned no services, pods, deployments, statefulsets, daemonsets, or jobs for the selected namespaces."""
+    """Target discovery returned no services, pods, deployments, statefulsets, daemonsets, jobs, or cronjobs for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):

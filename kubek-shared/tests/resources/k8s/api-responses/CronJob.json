@@ -1,0 +1,108 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "nightly-backup",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "1112",
+      "uid": "h7e5f6g8-7777-4f8a-9b9c-gg77aa88cc99"
+    },
+    "spec": {
+      "schedule": "0 2 * * *",
+      "job_template": {
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "env": [
+                    {
+                      "name": "DB_PASSWORD",
+                      "value": null,
+                      "value_from": {
+                        "config_map_key_ref": null,
+                        "secret_key_ref": {
+                          "key": "DATABASE_PASSWORD",
+                          "name": "app-secrets"
+                        }
+                      }
+                    },
+                    {
+                      "name": "DIRECT_VALUE",
+                      "value": "hello-from-cronjob",
+                      "value_from": null
+                    }
+                  ],
+                  "env_from": [
+                    {
+                      "config_map_ref": {
+                        "name": "app-config"
+                      },
+                      "secret_ref": null
+                    },
+                    {
+                      "config_map_ref": null,
+                      "secret_ref": {
+                        "name": "app-secrets"
+                      }
+                    }
+                  ],
+                  "image": "postgres:alpine",
+                  "name": "nightly-backup",
+                  "ports": [
+                    {
+                      "container_port": 5432,
+                      "protocol": "TCP"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "dummy-cronjob",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "1113",
+      "uid": "i8f6g7h9-8888-4g9b-8c0d-hh88bb99dd00"
+    },
+    "spec": {
+      "schedule": "*/5 * * * *",
+      "job_template": {
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "env": [
+                    {
+                      "name": "DIRECT_VALUE",
+                      "value": "hello-from-dummy-cronjob",
+                      "value_from": null
+                    }
+                  ],
+                  "env_from": null,
+                  "image": "nginx:alpine",
+                  "name": "dummy-cronjob",
+                  "ports": [
+                    {
+                      "container_port": 80,
+                      "protocol": "TCP"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+]
