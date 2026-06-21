@@ -63,7 +63,7 @@ kubectl export-dotenv --kind deployment --name my-service --namespace prod > .en
 kubectl export-dotenv --kind workflowtemplate --name my-workflow --output json
 ```
 
-![export-dotenv demo](https://github.com/user-attachments/assets/f8aedcfd-2d04-4ab5-8fcc-79c1aadb200a)
+![export-dotenv demo](https://github.com/user-attachments/assets/420e1004-71f0-457e-aa83-44dbf828011e)
 
 #### Supported Resources
 
