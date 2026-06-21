@@ -20,3 +20,7 @@ class UnsupportedKindError(ExportDotenvError):
 
 class UnsupportedFormatError(ExportDotenvError):
     """Resource format is not supported."""
+
+
+class UnsupportedResourceError(ExportDotenvError):
+    """Resource is not supported by the tool."""

@@ -16,6 +16,7 @@ from kubek.term import CLIOutput, create_output, setup_logging_from_count
 from export_dotenv.errors import (
     ExportDotenvError,
     NoResourcesFoundError,
+    UnsupportedResourceError,
 )
 from export_dotenv.formatting import ExportFormat, format_environment_values
 from export_dotenv.kube import KubeGateway
@@ -28,7 +29,8 @@ app = typer.Typer()
 @app.callback(invoke_without_command=True)
 def get(
     kind: Annotated[
-        Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE] | None,
+        Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE, Kind.CONFIGMAP, Kind.SECRET]
+        | None,
         typer.Option(
             case_sensitive=False,
             help="Kind of resource to get parameters for. If not provided, you will be prompted to select one.",
@@ -156,8 +158,14 @@ def _select_resource_name(
     ):
         if kind == Kind.DEPLOYMENT:
             resources = api.deployment.list()
-        else:
+        elif kind == Kind.WORKFLOWTEMPLATE:
             resources = api.workflowtemplate.list()
+        elif kind == Kind.CONFIGMAP:
+            resources = api.configmap.list()
+        elif kind == Kind.SECRET:
+            resources = api.secret.list()
+        else:
+            raise UnsupportedResourceError(f"Unsupported kind: {kind}")
 
     if not resources:
         raise NoResourcesFoundError(

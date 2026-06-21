@@ -108,6 +108,22 @@ def get_workflowtemplate_envs(name: str, api: KubeGateway) -> dict[str, str]:
     return all_envs
 
 
+def get_configmap_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    configmap = api.configmap.get(name=name, namespace=ns)
+    if not configmap:
+        raise ResourceNotFoundError(f"ConfigMap {name} not found in namespace {ns}")
+    return configmap.data
+
+
+def get_secret_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    secret = api.secret.get(name=name, namespace=ns)
+    if not secret:
+        raise ResourceNotFoundError(f"Secret {name} not found in namespace {ns}")
+    return secret.decoded_dict()
+
+
 def extract_envs_from_container(
     api: KubeGateway,
     container: Container,

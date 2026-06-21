@@ -267,6 +267,38 @@ def test_deployment_env_vars(api):
     }
 
 
+def test_configmap_env_vars(api):
+    result = fetch_environment_values(
+        kind=Kind.CONFIGMAP,
+        name="app-config",
+        api=api,
+    )
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+    }
+
+
+def test_secret_env_vars(api):
+    result = fetch_environment_values(
+        kind=Kind.SECRET,
+        name="app-secrets",
+        api=api,
+    )
+    assert result == {
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+    }
+
+
 def test_deployment_not_found_raises(api):
     with pytest.raises(ResourceNotFoundError, match="Deployment missing"):
         get_deployment_envs(name="missing", api=api)
