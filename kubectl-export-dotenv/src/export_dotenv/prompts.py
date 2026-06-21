@@ -8,7 +8,12 @@ from questionary import Style
 QUESTIONARY_STYLE = Style(DEFAULT_QUESTIONARY_THEME)
 
 
-def ask_for_kind() -> Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE] | None:
+def ask_for_kind() -> (
+    Literal[
+        Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE, Kind.CONFIGMAP, Kind.SECRET, Kind.POD
+    ]
+    | None
+):
     selected = questionary.select(
         "Select a kind:",
         choices=[
@@ -16,6 +21,21 @@ def ask_for_kind() -> Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE] | None:
                 title="Deployment",
                 value=Kind.DEPLOYMENT,
                 description="(Kubernetes Deployment)",
+            ),
+            questionary.Choice(
+                title="ConfigMap",
+                value=Kind.CONFIGMAP,
+                description="(Kubernetes ConfigMap)",
+            ),
+            questionary.Choice(
+                title="Pod",
+                value=Kind.POD,
+                description="(Kubernetes Pod)",
+            ),
+            questionary.Choice(
+                title="Secret",
+                value=Kind.SECRET,
+                description="(Kubernetes Secret)",
             ),
             questionary.Choice(
                 title="WorkflowTemplate",

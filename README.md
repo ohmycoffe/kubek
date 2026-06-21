@@ -34,6 +34,15 @@ kubectl portfwd -f .portfwd-plan # via spec file (no prompts)
 
 ![portfwd demo](https://github.com/user-attachments/assets/a4686a82-b1d6-46ef-99bc-88fbbfe31c79)
 
+| Resource | Status |
+|---|:---|
+| CronJob | ❌ |
+| DaemonSet |❌ |
+| Deployment | ✅ |
+| Job | ❌ |
+| Pod | ✅ |
+| StatefulSet | ❌ |
+
 → [Full documentation](kubectl-portfwd/README.md)
 
 ---
@@ -54,7 +63,20 @@ kubectl export-dotenv --kind deployment --name my-service --namespace prod > .en
 kubectl export-dotenv --kind workflowtemplate --name my-workflow --output json
 ```
 
-![export-dotenv demo](https://github.com/user-attachments/assets/f8aedcfd-2d04-4ab5-8fcc-79c1aadb200a)
+![export-dotenv demo](https://github.com/user-attachments/assets/420e1004-71f0-457e-aa83-44dbf828011e)
+
+#### Supported Resources
+
+| Resource | Status |
+|---|:---|
+| ConfigMap | ✅ |
+| CronJob | ❌ |
+| DaemonSet |❌ |
+| Deployment | ✅ |
+| Job | ❌ |
+| Pod | ✅ |
+| Secret | ✅ |
+| StatefulSet | ❌ |
 
 → [Full documentation](kubectl-export-dotenv/README.md)
 

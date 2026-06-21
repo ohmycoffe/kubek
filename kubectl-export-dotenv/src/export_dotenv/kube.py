@@ -17,6 +17,7 @@ from kubek.kube.contracts.repositories import (
     ConfigMapRepository,
     DeploymentRepository,
     NamespaceRepository,
+    PodRepository,
     SecretRepository,
     WorkflowTemplateRepository,
 )
@@ -45,6 +46,9 @@ class KubeGateway(Protocol):
 
     @property
     def configmap(self) -> ConfigMapRepository: ...
+
+    @property
+    def pod(self) -> PodRepository: ...
 
     @property
     def current_config(self) -> ResolvedKubeConfig: ...
@@ -79,6 +83,21 @@ def get_deployment_envs(name: str, api: KubeGateway) -> dict[str, str]:
     return extract_envs_from_container(api=api, container=container)
 
 
+def get_pod_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    pod = api.pod.get(name=name, namespace=ns)
+    if not pod:
+        raise ResourceNotFoundError(f"Pod {name} not found in namespace {ns}")
+    containers = pod.spec.containers
+    if len(containers) != 1:
+        raise AmbiguousResourceError(
+            f"Pod {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for pods with a single container."
+        )
+    container = containers[0]
+    return extract_envs_from_container(api=api, container=container)
+
+
 def get_workflowtemplate_envs(name: str, api: KubeGateway) -> dict[str, str]:
     ns = api.current_config.namespace
     workflowtemplate = api.workflowtemplate.get(name=name, namespace=ns)
@@ -106,6 +125,22 @@ def get_workflowtemplate_envs(name: str, api: KubeGateway) -> dict[str, str]:
         all_envs.update(template_envs)
 
     return all_envs
+
+
+def get_configmap_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    configmap = api.configmap.get(name=name, namespace=ns)
+    if not configmap:
+        raise ResourceNotFoundError(f"ConfigMap {name} not found in namespace {ns}")
+    return configmap.data
+
+
+def get_secret_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    secret = api.secret.get(name=name, namespace=ns)
+    if not secret:
+        raise ResourceNotFoundError(f"Secret {name} not found in namespace {ns}")
+    return secret.decoded_dict()
 
 
 def extract_envs_from_container(
