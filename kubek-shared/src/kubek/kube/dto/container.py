@@ -16,6 +16,33 @@ class SecretKeyRef(BaseModel):
     key: str
 
 
+class FieldRef(BaseModel):
+    """A Downward API reference to a field of the pod, e.g. ``metadata.name``."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        frozen=True,
+    )
+
+    field_path: str
+    api_version: str | None = None
+
+
+class ResourceFieldRef(BaseModel):
+    """A Downward API reference to a container resource, e.g. ``limits.cpu``."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        frozen=True,
+    )
+
+    resource: str
+    container_name: str | None = None
+    divisor: str | None = None
+
+
 class EnvValueFrom(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -25,6 +52,8 @@ class EnvValueFrom(BaseModel):
 
     config_map_key_ref: ConfigMapKeyRef | None = None
     secret_key_ref: SecretKeyRef | None = None
+    field_ref: FieldRef | None = None
+    resource_field_ref: ResourceFieldRef | None = None
 
 
 class EnvVar(BaseModel):

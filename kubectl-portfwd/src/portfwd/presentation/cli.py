@@ -264,7 +264,7 @@ def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
 
     if not specs:
         raise NoTargetsFoundError(
-            "no matching services or pods found in the selected namespaces"
+            "no matching resources found in the selected namespaces"
         )
 
     selected_targets = ask_for_targets(specs)
