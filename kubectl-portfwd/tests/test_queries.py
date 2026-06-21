@@ -1,9 +1,10 @@
 from types import SimpleNamespace
 from typing import cast
 
-from kubek.kube.dto import Deployment, Pod, Service, StatefulSet
+from kubek.kube.dto import DaemonSet, Deployment, Pod, Service, StatefulSet
 from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import (
+    fetch_daemonsets_for_namespaces,
     fetch_deployments_for_namespaces,
     fetch_pods_for_namespaces,
     fetch_services_for_namespaces,
@@ -11,7 +12,12 @@ from portfwd.application.queries import (
     fetch_targets_for_namespaces,
 )
 from portfwd.domain.models import TargetKind
-from portfwd_test_utils.fakes import make_deployment, make_pod, make_statefulset
+from portfwd_test_utils.fakes import (
+    make_daemonset,
+    make_deployment,
+    make_pod,
+    make_statefulset,
+)
 
 
 def _service(name: str, namespace: str, ports: list[int]) -> Service:
@@ -37,7 +43,14 @@ def _statefulset(name: str, namespace: str, container_ports: list[int]) -> State
     return make_statefulset(name, namespace, [container_ports])
 
 
-def _make_api(service=None, pod=None, deployment=None, statefulset=None) -> KubeGateway:
+def _daemonset(name: str, namespace: str, container_ports: list[int]) -> DaemonSet:
+    """One single-container daemonset expressed in terms of make_daemonset."""
+    return make_daemonset(name, namespace, [container_ports])
+
+
+def _make_api(
+    service=None, pod=None, deployment=None, statefulset=None, daemonset=None
+) -> KubeGateway:
     """Minimal fake KubeGateway with optional repo attributes."""
     return cast(
         KubeGateway,
@@ -46,6 +59,7 @@ def _make_api(service=None, pod=None, deployment=None, statefulset=None) -> Kube
             pod=pod,
             deployment=deployment,
             statefulset=statefulset,
+            daemonset=daemonset,
         ),
     )
 
@@ -326,4 +340,76 @@ def test_fetch_targets_honors_statefulset_kind_filter():
 
     assert {(s.target.kind, s.target.name) for s in specs} == {
         (TargetKind.STATEFULSET, "cache")
+    }
+
+
+def test_fetch_daemonsets_for_namespaces_flattens_declared_container_ports():
+    """DaemonSets with declared container ports produce one spec per unique port; portless daemonsets are omitted."""
+    ds_a = _daemonset("worker", "ns-1", [9090])
+    ds_b = _daemonset("api", "ns-2", [8080, 8443])
+    ds_no_ports = _daemonset("sidecar", "ns-1", [])
+
+    class FakeDaemonSetRepo:
+        def list(self, namespace: str) -> list[DaemonSet]:
+            return {
+                "ns-1": [ds_a, ds_no_ports],
+                "ns-2": [ds_b],
+            }.get(namespace, [])
+
+    api = _make_api(daemonset=FakeDaemonSetRepo())
+    specs = fetch_daemonsets_for_namespaces(["ns-1", "ns-2"], api)
+
+    keys = [
+        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
+    ]
+    assert keys == [
+        (TargetKind.DAEMONSET, "ns-1", "worker", 9090),
+        (TargetKind.DAEMONSET, "ns-2", "api", 8080),
+        (TargetKind.DAEMONSET, "ns-2", "api", 8443),
+    ]
+
+
+def test_fetch_targets_includes_daemonsets():
+    """The combined picker returns daemonsets when that kind is selected."""
+    svc = _service("alpha", "ns-1", [80])
+    ds = _daemonset("agent", "ns-1", [2020])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeDaemonSetRepo:
+        def list(self, namespace: str) -> list[DaemonSet]:
+            return {"ns-1": [ds]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), daemonset=FakeDaemonSetRepo())
+    specs = fetch_targets_for_namespaces(
+        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.DAEMONSET]
+    )
+
+    kinds = {(s.target.kind, s.target.name) for s in specs}
+    assert kinds == {
+        (TargetKind.SERVICE, "alpha"),
+        (TargetKind.DAEMONSET, "agent"),
+    }
+
+
+def test_fetch_targets_honors_daemonset_kind_filter():
+    """Only daemonset specs are returned when kinds=[TargetKind.DAEMONSET]."""
+    svc = _service("alpha", "ns-1", [80])
+    ds = _daemonset("agent", "ns-1", [2020])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeDaemonSetRepo:
+        def list(self, namespace: str) -> list[DaemonSet]:
+            return {"ns-1": [ds]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), daemonset=FakeDaemonSetRepo())
+    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.DAEMONSET])
+
+    assert {(s.target.kind, s.target.name) for s in specs} == {
+        (TargetKind.DAEMONSET, "agent")
     }

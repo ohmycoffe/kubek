@@ -10,6 +10,7 @@ class TargetKind(StrEnum):
     SERVICE = "svc"
     DEPLOYMENT = "deployment"
     STATEFULSET = "statefulset"
+    DAEMONSET = "daemonset"
 
 
 class TargetRef(BaseModel):

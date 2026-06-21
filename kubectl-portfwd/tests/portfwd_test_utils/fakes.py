@@ -15,6 +15,17 @@ from typing import cast
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.dto.container import Container, ContainerPort
+from kubek.kube.dto.daemonset import (
+    DaemonSet,
+    DaemonSetMetadata,
+    DaemonSetSpec,
+)
+from kubek.kube.dto.daemonset import (
+    Template as DaemonSetTemplate,
+)
+from kubek.kube.dto.daemonset import (
+    TemplateSpec as DaemonSetTemplateSpec,
+)
 from kubek.kube.dto.deployment import (
     Deployment,
     DeploymentMetadata,
@@ -353,17 +364,51 @@ def build_statefulsets() -> list[StatefulSet]:
     ]
 
 
+def make_daemonset(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> DaemonSet:
+    """Build a DaemonSet; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return DaemonSet(
+        metadata=DaemonSetMetadata(name=name, namespace=namespace),
+        spec=DaemonSetSpec(
+            template=DaemonSetTemplate(
+                spec=DaemonSetTemplateSpec(
+                    containers=[
+                        Container(
+                            ports=[ContainerPort(container_port=p) for p in ports]
+                        )
+                        for ports in containers
+                    ]
+                )
+            )
+        ),
+    )
+
+
+def build_daemonsets() -> list[DaemonSet]:
+    """Two daemonsets in the shared test namespace, each with one container port."""
+    return [
+        make_daemonset("ds-foo", container_ports=[[110]]),
+        make_daemonset("ds-bar", container_ports=[[120]]),
+    ]
+
+
 def make_fake_api(
     services: list[Service] | None = None,
     pods: list[Pod] | None = None,
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
+    daemonsets: list[DaemonSet] | None = None,
 ) -> KubeGateway:
-    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments/statefulsets."""
+    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments/statefulsets/daemonsets."""
     services = build_services() if services is None else services
     pods = build_pods() if pods is None else pods
     deployments = build_deployments() if deployments is None else deployments
     statefulsets = build_statefulsets() if statefulsets is None else statefulsets
+    daemonsets = build_daemonsets() if daemonsets is None else daemonsets
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
     return cast(
         KubeGateway,
@@ -373,6 +418,7 @@ def make_fake_api(
             pod=_InMemoryRepository(pods),
             deployment=_InMemoryRepository(deployments),
             statefulset=_InMemoryRepository(statefulsets),
+            daemonset=_InMemoryRepository(daemonsets),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
         ),
     )

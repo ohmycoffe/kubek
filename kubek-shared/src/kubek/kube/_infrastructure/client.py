@@ -242,6 +242,22 @@ class KubernetesClient:
 
     @as_dict
     @safe
+    def get_daemonsets(self, namespace: str | None = None):
+        """List daemonsets in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.apps_v1.list_namespaced_daemon_set(ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_daemonset(self, name: str, namespace: str | None = None):
+        """Get daemonset by name in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.apps_v1.read_namespaced_daemon_set(name, ns)
+        return res
+
+    @as_dict
+    @safe
     def get_secret(self, name: str, namespace: str | None = None):
         ns = namespace or self.session.current_config.namespace
         res = self.session.core_v1.read_namespaced_secret(name, ns)

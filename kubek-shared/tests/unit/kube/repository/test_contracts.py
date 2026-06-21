@@ -4,6 +4,9 @@ import pytest
 from kubek.kube._infrastructure.repositories.configmap import (
     KubernetesConfigMapRepository,
 )
+from kubek.kube._infrastructure.repositories.daemonset import (
+    KubernetesDaemonSetRepository,
+)
 from kubek.kube._infrastructure.repositories.deployment import (
     KubernetesDeploymentRepository,
 )
@@ -21,6 +24,7 @@ from kubek.kube._infrastructure.repositories.workflowtemplate import (
 from kubek.kube.dto.kind import Kind
 from kubek_test_utils.factories import (
     make_configmap,
+    make_daemonset,
     make_deployment,
     make_namespace,
     make_secret,
@@ -36,6 +40,7 @@ _TEST_NAMESPACE = "test-namespace-1"
 _REPOSITORIES_MAP = {
     Kind.DEPLOYMENT: KubernetesDeploymentRepository,
     Kind.STATEFULSET: KubernetesStatefulSetRepository,
+    Kind.DAEMONSET: KubernetesDaemonSetRepository,
     Kind.SECRET: KubernetesSecretRepository,
     Kind.CONFIGMAP: KubernetesConfigMapRepository,
     Kind.WORKFLOWTEMPLATE: KubernetesWorkflowTemplateRepository,
@@ -49,6 +54,8 @@ _EXPECTED_RESOURCES = [
     (Kind.DEPLOYMENT, _TEST_NAMESPACE, "deployment2"),
     (Kind.STATEFULSET, _TEST_NAMESPACE, "statefulset1"),
     (Kind.STATEFULSET, _TEST_NAMESPACE, "statefulset2"),
+    (Kind.DAEMONSET, _TEST_NAMESPACE, "daemonset1"),
+    (Kind.DAEMONSET, _TEST_NAMESPACE, "daemonset2"),
     (Kind.SERVICE, _TEST_NAMESPACE, "service1"),
     (Kind.SERVICE, _TEST_NAMESPACE, "service2"),
     (Kind.SECRET, _TEST_NAMESPACE, "secret1"),
@@ -67,6 +74,7 @@ _EXPECTED_NAMESPACES = [
 _FACTORIES: dict[Kind, Callable[[str, str], dict]] = {
     Kind.DEPLOYMENT: make_deployment,
     Kind.STATEFULSET: make_statefulset,
+    Kind.DAEMONSET: make_daemonset,
     Kind.SECRET: make_secret,
     Kind.CONFIGMAP: make_configmap,
     Kind.WORKFLOWTEMPLATE: make_workflowtemplate,
@@ -101,6 +109,7 @@ class TestCommonKubernetesRepositories:
         [
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
+            Kind.DAEMONSET,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,
@@ -124,6 +133,7 @@ class TestCommonKubernetesRepositories:
         [
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
+            Kind.DAEMONSET,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,
@@ -147,6 +157,7 @@ class TestCommonKubernetesRepositories:
         [
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
+            Kind.DAEMONSET,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,
@@ -166,6 +177,7 @@ class TestCommonKubernetesRepositories:
         [
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
+            Kind.DAEMONSET,
             Kind.SERVICE,
             Kind.SECRET,
             Kind.CONFIGMAP,

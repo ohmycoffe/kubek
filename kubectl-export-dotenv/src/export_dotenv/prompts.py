@@ -12,6 +12,7 @@ def ask_for_kind() -> (
     Literal[
         Kind.DEPLOYMENT,
         Kind.STATEFULSET,
+        Kind.DAEMONSET,
         Kind.WORKFLOWTEMPLATE,
         Kind.CONFIGMAP,
         Kind.SECRET,
@@ -31,6 +32,11 @@ def ask_for_kind() -> (
                 title="StatefulSet",
                 value=Kind.STATEFULSET,
                 description="(Kubernetes StatefulSet)",
+            ),
+            questionary.Choice(
+                title="DaemonSet",
+                value=Kind.DAEMONSET,
+                description="(Kubernetes DaemonSet)",
             ),
             questionary.Choice(
                 title="WorkflowTemplate",

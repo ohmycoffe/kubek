@@ -1,5 +1,6 @@
 from .configmap import ConfigMap, ConfigMapList
 from .container import Container
+from .daemonset import DaemonSet, DaemonSetList
 from .deployment import Deployment
 from .kind import Kind
 from .namespace import Namespace
@@ -17,6 +18,8 @@ __all__ = [
     "ConfigMap",
     "ConfigMapList",
     "Container",
+    "DaemonSet",
+    "DaemonSetList",
     "Secret",
     "Deployment",
     "Namespace",

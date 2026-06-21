@@ -10,6 +10,7 @@ from export_dotenv.errors import (
 )
 from export_dotenv.kube import (
     extract_envs_from_container,
+    get_daemonset_envs,
     get_deployment_envs,
     get_pod_envs,
     get_statefulset_envs,
@@ -27,6 +28,19 @@ from kubek.kube.dto.container import (
     EnvVar,
     SecretKeyRef,
     SecretRef,
+)
+from kubek.kube.dto.daemonset import (
+    DaemonSet as DaemonSetDTO,
+)
+from kubek.kube.dto.daemonset import (
+    DaemonSetMetadata,
+    DaemonSetSpec,
+)
+from kubek.kube.dto.daemonset import (
+    Template as DaemonSetTemplate,
+)
+from kubek.kube.dto.daemonset import (
+    TemplateSpec as DaemonSetTemplateSpec,
 )
 from kubek.kube.dto.deployment import (
     Deployment as DeploymentDTO,
@@ -242,6 +256,40 @@ def build_statefulset():
     )
 
 
+def build_daemonset():
+    return DaemonSetDTO(
+        metadata=DaemonSetMetadata(name="log-agent", namespace=NS),
+        spec=DaemonSetSpec(
+            template=DaemonSetTemplate(
+                spec=DaemonSetTemplateSpec(
+                    containers=[
+                        Container(
+                            env=[
+                                EnvVar(
+                                    name="DB_PASSWORD",
+                                    value_from=EnvValueFrom(
+                                        secret_key_ref=SecretKeyRef(
+                                            name="app-secrets",
+                                            key="DATABASE_PASSWORD",
+                                        )
+                                    ),
+                                ),
+                                EnvVar(name="DIRECT_VALUE", value="hello-from-agent"),
+                            ],
+                            env_from=[
+                                EnvFromSource(
+                                    config_map_ref=ConfigMapRef(name="app-config")
+                                ),
+                                EnvFromSource(secret_ref=SecretRef(name="app-secrets")),
+                            ],
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+
+
 def build_workflow():
     return WorkflowTemplate(
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
@@ -296,6 +344,7 @@ def api():
     return SimpleNamespace(
         deployment=InMemoryRepository([build_deployment()]),
         statefulset=InMemoryRepository([build_statefulset()]),
+        daemonset=InMemoryRepository([build_daemonset()]),
         pod=InMemoryRepository([build_pod()]),
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
@@ -409,6 +458,59 @@ def test_statefulset_with_multiple_containers_raises(api):
 
     with pytest.raises(AmbiguousResourceError, match="2 containers"):
         get_statefulset_envs(name="cache-service", api=api)
+
+
+def test_daemonset_env_vars(api):
+    """A single-container DaemonSet resolves env, envFrom, and value refs like a Deployment."""
+    result = fetch_environment_values(
+        kind=Kind.DAEMONSET,
+        name="log-agent",
+        api=api,
+    )
+
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+        "DB_PASSWORD": "secretpassword",
+        "DIRECT_VALUE": "hello-from-agent",
+    }
+
+
+def test_daemonset_not_found_raises(api):
+    """A missing DaemonSet name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="DaemonSet missing"):
+        get_daemonset_envs(name="missing", api=api)
+
+
+def test_daemonset_with_multiple_containers_raises(api):
+    """A DaemonSet with more than one container is rejected as ambiguous."""
+    api.daemonset = InMemoryRepository(
+        [
+            DaemonSetDTO(
+                metadata=DaemonSetMetadata(name="log-agent", namespace=NS),
+                spec=DaemonSetSpec(
+                    template=DaemonSetTemplate(
+                        spec=DaemonSetTemplateSpec(
+                            containers=[Container(), Container()]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_daemonset_envs(name="log-agent", api=api)
 
 
 def test_pod_env_vars(api):

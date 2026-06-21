@@ -52,6 +52,14 @@ class FakeKubeClient:
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.STATEFULSET, namespace)
 
+    def get_daemonset(self, name, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_one(Kind.DAEMONSET, name, namespace)
+
+    def get_daemonsets(self, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_list(Kind.DAEMONSET, namespace)
+
     def get_secret(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.SECRET, name, namespace)

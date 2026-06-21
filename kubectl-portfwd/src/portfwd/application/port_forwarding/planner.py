@@ -1,14 +1,17 @@
-from kubek.kube import Deployment, Pod, Service, StatefulSet
+from kubek.kube import DaemonSet, Deployment, Pod, Service, StatefulSet
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
+    AmbiguousDaemonSetPortError,
     AmbiguousDeploymentPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
+    DaemonSetNotFoundError,
     DeploymentNotFoundError,
     MissingNamespaceError,
+    NoDaemonSetPortsError,
     NoDeploymentPortsError,
     NoPodPortsError,
     NoServicePortsError,
@@ -195,11 +198,53 @@ def _remote_port_from_statefulset(
     return resolve_statefulset_remote_port(statefulset)
 
 
+def resolve_daemonset_remote_port(daemonset: DaemonSet) -> int:
+    """Pick the single declared container port of a DaemonSet or raise if ambiguous."""
+    ref = f"{daemonset.metadata.namespace}/{daemonset.metadata.name}"
+    ports = get_unique_ports(daemonset.spec.template.spec.containers)
+    if not ports:
+        raise NoDaemonSetPortsError(
+            f'daemonset "{ref}" declares no container ports; '
+            "specify one with :port in the daemonset spec"
+        )
+    if len(ports) > 1:
+        port_list = ", ".join(str(p) for p in sorted(ports))
+        raise AmbiguousDaemonSetPortError(
+            f'daemonset "{ref}" has multiple container ports ({port_list}); '
+            "specify one with :port in the daemonset spec"
+        )
+    return min(ports)
+
+
+def _fetch_daemonset(name: str, namespace: str, api: KubeGateway) -> DaemonSet:
+    """Fetch a daemonset or raise DaemonSetNotFoundError."""
+    daemonset = api.daemonset.get(name=name, namespace=namespace)
+    if not daemonset:
+        raise DaemonSetNotFoundError(
+            f'daemonset "{name}" not found in namespace "{namespace}"'
+        )
+    return daemonset
+
+
+def _remote_port_from_daemonset(
+    name: str,
+    namespace: str,
+    api: KubeGateway,
+    explicit_port: int | None,
+) -> int:
+    """Resolve the remote port for a daemonset target."""
+    daemonset = _fetch_daemonset(name, namespace, api)
+    if explicit_port is not None:
+        return explicit_port
+    return resolve_daemonset_remote_port(daemonset)
+
+
 _REMOTE_PORT_BY_KIND = {
     TargetKind.SERVICE: _remote_port_from_service,
     TargetKind.POD: _remote_port_from_pod,
     TargetKind.DEPLOYMENT: _remote_port_from_deployment,
     TargetKind.STATEFULSET: _remote_port_from_statefulset,
+    TargetKind.DAEMONSET: _remote_port_from_daemonset,
 }
 
 

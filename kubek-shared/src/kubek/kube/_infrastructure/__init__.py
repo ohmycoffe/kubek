@@ -1,6 +1,7 @@
 from .client import KubernetesClient
 from .repositories import (
     KubernetesConfigMapRepository,
+    KubernetesDaemonSetRepository,
     KubernetesDeploymentRepository,
     KubernetesNamespaceRepository,
     KubernetesPodRepository,
@@ -12,6 +13,7 @@ from .repositories import (
 
 __all__ = [
     "KubernetesConfigMapRepository",
+    "KubernetesDaemonSetRepository",
     "KubernetesDeploymentRepository",
     "KubernetesNamespaceRepository",
     "KubernetesPodRepository",

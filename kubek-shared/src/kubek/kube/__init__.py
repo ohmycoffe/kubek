@@ -1,5 +1,6 @@
 from kubek.kube._infrastructure import (
     KubernetesConfigMapRepository,
+    KubernetesDaemonSetRepository,
     KubernetesDeploymentRepository,
     KubernetesNamespaceRepository,
     KubernetesPodRepository,
@@ -13,6 +14,7 @@ from kubek.kube.config import KubeConfig, ResolvedKubeConfig
 from kubek.kube.dto import (
     ConfigMap,
     Container,
+    DaemonSet,
     Deployment,
     Kind,
     Namespace,
@@ -39,6 +41,7 @@ __all__ = [
     "Namespace",
     "Deployment",
     "StatefulSet",
+    "DaemonSet",
     "Secret",
     "ConfigMap",
     "Container",
@@ -46,6 +49,7 @@ __all__ = [
     "KubeClientError",
     "KubeApiNotFoundError",
     "KubernetesConfigMapRepository",
+    "KubernetesDaemonSetRepository",
     "KubernetesDeploymentRepository",
     "KubernetesNamespaceRepository",
     "KubernetesPodRepository",

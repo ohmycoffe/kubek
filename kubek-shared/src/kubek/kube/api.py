@@ -3,6 +3,7 @@ from typing import Self
 from kubek.kube._infrastructure import (
     KubernetesClient,
     KubernetesConfigMapRepository,
+    KubernetesDaemonSetRepository,
     KubernetesDeploymentRepository,
     KubernetesNamespaceRepository,
     KubernetesPodRepository,
@@ -24,6 +25,7 @@ class KubeFacade:
         namespace: KubernetesNamespaceRepository,
         deployment: KubernetesDeploymentRepository,
         statefulset: KubernetesStatefulSetRepository,
+        daemonset: KubernetesDaemonSetRepository,
         service: KubernetesServiceRepository,
         pod: KubernetesPodRepository,
         workflowtemplate: KubernetesWorkflowTemplateRepository,
@@ -33,6 +35,7 @@ class KubeFacade:
         self.namespace = namespace
         self.deployment = deployment
         self.statefulset = statefulset
+        self.daemonset = daemonset
         self.service = service
         self.pod = pod
         self.workflowtemplate = workflowtemplate
@@ -53,6 +56,7 @@ class KubeFacade:
             namespace=KubernetesNamespaceRepository(client),
             deployment=KubernetesDeploymentRepository(client),
             statefulset=KubernetesStatefulSetRepository(client),
+            daemonset=KubernetesDaemonSetRepository(client),
             service=KubernetesServiceRepository(client),
             pod=KubernetesPodRepository(client),
             workflowtemplate=KubernetesWorkflowTemplateRepository(client),
