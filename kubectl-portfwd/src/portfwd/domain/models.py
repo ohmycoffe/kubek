@@ -11,6 +11,7 @@ class TargetKind(StrEnum):
     DEPLOYMENT = "deployment"
     STATEFULSET = "statefulset"
     DAEMONSET = "daemonset"
+    REPLICASET = "replicaset"
     JOB = "job"
     CRONJOB = "cronjob"
 

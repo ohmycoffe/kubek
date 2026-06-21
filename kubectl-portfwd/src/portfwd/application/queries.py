@@ -1,7 +1,16 @@
 import itertools
 from collections.abc import Iterable
 
-from kubek.kube import CronJob, DaemonSet, Deployment, Job, Pod, Service, StatefulSet
+from kubek.kube import (
+    CronJob,
+    DaemonSet,
+    Deployment,
+    Job,
+    Pod,
+    ReplicaSet,
+    Service,
+    StatefulSet,
+)
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.models import (
@@ -161,6 +170,38 @@ def fetch_daemonsets_for_namespaces(
     return _convert_daemonsets_to_specs(raw)
 
 
+def _convert_replicasets_to_specs(
+    replicasets: Iterable[ReplicaSet],
+) -> list[PortForwardSpec]:
+    """Flatten ReplicaSet list to (target, remote_port) specs, one per declared container port."""
+    return [
+        PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.REPLICASET,
+                namespace=replicaset.metadata.namespace,
+                name=replicaset.metadata.name,
+            ),
+            remote_port=container_port,
+        )
+        for replicaset in sorted(
+            replicasets, key=lambda r: (r.metadata.namespace, r.metadata.name)
+        )
+        for container_port in sorted(
+            get_unique_ports(replicaset.spec.template.spec.containers)
+        )
+    ]
+
+
+def fetch_replicasets_for_namespaces(
+    namespaces: list[str], api: KubeGateway
+) -> list[PortForwardSpec]:
+    """Fetch replicasets with declared container ports for the picker."""
+    raw = itertools.chain.from_iterable(
+        api.replicaset.list(namespace=ns) for ns in namespaces
+    )
+    return _convert_replicasets_to_specs(raw)
+
+
 def _convert_jobs_to_specs(
     jobs: Iterable[Job],
 ) -> list[PortForwardSpec]:
@@ -229,6 +270,7 @@ _FETCH_BY_KIND = {
     TargetKind.DEPLOYMENT: fetch_deployments_for_namespaces,
     TargetKind.STATEFULSET: fetch_statefulsets_for_namespaces,
     TargetKind.DAEMONSET: fetch_daemonsets_for_namespaces,
+    TargetKind.REPLICASET: fetch_replicasets_for_namespaces,
     TargetKind.JOB: fetch_jobs_for_namespaces,
     TargetKind.CRONJOB: fetch_cronjobs_for_namespaces,
 }

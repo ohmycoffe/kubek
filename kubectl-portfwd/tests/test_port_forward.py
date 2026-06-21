@@ -13,6 +13,7 @@ from portfwd.application.port_forwarding.planner import (
     resolve_job_remote_port,
     resolve_local_port,
     resolve_pod_remote_port,
+    resolve_replicaset_remote_port,
     resolve_service_remote_port,
     resolve_statefulset_remote_port,
 )
@@ -23,6 +24,7 @@ from portfwd.domain.errors import (
     AmbiguousDeploymentPortError,
     AmbiguousJobPortError,
     AmbiguousPodPortError,
+    AmbiguousReplicaSetPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
     CronJobNotFoundError,
@@ -35,9 +37,11 @@ from portfwd.domain.errors import (
     NoDeploymentPortsError,
     NoJobPortsError,
     NoPodPortsError,
+    NoReplicaSetPortsError,
     NoServicePortsError,
     NoStatefulSetPortsError,
     PodNotFoundError,
+    ReplicaSetNotFoundError,
     ServiceNotFoundError,
     StatefulSetNotFoundError,
 )
@@ -52,6 +56,7 @@ from portfwd_test_utils.fakes import (
     make_deployment,
     make_job,
     make_pod,
+    make_replicaset,
     make_statefulset,
 )
 
@@ -95,6 +100,7 @@ def _make_api(
     daemonsets=None,
     jobs=None,
     cronjobs=None,
+    replicasets=None,
 ) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
@@ -108,6 +114,7 @@ def _make_api(
     daemonsets_map = {(ns, name): ds for (ns, name), ds in (daemonsets or {}).items()}
     jobs_map = {(ns, name): job for (ns, name), job in (jobs or {}).items()}
     cronjobs_map = {(ns, name): cj for (ns, name), cj in (cronjobs or {}).items()}
+    replicasets_map = {(ns, name): rs for (ns, name), rs in (replicasets or {}).items()}
 
     class FakeServiceRepo:
         def get(self, name, namespace=None):
@@ -137,6 +144,10 @@ def _make_api(
         def get(self, name, namespace=None):
             return cronjobs_map.get((namespace, name))
 
+    class FakeReplicaSetRepo:
+        def get(self, name, namespace=None):
+            return replicasets_map.get((namespace, name))
+
     return cast(
         KubeGateway,
         SimpleNamespace(
@@ -148,6 +159,7 @@ def _make_api(
             daemonset=FakeDaemonSetRepo(),
             job=FakeJobRepo(),
             cronjob=FakeCronJobRepo(),
+            replicaset=FakeReplicaSetRepo(),
         ),
     )
 
@@ -438,6 +450,43 @@ class TestBuildPortForwardPlan:
         with pytest.raises(DaemonSetNotFoundError):
             build_port_forward_plan(spec, api)
 
+    def test_resolves_remote_port_from_replicaset(self):
+        """A replicaset spec without a remote_port reads the single declared container port."""
+        replicaset = make_replicaset("web", "ns", [[8080]])
+        api = _make_api(namespace="ns", replicasets={("ns", "web"): replicaset})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.REPLICASET, name="web", namespace="ns"),
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.target.kind == TargetKind.REPLICASET
+        assert plan.remote_port == 8080
+
+    def test_replicaset_spec_explicit_port_used_directly(self):
+        """An explicit remote_port in the spec is forwarded unchanged for replicasets."""
+        replicaset = make_replicaset("web", "ns", [[8080]])
+        api = _make_api(namespace="ns", replicasets={("ns", "web"): replicaset})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.REPLICASET, name="web", namespace="ns"),
+            remote_port=3000,
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.remote_port == 3000
+
+    def test_raises_when_replicaset_not_found(self):
+        """ReplicaSetNotFoundError is raised when the ReplicaSet does not exist."""
+        api = _make_api(namespace="ns")
+        spec = PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.REPLICASET, name="missing", namespace="ns"
+            ),
+            remote_port=80,
+            local_port=9000,
+        )
+        with pytest.raises(ReplicaSetNotFoundError):
+            build_port_forward_plan(spec, api)
+
     def test_resolves_remote_port_from_job(self):
         """A job spec without a remote_port reads the single declared container port."""
         job = make_job("migration", "ns", [[5432]])
@@ -579,6 +628,30 @@ class TestResolveDaemonSetRemotePort:
         daemonset = make_daemonset("agent", "ns", [[80, 2020]])
         with pytest.raises(AmbiguousDaemonSetPortError):
             resolve_daemonset_remote_port(daemonset)
+
+
+class TestResolveReplicaSetRemotePort:
+    def test_returns_single_port(self):
+        """Returns the container port when the replicaset declares exactly one."""
+        replicaset = make_replicaset("web", "ns", [[8080]])
+        assert resolve_replicaset_remote_port(replicaset) == 8080
+
+    def test_returns_single_unique_port_across_containers(self):
+        """Duplicate container ports across containers collapse to one unique port."""
+        replicaset = make_replicaset("web", "ns", [[8080], [8080]])
+        assert resolve_replicaset_remote_port(replicaset) == 8080
+
+    def test_raises_when_no_ports(self):
+        """NoReplicaSetPortsError is raised when no container ports are declared."""
+        replicaset = make_replicaset("web", "ns", [[]])
+        with pytest.raises(NoReplicaSetPortsError):
+            resolve_replicaset_remote_port(replicaset)
+
+    def test_raises_when_multiple_ports(self):
+        """AmbiguousReplicaSetPortError is raised when more than one port is declared."""
+        replicaset = make_replicaset("web", "ns", [[80, 8080]])
+        with pytest.raises(AmbiguousReplicaSetPortError):
+            resolve_replicaset_remote_port(replicaset)
 
 
 class TestResolveJobRemotePort:

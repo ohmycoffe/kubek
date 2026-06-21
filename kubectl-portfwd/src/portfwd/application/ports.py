@@ -10,6 +10,7 @@ from kubek.kube.contracts.repositories import (
     JobRepository,
     NamespaceRepository,
     PodRepository,
+    ReplicaSetRepository,
     ServiceRepository,
     StatefulSetRepository,
 )
@@ -55,6 +56,9 @@ class KubeGateway(Protocol):
 
     @property
     def cronjob(self) -> CronJobRepository: ...
+
+    @property
+    def replicaset(self) -> ReplicaSetRepository: ...
 
 
 class PortForwardSession(ABC):

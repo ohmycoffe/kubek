@@ -33,6 +33,7 @@ def get(
             Kind.DEPLOYMENT,
             Kind.STATEFULSET,
             Kind.DAEMONSET,
+            Kind.REPLICASET,
             Kind.JOB,
             Kind.CRONJOB,
             Kind.WORKFLOWTEMPLATE,
@@ -172,6 +173,8 @@ def _select_resource_name(
             resources = api.statefulset.list()
         elif kind == Kind.DAEMONSET:
             resources = api.daemonset.list()
+        elif kind == Kind.REPLICASET:
+            resources = api.replicaset.list()
         elif kind == Kind.JOB:
             resources = api.job.list()
         elif kind == Kind.CRONJOB:

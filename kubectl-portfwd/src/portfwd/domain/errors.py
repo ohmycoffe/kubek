@@ -78,6 +78,18 @@ class AmbiguousDaemonSetPortError(PortForwardError):
     """A Kubernetes DaemonSet declares multiple container ports and none was selected."""
 
 
+class ReplicaSetNotFoundError(PortForwardError):
+    """A Kubernetes ReplicaSet was not found in the given namespace."""
+
+
+class NoReplicaSetPortsError(PortForwardError):
+    """A Kubernetes ReplicaSet declares no container ports and none was specified."""
+
+
+class AmbiguousReplicaSetPortError(PortForwardError):
+    """A Kubernetes ReplicaSet declares multiple container ports and none was selected."""
+
+
 class JobNotFoundError(PortForwardError):
     """A Kubernetes Job was not found in the given namespace."""
 
@@ -103,7 +115,7 @@ class AmbiguousCronJobPortError(PortForwardError):
 
 
 class NoTargetsFoundError(PortForwardError):
-    """Target discovery returned no services, pods, deployments, statefulsets, daemonsets, jobs, or cronjobs for the selected namespaces."""
+    """Target discovery returned no services, pods, deployments, statefulsets, daemonsets, replicasets, jobs, or cronjobs for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):

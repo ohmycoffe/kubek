@@ -21,6 +21,7 @@ from kubek.kube.contracts.repositories import (
     JobRepository,
     NamespaceRepository,
     PodRepository,
+    ReplicaSetRepository,
     SecretRepository,
     StatefulSetRepository,
     WorkflowTemplateRepository,
@@ -53,6 +54,9 @@ class KubeGateway(Protocol):
 
     @property
     def cronjob(self) -> CronJobRepository: ...
+
+    @property
+    def replicaset(self) -> ReplicaSetRepository: ...
 
     @property
     def workflowtemplate(self) -> WorkflowTemplateRepository: ...
@@ -139,6 +143,21 @@ def get_daemonset_envs(name: str, api: KubeGateway) -> dict[str, str]:
         raise AmbiguousResourceError(
             f"DaemonSet {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
             "This tool only supports exporting env vars for daemonsets with a single container."
+        )
+    container = containers[0]
+    return extract_envs_from_container(api=api, container=container)
+
+
+def get_replicaset_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    replicaset = api.replicaset.get(name=name, namespace=ns)
+    if not replicaset:
+        raise ResourceNotFoundError(f"ReplicaSet {name} not found in namespace {ns}")
+    containers = replicaset.spec.template.spec.containers
+    if len(containers) != 1:
+        raise AmbiguousResourceError(
+            f"ReplicaSet {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for replicasets with a single container."
         )
     container = containers[0]
     return extract_envs_from_container(api=api, container=container)

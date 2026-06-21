@@ -9,6 +9,7 @@ from export_dotenv.kube import (
     get_deployment_envs,
     get_job_envs,
     get_pod_envs,
+    get_replicaset_envs,
     get_secret_envs,
     get_statefulset_envs,
     get_workflowtemplate_envs,
@@ -24,6 +25,9 @@ def fetch_environment_values(kind: Kind, name: str, api: KubeGateway) -> dict[st
 
     if kind == Kind.DAEMONSET:
         return get_daemonset_envs(name=name, api=api)
+
+    if kind == Kind.REPLICASET:
+        return get_replicaset_envs(name=name, api=api)
 
     if kind == Kind.JOB:
         return get_job_envs(name=name, api=api)

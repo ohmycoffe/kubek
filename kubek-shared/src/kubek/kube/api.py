@@ -9,6 +9,7 @@ from kubek.kube._infrastructure import (
     KubernetesJobRepository,
     KubernetesNamespaceRepository,
     KubernetesPodRepository,
+    KubernetesReplicaSetRepository,
     KubernetesSecretRepository,
     KubernetesServiceRepository,
     KubernetesStatefulSetRepository,
@@ -28,6 +29,7 @@ class KubeFacade:
         deployment: KubernetesDeploymentRepository,
         statefulset: KubernetesStatefulSetRepository,
         daemonset: KubernetesDaemonSetRepository,
+        replicaset: KubernetesReplicaSetRepository,
         job: KubernetesJobRepository,
         cronjob: KubernetesCronJobRepository,
         service: KubernetesServiceRepository,
@@ -40,6 +42,7 @@ class KubeFacade:
         self.deployment = deployment
         self.statefulset = statefulset
         self.daemonset = daemonset
+        self.replicaset = replicaset
         self.job = job
         self.cronjob = cronjob
         self.service = service
@@ -63,6 +66,7 @@ class KubeFacade:
             deployment=KubernetesDeploymentRepository(client),
             statefulset=KubernetesStatefulSetRepository(client),
             daemonset=KubernetesDaemonSetRepository(client),
+            replicaset=KubernetesReplicaSetRepository(client),
             job=KubernetesJobRepository(client),
             cronjob=KubernetesCronJobRepository(client),
             service=KubernetesServiceRepository(client),

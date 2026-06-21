@@ -115,6 +115,19 @@ def _spec(name, namespace=None, remote=None, local=None, kind=TargetKind.POD):
                 kind=TargetKind.DAEMONSET,
             ),
         ),
+        # ReplicaSet aliases.
+        ("replicaset/web", _spec(name="web", kind=TargetKind.REPLICASET)),
+        ("replicasets/web", _spec(name="web", kind=TargetKind.REPLICASET)),
+        ("rs/web", _spec(name="web", kind=TargetKind.REPLICASET)),
+        (
+            "default/replicaset/web:8080",
+            _spec(
+                name="web",
+                namespace="default",
+                remote=8080,
+                kind=TargetKind.REPLICASET,
+            ),
+        ),
         # Job aliases.
         ("job/migration", _spec(name="migration", kind=TargetKind.JOB)),
         ("jobs/migration", _spec(name="migration", kind=TargetKind.JOB)),
@@ -180,7 +193,7 @@ def test_format_invalid_spec_includes_example():
     message = format_invalid_spec("ns/nginx:80:50001")
     assert message == (
         'invalid "ns/nginx:80:50001"; '
-        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset | job | cronjob); "
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset | replicaset | job | cronjob); "
         "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )
 

@@ -51,6 +51,17 @@ from kubek.kube.dto.job import (
 from kubek.kube.dto.job import (
     TemplateSpec as JobTemplateSpec,
 )
+from kubek.kube.dto.replicaset import (
+    ReplicaSet,
+    ReplicaSetMetadata,
+    ReplicaSetSpec,
+)
+from kubek.kube.dto.replicaset import (
+    Template as ReplicaSetTemplate,
+)
+from kubek.kube.dto.replicaset import (
+    TemplateSpec as ReplicaSetTemplateSpec,
+)
 from kubek.kube.dto.statefulset import (
     StatefulSet,
     StatefulSetMetadata,
@@ -110,6 +121,15 @@ def _build_daemonset() -> DaemonSet:
     )
 
 
+def _build_replicaset() -> ReplicaSet:
+    return ReplicaSet(
+        metadata=ReplicaSetMetadata(name="log-agent-rs", namespace=NS),
+        spec=ReplicaSetSpec(
+            template=ReplicaSetTemplate(spec=ReplicaSetTemplateSpec(containers=[]))
+        ),
+    )
+
+
 def _build_job() -> Job:
     return Job(
         metadata=JobMetadata(name="data-migration", namespace=NS),
@@ -137,6 +157,7 @@ def _create_api(
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
     daemonsets: list[DaemonSet] | None = None,
+    replicasets: list[ReplicaSet] | None = None,
     jobs: list[Job] | None = None,
     cronjobs: list[CronJob] | None = None,
 ):
@@ -146,6 +167,7 @@ def _create_api(
         deployment=_InMemoryRepository(deployments),
         statefulset=_InMemoryRepository(statefulsets or []),
         daemonset=_InMemoryRepository(daemonsets or []),
+        replicaset=_InMemoryRepository(replicasets or []),
         job=_InMemoryRepository(jobs or []),
         cronjob=_InMemoryRepository(cronjobs or []),
         workflowtemplate=_InMemoryRepository([]),
@@ -281,6 +303,27 @@ def test_select_resource_name_lists_daemonsets():
     ask.assert_called_once_with(
         resources=["log-agent"],
         kind=Kind.DAEMONSET,
+    )
+
+
+def test_select_resource_name_lists_replicasets():
+    """_select_resource_name lists ReplicaSets from the replicaset repo for the ReplicaSet kind."""
+    api = _create_api(deployments=[], replicasets=[_build_replicaset()])
+
+    with patch(
+        "export_dotenv.cli.ask_for_resource",
+        return_value="log-agent-rs",
+    ) as ask:
+        name = _select_resource_name(
+            out=create_output(),
+            kind=Kind.REPLICASET,
+            api=api,
+        )
+
+    assert name == "log-agent-rs"
+    ask.assert_called_once_with(
+        resources=["log-agent-rs"],
+        kind=Kind.REPLICASET,
     )
 
 
