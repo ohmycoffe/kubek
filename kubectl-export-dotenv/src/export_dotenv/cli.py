@@ -31,6 +31,7 @@ def get(
     kind: Annotated[
         Literal[
             Kind.DEPLOYMENT,
+            Kind.STATEFULSET,
             Kind.WORKFLOWTEMPLATE,
             Kind.CONFIGMAP,
             Kind.SECRET,
@@ -80,7 +81,7 @@ def get(
     ] = 0,
 ):
     """
-    Get environment variables for a Kubernetes deployment or Argo WorkflowTemplate.
+    Get environment variables for a Kubernetes Deployment, StatefulSet, or Argo WorkflowTemplate.
     """
     setup_logging_from_count(verbose, "kubek", "export-dotenv")
     out: CLIOutput = create_output(verbosity_count=verbose)
@@ -164,6 +165,8 @@ def _select_resource_name(
     ):
         if kind == Kind.DEPLOYMENT:
             resources = api.deployment.list()
+        elif kind == Kind.STATEFULSET:
+            resources = api.statefulset.list()
         elif kind == Kind.WORKFLOWTEMPLATE:
             resources = api.workflowtemplate.list()
         elif kind == Kind.CONFIGMAP:

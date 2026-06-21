@@ -7,6 +7,7 @@ from export_dotenv.kube import (
     get_deployment_envs,
     get_pod_envs,
     get_secret_envs,
+    get_statefulset_envs,
     get_workflowtemplate_envs,
 )
 
@@ -14,6 +15,9 @@ from export_dotenv.kube import (
 def fetch_environment_values(kind: Kind, name: str, api: KubeGateway) -> dict[str, str]:
     if kind == Kind.DEPLOYMENT:
         return get_deployment_envs(name=name, api=api)
+
+    if kind == Kind.STATEFULSET:
+        return get_statefulset_envs(name=name, api=api)
 
     if kind == Kind.WORKFLOWTEMPLATE:
         return get_workflowtemplate_envs(name=name, api=api)

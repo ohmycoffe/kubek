@@ -70,6 +70,6 @@ def test_load_spec_file_invalid_line_error_message(tmp_path: Path, monkeypatch):
     assert str(exc_info.value) == (
         "invalid spec in .portfwd-spec at line 2: "
         '"ns-kubectl-portfwd/svc/nginx:80:50001"; '
-        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment); "
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset); "
         "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )

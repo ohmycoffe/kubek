@@ -35,6 +35,14 @@ class KubeClient(Protocol):
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
+    def get_statefulsets(self, namespace: str | None = None) -> KubeRawResponse: ...
+
+    def get_statefulset(
+        self,
+        name: str,
+        namespace: str | None = None,
+    ) -> KubeRawResponse: ...
+
     def get_secrets(self, namespace: str | None = None) -> KubeRawResponse: ...
 
     def get_secret(

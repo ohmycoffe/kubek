@@ -8,6 +8,7 @@ from kubek.kube.contracts.repositories import (
     NamespaceRepository,
     PodRepository,
     ServiceRepository,
+    StatefulSetRepository,
 )
 from portfwd.application.port_forwarding.events import OutputLine, PortForwardEvent
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
@@ -39,6 +40,9 @@ class KubeGateway(Protocol):
 
     @property
     def deployment(self) -> DeploymentRepository: ...
+
+    @property
+    def statefulset(self) -> StatefulSetRepository: ...
 
 
 class PortForwardSession(ABC):

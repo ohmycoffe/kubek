@@ -12,6 +12,7 @@ from export_dotenv.kube import (
     extract_envs_from_container,
     get_deployment_envs,
     get_pod_envs,
+    get_statefulset_envs,
     get_workflowtemplate_envs,
 )
 from export_dotenv.use_case import fetch_environment_values
@@ -40,6 +41,19 @@ from kubek.kube.dto.kind import Kind
 from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
 from kubek.kube.dto.secret import Secret as SecretDTO
 from kubek.kube.dto.secret import SecretMetadata
+from kubek.kube.dto.statefulset import (
+    StatefulSet as StatefulSetDTO,
+)
+from kubek.kube.dto.statefulset import (
+    StatefulSetMetadata,
+    StatefulSetSpec,
+)
+from kubek.kube.dto.statefulset import (
+    Template as StatefulSetTemplate,
+)
+from kubek.kube.dto.statefulset import (
+    TemplateSpec as StatefulSetTemplateSpec,
+)
 from kubek.kube.dto.workflowtemplate.template import (
     ContainerTemplate,
     DagTemplate,
@@ -194,6 +208,40 @@ def build_pod():
     )
 
 
+def build_statefulset():
+    return StatefulSetDTO(
+        metadata=StatefulSetMetadata(name="cache-service", namespace=NS),
+        spec=StatefulSetSpec(
+            template=StatefulSetTemplate(
+                spec=StatefulSetTemplateSpec(
+                    containers=[
+                        Container(
+                            env=[
+                                EnvVar(
+                                    name="DB_PASSWORD",
+                                    value_from=EnvValueFrom(
+                                        secret_key_ref=SecretKeyRef(
+                                            name="app-secrets",
+                                            key="DATABASE_PASSWORD",
+                                        )
+                                    ),
+                                ),
+                                EnvVar(name="DIRECT_VALUE", value="hello-from-cache"),
+                            ],
+                            env_from=[
+                                EnvFromSource(
+                                    config_map_ref=ConfigMapRef(name="app-config")
+                                ),
+                                EnvFromSource(secret_ref=SecretRef(name="app-secrets")),
+                            ],
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+
+
 def build_workflow():
     return WorkflowTemplate(
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
@@ -247,6 +295,7 @@ def build_workflow():
 def api():
     return SimpleNamespace(
         deployment=InMemoryRepository([build_deployment()]),
+        statefulset=InMemoryRepository([build_statefulset()]),
         pod=InMemoryRepository([build_pod()]),
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
@@ -307,6 +356,59 @@ def test_deployment_env_vars(api):
         "API_VERSION": "v2",
         "ENABLE_TRACING": "true",
     }
+
+
+def test_statefulset_env_vars(api):
+    """A single-container StatefulSet resolves env, envFrom, and value refs like a Deployment."""
+    result = fetch_environment_values(
+        kind=Kind.STATEFULSET,
+        name="cache-service",
+        api=api,
+    )
+
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+        "DB_PASSWORD": "secretpassword",
+        "DIRECT_VALUE": "hello-from-cache",
+    }
+
+
+def test_statefulset_not_found_raises(api):
+    """A missing StatefulSet name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="StatefulSet missing"):
+        get_statefulset_envs(name="missing", api=api)
+
+
+def test_statefulset_with_multiple_containers_raises(api):
+    """A StatefulSet with more than one container is rejected as ambiguous."""
+    api.statefulset = InMemoryRepository(
+        [
+            StatefulSetDTO(
+                metadata=StatefulSetMetadata(name="cache-service", namespace=NS),
+                spec=StatefulSetSpec(
+                    template=StatefulSetTemplate(
+                        spec=StatefulSetTemplateSpec(
+                            containers=[Container(), Container()]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_statefulset_envs(name="cache-service", api=api)
 
 
 def test_pod_env_vars(api):

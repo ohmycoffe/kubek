@@ -30,6 +30,17 @@ from kubek.kube.dto.service import (
     ServicePortModel,
     ServiceSpec,
 )
+from kubek.kube.dto.statefulset import (
+    StatefulSet,
+    StatefulSetMetadata,
+    StatefulSetSpec,
+)
+from kubek.kube.dto.statefulset import (
+    Template as StatefulSetTemplate,
+)
+from kubek.kube.dto.statefulset import (
+    TemplateSpec as StatefulSetTemplateSpec,
+)
 from portfwd.application.port_forwarding.events import OutputLine
 from portfwd.application.port_forwarding.snapshot import PortForwardProcessSnapshot
 from portfwd.application.ports import (
@@ -310,15 +321,49 @@ def build_deployments() -> list[Deployment]:
     ]
 
 
+def make_statefulset(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> StatefulSet:
+    """Build a StatefulSet; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return StatefulSet(
+        metadata=StatefulSetMetadata(name=name, namespace=namespace),
+        spec=StatefulSetSpec(
+            template=StatefulSetTemplate(
+                spec=StatefulSetTemplateSpec(
+                    containers=[
+                        Container(
+                            ports=[ContainerPort(container_port=p) for p in ports]
+                        )
+                        for ports in containers
+                    ]
+                )
+            )
+        ),
+    )
+
+
+def build_statefulsets() -> list[StatefulSet]:
+    """Two statefulsets in the shared test namespace, each with one container port."""
+    return [
+        make_statefulset("sts-foo", container_ports=[[90]]),
+        make_statefulset("sts-bar", container_ports=[[100]]),
+    ]
+
+
 def make_fake_api(
     services: list[Service] | None = None,
     pods: list[Pod] | None = None,
     deployments: list[Deployment] | None = None,
+    statefulsets: list[StatefulSet] | None = None,
 ) -> KubeGateway:
-    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments."""
+    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments/statefulsets."""
     services = build_services() if services is None else services
     pods = build_pods() if pods is None else pods
     deployments = build_deployments() if deployments is None else deployments
+    statefulsets = build_statefulsets() if statefulsets is None else statefulsets
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
     return cast(
         KubeGateway,
@@ -327,6 +372,7 @@ def make_fake_api(
             service=_InMemoryRepository(services),
             pod=_InMemoryRepository(pods),
             deployment=_InMemoryRepository(deployments),
+            statefulset=_InMemoryRepository(statefulsets),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
         ),
     )

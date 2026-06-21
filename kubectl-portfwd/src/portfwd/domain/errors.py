@@ -54,8 +54,20 @@ class AmbiguousDeploymentPortError(PortForwardError):
     """A Kubernetes Deployment declares multiple container ports and none was selected."""
 
 
+class StatefulSetNotFoundError(PortForwardError):
+    """A Kubernetes StatefulSet was not found in the given namespace."""
+
+
+class NoStatefulSetPortsError(PortForwardError):
+    """A Kubernetes StatefulSet declares no container ports and none was specified."""
+
+
+class AmbiguousStatefulSetPortError(PortForwardError):
+    """A Kubernetes StatefulSet declares multiple container ports and none was selected."""
+
+
 class NoTargetsFoundError(PortForwardError):
-    """Target discovery returned no services, pods, or deployments for the selected namespaces."""
+    """Target discovery returned no services, pods, deployments, or statefulsets for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):

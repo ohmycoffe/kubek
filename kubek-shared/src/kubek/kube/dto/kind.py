@@ -3,6 +3,7 @@ import enum
 
 class Kind(enum.StrEnum):
     DEPLOYMENT = "Deployment"
+    STATEFULSET = "StatefulSet"
     WORKFLOWTEMPLATE = "WorkflowTemplate"
     CONFIG = "Config"
     NAMESPACE = "Namespace"

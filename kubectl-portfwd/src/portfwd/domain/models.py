@@ -9,6 +9,7 @@ class TargetKind(StrEnum):
     POD = "pod"
     SERVICE = "svc"
     DEPLOYMENT = "deployment"
+    STATEFULSET = "statefulset"
 
 
 class TargetRef(BaseModel):

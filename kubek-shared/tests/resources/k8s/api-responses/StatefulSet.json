@@ -1,0 +1,122 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "cache-service",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "812",
+      "uid": "b1f0c2d3-1111-4a2b-9c3d-aa11bb22cc33"
+    },
+    "spec": {
+      "replicas": 1,
+      "service_name": "cache-service",
+      "selector": {
+        "match_labels": {
+          "app": "cache-service"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "cache-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DB_PASSWORD",
+                  "value": null,
+                  "value_from": {
+                    "config_map_key_ref": null,
+                    "secret_key_ref": {
+                      "key": "DATABASE_PASSWORD",
+                      "name": "app-secrets"
+                    }
+                  }
+                },
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-cache",
+                  "value_from": null
+                }
+              ],
+              "env_from": [
+                {
+                  "config_map_ref": {
+                    "name": "app-config"
+                  },
+                  "secret_ref": null
+                },
+                {
+                  "config_map_ref": null,
+                  "secret_ref": {
+                    "name": "app-secrets"
+                  }
+                }
+              ],
+              "image": "redis:alpine",
+              "name": "cache-service",
+              "ports": [
+                {
+                  "container_port": 6379,
+                  "protocol": "TCP"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "dummy-statefulset",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "813",
+      "uid": "c2e1d3f4-2222-4b3c-8d4e-bb22cc33dd44"
+    },
+    "spec": {
+      "replicas": 1,
+      "service_name": "dummy-statefulset",
+      "selector": {
+        "match_labels": {
+          "app": "dummy-statefulset"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "dummy-statefulset"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-dummy-statefulset",
+                  "value_from": null
+                }
+              ],
+              "env_from": null,
+              "image": "nginx:alpine",
+              "name": "dummy-statefulset",
+              "ports": [
+                {
+                  "container_port": 80,
+                  "protocol": "TCP"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+]

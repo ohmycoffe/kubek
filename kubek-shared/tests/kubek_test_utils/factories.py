@@ -6,6 +6,14 @@ def make_deployment(name: str, namespace: str) -> dict:
     }
 
 
+def make_statefulset(name: str, namespace: str) -> dict:
+    return {
+        "metadata": {"name": name, "namespace": namespace},
+        "spec": {"template": {"spec": {"containers": []}}},
+        "kind": "StatefulSet",
+    }
+
+
 def make_secret(name: str, namespace: str) -> dict:
     return {
         "metadata": {"name": name, "namespace": namespace},

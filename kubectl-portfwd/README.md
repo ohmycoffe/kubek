@@ -8,6 +8,7 @@ kubectl portfwd -f .portfwd-plan                             # forward targets f
 kubectl portfwd -t kube-public/svc/auth-service              # forward a single service
 kubectl portfwd -t kube-public/pod/worker-xyz                # forward a single pod
 kubectl portfwd -t kube-public/deploy/my-app                 # forward a deployment
+kubectl portfwd -t kube-public/sts/my-db                     # forward a statefulset
 kubectl portfwd -t kube-public/svc/auth-service:8080         # specify remote port explicitly
 kubectl portfwd -t kube-public/deploy/my-app:8080            # specify remote port for a deployment
 kubectl portfwd -t kube-public/svc/auth-service:8080::50000  # specify remote and local ports
@@ -19,8 +20,8 @@ kubectl portfwd --help                                       # full option refer
 ```
 
 `--file` and `--target` are mutually exclusive. Every target names its type
-explicitly with a `svc/`, `pod/`, or `deploy/` segment (aliases: `service`/`services`,
-`po`/`pods`, `deployment`/`deployments`); there is no implicit default.
+explicitly with a `svc/`, `pod/`, `deploy/`, or `sts/` segment (aliases: `service`/`services`,
+`po`/`pods`, `deployment`/`deployments`, `statefulset`/`statefulsets`); there is no implicit default.
 
 ### Context
 
@@ -55,10 +56,11 @@ The filename is arbitrary; `.portfwd-plan` is a common convention in this repo.
 ns-kubectl-portfwd/svc/httpd:8080::50000
 ns-kubectl-portfwd/pod/nginx:80::50001
 ns-kubectl-portfwd/deploy/api:8080::50002
+ns-kubectl-portfwd/sts/redis:6379::50003
 ```
 
-Each line uses the same format as `--target`: `[namespace/]type/name[:remote_port][::local_port]`, where `type` is `svc`, `pod`, or `deploy` (aliases: `service`/`services`, `po`/`pods`, `deployment`/`deployments`).
+Each line uses the same format as `--target`: `[namespace/]type/name[:remote_port][::local_port]`, where `type` is `svc`, `pod`, `deploy`, or `sts` (aliases: `service`/`services`, `po`/`pods`, `deployment`/`deployments`, `statefulset`/`statefulsets`).
 
-When ports are omitted, the remote port is read from the target (single-port services/pods/deployments only) and the local port is chosen automatically.
+When ports are omitted, the remote port is read from the target (single-port services/pods/deployments/statefulsets only) and the local port is chosen automatically.
 
 Interactive mode (no `--file` or `--target`) prompts for the types to forward, then namespaces, then the targets.

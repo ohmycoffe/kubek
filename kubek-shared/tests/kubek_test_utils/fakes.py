@@ -44,6 +44,14 @@ class FakeKubeClient:
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.DEPLOYMENT, namespace)
 
+    def get_statefulset(self, name, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_one(Kind.STATEFULSET, name, namespace)
+
+    def get_statefulsets(self, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_list(Kind.STATEFULSET, namespace)
+
     def get_secret(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.SECRET, name, namespace)

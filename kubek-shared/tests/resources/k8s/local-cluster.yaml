@@ -88,6 +88,64 @@ spec:
             - name: DIRECT_VALUE
               value: "hello-from-dummy"
 ---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: cache-service
+spec:
+  replicas: 1
+  serviceName: cache-service
+  selector:
+    matchLabels:
+      app: cache-service
+  template:
+    metadata:
+      labels:
+        app: cache-service
+    spec:
+      containers:
+        - name: cache-service
+          image: redis:alpine
+          ports:
+            - containerPort: 6379
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_PASSWORD
+            - name: DIRECT_VALUE
+              value: "hello-from-cache"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dummy-statefulset
+spec:
+  replicas: 1
+  serviceName: dummy-statefulset
+  selector:
+    matchLabels:
+      app: dummy-statefulset
+  template:
+    metadata:
+      labels:
+        app: dummy-statefulset
+    spec:
+      containers:
+        - name: dummy-statefulset
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          env:
+            - name: DIRECT_VALUE
+              value: "hello-from-dummy-statefulset"
+---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:

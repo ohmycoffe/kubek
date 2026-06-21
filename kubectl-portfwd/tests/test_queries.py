@@ -1,16 +1,17 @@
 from types import SimpleNamespace
 from typing import cast
 
-from kubek.kube.dto import Deployment, Pod, Service
+from kubek.kube.dto import Deployment, Pod, Service, StatefulSet
 from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import (
     fetch_deployments_for_namespaces,
     fetch_pods_for_namespaces,
     fetch_services_for_namespaces,
+    fetch_statefulsets_for_namespaces,
     fetch_targets_for_namespaces,
 )
 from portfwd.domain.models import TargetKind
-from portfwd_test_utils.fakes import make_deployment, make_pod
+from portfwd_test_utils.fakes import make_deployment, make_pod, make_statefulset
 
 
 def _service(name: str, namespace: str, ports: list[int]) -> Service:
@@ -31,10 +32,21 @@ def _deployment(name: str, namespace: str, container_ports: list[int]) -> Deploy
     return make_deployment(name, namespace, [container_ports])
 
 
-def _make_api(service=None, pod=None, deployment=None) -> KubeGateway:
+def _statefulset(name: str, namespace: str, container_ports: list[int]) -> StatefulSet:
+    """One single-container statefulset expressed in terms of make_statefulset."""
+    return make_statefulset(name, namespace, [container_ports])
+
+
+def _make_api(service=None, pod=None, deployment=None, statefulset=None) -> KubeGateway:
     """Minimal fake KubeGateway with optional repo attributes."""
     return cast(
-        KubeGateway, SimpleNamespace(service=service, pod=pod, deployment=deployment)
+        KubeGateway,
+        SimpleNamespace(
+            service=service,
+            pod=pod,
+            deployment=deployment,
+            statefulset=statefulset,
+        ),
     )
 
 
@@ -242,4 +254,76 @@ def test_fetch_targets_honors_deployment_kind_filter():
 
     assert {(s.target.kind, s.target.name) for s in specs} == {
         (TargetKind.DEPLOYMENT, "api")
+    }
+
+
+def test_fetch_statefulsets_for_namespaces_flattens_declared_container_ports():
+    """StatefulSets with declared container ports produce one spec per unique port; portless statefulsets are omitted."""
+    sts_a = _statefulset("worker", "ns-1", [9090])
+    sts_b = _statefulset("api", "ns-2", [8080, 8443])
+    sts_no_ports = _statefulset("sidecar", "ns-1", [])
+
+    class FakeStatefulSetRepo:
+        def list(self, namespace: str) -> list[StatefulSet]:
+            return {
+                "ns-1": [sts_a, sts_no_ports],
+                "ns-2": [sts_b],
+            }.get(namespace, [])
+
+    api = _make_api(statefulset=FakeStatefulSetRepo())
+    specs = fetch_statefulsets_for_namespaces(["ns-1", "ns-2"], api)
+
+    keys = [
+        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
+    ]
+    assert keys == [
+        (TargetKind.STATEFULSET, "ns-1", "worker", 9090),
+        (TargetKind.STATEFULSET, "ns-2", "api", 8080),
+        (TargetKind.STATEFULSET, "ns-2", "api", 8443),
+    ]
+
+
+def test_fetch_targets_includes_statefulsets():
+    """The combined picker returns statefulsets when that kind is selected."""
+    svc = _service("alpha", "ns-1", [80])
+    sts = _statefulset("cache", "ns-1", [6379])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeStatefulSetRepo:
+        def list(self, namespace: str) -> list[StatefulSet]:
+            return {"ns-1": [sts]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), statefulset=FakeStatefulSetRepo())
+    specs = fetch_targets_for_namespaces(
+        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.STATEFULSET]
+    )
+
+    kinds = {(s.target.kind, s.target.name) for s in specs}
+    assert kinds == {
+        (TargetKind.SERVICE, "alpha"),
+        (TargetKind.STATEFULSET, "cache"),
+    }
+
+
+def test_fetch_targets_honors_statefulset_kind_filter():
+    """Only statefulset specs are returned when kinds=[TargetKind.STATEFULSET]."""
+    svc = _service("alpha", "ns-1", [80])
+    sts = _statefulset("cache", "ns-1", [6379])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeStatefulSetRepo:
+        def list(self, namespace: str) -> list[StatefulSet]:
+            return {"ns-1": [sts]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), statefulset=FakeStatefulSetRepo())
+    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.STATEFULSET])
+
+    assert {(s.target.kind, s.target.name) for s in specs} == {
+        (TargetKind.STATEFULSET, "cache")
     }

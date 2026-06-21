@@ -10,6 +10,7 @@ client = KubernetesClient.from_config()
 
 ns = "ns-kubek-shared"
 deployments = client.get_deployments(namespace=ns)
+statefulsets = client.get_statefulsets(namespace=ns)
 services = client.get_services(namespace=ns)
 secrets = client.get_secrets(namespace=ns)
 configmaps = client.get_configmaps(namespace=ns)
@@ -35,6 +36,7 @@ shutil.rmtree(DIRECTORY, ignore_errors=True)
 os.makedirs(DIRECTORY, exist_ok=True)
 
 write_to_file("Deployment", deployments)
+write_to_file("StatefulSet", statefulsets)
 write_to_file("Service", services)
 write_to_file("Secret", secrets)
 write_to_file("ConfigMap", configmaps)
