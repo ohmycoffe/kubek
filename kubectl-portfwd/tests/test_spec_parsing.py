@@ -115,6 +115,18 @@ def _spec(name, namespace=None, remote=None, local=None, kind=TargetKind.POD):
                 kind=TargetKind.DAEMONSET,
             ),
         ),
+        # Job aliases.
+        ("job/migration", _spec(name="migration", kind=TargetKind.JOB)),
+        ("jobs/migration", _spec(name="migration", kind=TargetKind.JOB)),
+        (
+            "default/job/migration:5432",
+            _spec(
+                name="migration",
+                namespace="default",
+                remote=5432,
+                kind=TargetKind.JOB,
+            ),
+        ),
     ],
 )
 def test_from_string_valid(tested, expected):
@@ -149,13 +161,13 @@ def test_from_string_invalid_syntax(tested):
 
 
 def test_format_invalid_spec_includes_example():
-    """format_invalid_spec produces a message listing pod, service, deployment, statefulset, and daemonset as valid types."""
+    """format_invalid_spec produces a message listing pod, service, deployment, statefulset, daemonset, and job as valid types."""
     from portfwd.presentation.spec_parser import format_invalid_spec
 
     message = format_invalid_spec("ns/nginx:80:50001")
     assert message == (
         'invalid "ns/nginx:80:50001"; '
-        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset); "
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset | job); "
         "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )
 

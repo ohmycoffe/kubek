@@ -1,0 +1,98 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "data-migration",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "1012",
+      "uid": "f5c3d4e6-5555-4e6f-9a7b-ee55ff66aa77"
+    },
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DB_PASSWORD",
+                  "value": null,
+                  "value_from": {
+                    "config_map_key_ref": null,
+                    "secret_key_ref": {
+                      "key": "DATABASE_PASSWORD",
+                      "name": "app-secrets"
+                    }
+                  }
+                },
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-job",
+                  "value_from": null
+                }
+              ],
+              "env_from": [
+                {
+                  "config_map_ref": {
+                    "name": "app-config"
+                  },
+                  "secret_ref": null
+                },
+                {
+                  "config_map_ref": null,
+                  "secret_ref": {
+                    "name": "app-secrets"
+                  }
+                }
+              ],
+              "image": "postgres:alpine",
+              "name": "data-migration",
+              "ports": [
+                {
+                  "container_port": 5432,
+                  "protocol": "TCP"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "dummy-job",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "1013",
+      "uid": "g6d4e5f7-6666-4f7a-8b8c-ff66aa77bb88"
+    },
+    "spec": {
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-dummy-job",
+                  "value_from": null
+                }
+              ],
+              "env_from": null,
+              "image": "nginx:alpine",
+              "name": "dummy-job",
+              "ports": [
+                {
+                  "container_port": 80,
+                  "protocol": "TCP"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+]

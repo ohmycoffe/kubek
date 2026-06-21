@@ -1,7 +1,7 @@
 import itertools
 from collections.abc import Iterable
 
-from kubek.kube import DaemonSet, Deployment, Pod, Service, StatefulSet
+from kubek.kube import DaemonSet, Deployment, Job, Pod, Service, StatefulSet
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.models import (
@@ -161,12 +161,41 @@ def fetch_daemonsets_for_namespaces(
     return _convert_daemonsets_to_specs(raw)
 
 
+def _convert_jobs_to_specs(
+    jobs: Iterable[Job],
+) -> list[PortForwardSpec]:
+    """Flatten Job list to (target, remote_port) specs, one per declared container port."""
+    return [
+        PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.JOB,
+                namespace=job.metadata.namespace,
+                name=job.metadata.name,
+            ),
+            remote_port=container_port,
+        )
+        for job in sorted(jobs, key=lambda j: (j.metadata.namespace, j.metadata.name))
+        for container_port in sorted(
+            get_unique_ports(job.spec.template.spec.containers)
+        )
+    ]
+
+
+def fetch_jobs_for_namespaces(
+    namespaces: list[str], api: KubeGateway
+) -> list[PortForwardSpec]:
+    """Fetch jobs with declared container ports for the picker."""
+    raw = itertools.chain.from_iterable(api.job.list(namespace=ns) for ns in namespaces)
+    return _convert_jobs_to_specs(raw)
+
+
 _FETCH_BY_KIND = {
     TargetKind.SERVICE: fetch_services_for_namespaces,
     TargetKind.POD: fetch_pods_for_namespaces,
     TargetKind.DEPLOYMENT: fetch_deployments_for_namespaces,
     TargetKind.STATEFULSET: fetch_statefulsets_for_namespaces,
     TargetKind.DAEMONSET: fetch_daemonsets_for_namespaces,
+    TargetKind.JOB: fetch_jobs_for_namespaces,
 }
 
 

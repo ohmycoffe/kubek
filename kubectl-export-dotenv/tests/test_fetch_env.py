@@ -12,6 +12,7 @@ from export_dotenv.kube import (
     extract_envs_from_container,
     get_daemonset_envs,
     get_deployment_envs,
+    get_job_envs,
     get_pod_envs,
     get_statefulset_envs,
     get_workflowtemplate_envs,
@@ -52,6 +53,19 @@ from kubek.kube.dto.deployment import (
     DeploymentSpec,
     Template,
     TemplateSpec,
+)
+from kubek.kube.dto.job import (
+    Job as JobDTO,
+)
+from kubek.kube.dto.job import (
+    JobMetadata,
+    JobSpec,
+)
+from kubek.kube.dto.job import (
+    Template as JobTemplate,
+)
+from kubek.kube.dto.job import (
+    TemplateSpec as JobTemplateSpec,
 )
 from kubek.kube.dto.kind import Kind
 from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
@@ -292,6 +306,40 @@ def build_daemonset():
     )
 
 
+def build_job():
+    return JobDTO(
+        metadata=JobMetadata(name="data-migration", namespace=NS),
+        spec=JobSpec(
+            template=JobTemplate(
+                spec=JobTemplateSpec(
+                    containers=[
+                        Container(
+                            env=[
+                                EnvVar(
+                                    name="DB_PASSWORD",
+                                    value_from=EnvValueFrom(
+                                        secret_key_ref=SecretKeyRef(
+                                            name="app-secrets",
+                                            key="DATABASE_PASSWORD",
+                                        )
+                                    ),
+                                ),
+                                EnvVar(name="DIRECT_VALUE", value="hello-from-job"),
+                            ],
+                            env_from=[
+                                EnvFromSource(
+                                    config_map_ref=ConfigMapRef(name="app-config")
+                                ),
+                                EnvFromSource(secret_ref=SecretRef(name="app-secrets")),
+                            ],
+                        )
+                    ]
+                )
+            )
+        ),
+    )
+
+
 def build_workflow():
     return WorkflowTemplate(
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
@@ -347,6 +395,7 @@ def api():
         deployment=InMemoryRepository([build_deployment()]),
         statefulset=InMemoryRepository([build_statefulset()]),
         daemonset=InMemoryRepository([build_daemonset()]),
+        job=InMemoryRepository([build_job()]),
         pod=InMemoryRepository([build_pod()]),
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
@@ -513,6 +562,57 @@ def test_daemonset_with_multiple_containers_raises(api):
 
     with pytest.raises(AmbiguousResourceError, match="2 containers"):
         get_daemonset_envs(name="log-agent", api=api)
+
+
+def test_job_env_vars(api):
+    """A single-container Job resolves env, envFrom, and value refs like a Deployment."""
+    result = fetch_environment_values(
+        kind=Kind.JOB,
+        name="data-migration",
+        api=api,
+    )
+
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+        "DB_PASSWORD": "secretpassword",
+        "DIRECT_VALUE": "hello-from-job",
+    }
+
+
+def test_job_not_found_raises(api):
+    """A missing Job name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="Job missing"):
+        get_job_envs(name="missing", api=api)
+
+
+def test_job_with_multiple_containers_raises(api):
+    """A Job with more than one container is rejected as ambiguous."""
+    api.job = InMemoryRepository(
+        [
+            JobDTO(
+                metadata=JobMetadata(name="data-migration", namespace=NS),
+                spec=JobSpec(
+                    template=JobTemplate(
+                        spec=JobTemplateSpec(containers=[Container(), Container()])
+                    )
+                ),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_job_envs(name="data-migration", api=api)
 
 
 def test_pod_env_vars(api):

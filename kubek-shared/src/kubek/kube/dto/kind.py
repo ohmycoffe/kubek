@@ -5,6 +5,7 @@ class Kind(enum.StrEnum):
     DEPLOYMENT = "Deployment"
     STATEFULSET = "StatefulSet"
     DAEMONSET = "DaemonSet"
+    JOB = "Job"
     WORKFLOWTEMPLATE = "WorkflowTemplate"
     CONFIG = "Config"
     NAMESPACE = "Namespace"

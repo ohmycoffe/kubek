@@ -11,6 +11,7 @@ class TargetKind(StrEnum):
     DEPLOYMENT = "deployment"
     STATEFULSET = "statefulset"
     DAEMONSET = "daemonset"
+    JOB = "job"
 
 
 class TargetRef(BaseModel):

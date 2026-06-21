@@ -13,6 +13,7 @@ def ask_for_kind() -> (
         Kind.DEPLOYMENT,
         Kind.STATEFULSET,
         Kind.DAEMONSET,
+        Kind.JOB,
         Kind.WORKFLOWTEMPLATE,
         Kind.CONFIGMAP,
         Kind.SECRET,
@@ -37,6 +38,11 @@ def ask_for_kind() -> (
                 title="DaemonSet",
                 value=Kind.DAEMONSET,
                 description="(Kubernetes DaemonSet)",
+            ),
+            questionary.Choice(
+                title="Job",
+                value=Kind.JOB,
+                description="(Kubernetes Job)",
             ),
             questionary.Choice(
                 title="WorkflowTemplate",

@@ -17,6 +17,13 @@ def test_container_defaults_to_empty_ports():
     assert container.ports == []
 
 
+def test_container_ports_null_parses_as_none():
+    """Container.ports accepts null from the Kubernetes API (omitted ports)."""
+    container = Container.model_validate({"ports": None})
+
+    assert container.ports is None
+
+
 def test_container_port_protocol_is_optional():
     """ContainerPort.protocol is None when not present in the raw data."""
     raw = {"ports": [{"containerPort": 80}]}

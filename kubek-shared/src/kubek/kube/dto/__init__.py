@@ -2,6 +2,7 @@ from .configmap import ConfigMap, ConfigMapList
 from .container import Container
 from .daemonset import DaemonSet, DaemonSetList
 from .deployment import Deployment
+from .job import Job, JobList
 from .kind import Kind
 from .namespace import Namespace
 from .pod import Pod, PodList
@@ -20,6 +21,8 @@ __all__ = [
     "Container",
     "DaemonSet",
     "DaemonSetList",
+    "Job",
+    "JobList",
     "Secret",
     "Deployment",
     "Namespace",
