@@ -91,6 +91,22 @@ def _api_response(payload: dict) -> MagicMock:
             ("db", "default"),
         ),
         (
+            "get_daemonsets",
+            "apps_v1",
+            "list_namespaced_daemon_set",
+            (),
+            {},
+            ("default",),
+        ),
+        (
+            "get_daemonset",
+            "apps_v1",
+            "read_namespaced_daemon_set",
+            ("agent",),
+            {},
+            ("agent", "default"),
+        ),
+        (
             "get_secrets",
             "core_v1",
             "list_namespaced_secret",

@@ -7,6 +7,17 @@ from export_dotenv.errors import NoResourcesFoundError
 from export_dotenv.prompts import ask_for_kind, ask_for_resource
 from kubek.kube import Kind, ResolvedKubeConfig
 from kubek.kube.dto.container import Container
+from kubek.kube.dto.daemonset import (
+    DaemonSet,
+    DaemonSetMetadata,
+    DaemonSetSpec,
+)
+from kubek.kube.dto.daemonset import (
+    Template as DaemonSetTemplate,
+)
+from kubek.kube.dto.daemonset import (
+    TemplateSpec as DaemonSetTemplateSpec,
+)
 from kubek.kube.dto.deployment import (
     Deployment,
     DeploymentMetadata,
@@ -64,16 +75,27 @@ def _build_statefulset() -> StatefulSet:
     )
 
 
+def _build_daemonset() -> DaemonSet:
+    return DaemonSet(
+        metadata=DaemonSetMetadata(name="log-agent", namespace=NS),
+        spec=DaemonSetSpec(
+            template=DaemonSetTemplate(spec=DaemonSetTemplateSpec(containers=[]))
+        ),
+    )
+
+
 def _create_api(
     *,
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
+    daemonsets: list[DaemonSet] | None = None,
 ):
     if deployments is None:
         deployments = [_build_deployment()]
     return SimpleNamespace(
         deployment=_InMemoryRepository(deployments),
         statefulset=_InMemoryRepository(statefulsets or []),
+        daemonset=_InMemoryRepository(daemonsets or []),
         workflowtemplate=_InMemoryRepository([]),
         current_config=ResolvedKubeConfig(context="test", namespace=NS),
     )
@@ -186,6 +208,27 @@ def test_select_resource_name_lists_statefulsets():
     ask.assert_called_once_with(
         resources=["cache-service"],
         kind=Kind.STATEFULSET,
+    )
+
+
+def test_select_resource_name_lists_daemonsets():
+    """_select_resource_name lists DaemonSets from the daemonset repo for the DaemonSet kind."""
+    api = _create_api(deployments=[], daemonsets=[_build_daemonset()])
+
+    with patch(
+        "export_dotenv.cli.ask_for_resource",
+        return_value="log-agent",
+    ) as ask:
+        name = _select_resource_name(
+            out=create_output(),
+            kind=Kind.DAEMONSET,
+            api=api,
+        )
+
+    assert name == "log-agent"
+    ask.assert_called_once_with(
+        resources=["log-agent"],
+        kind=Kind.DAEMONSET,
     )
 
 

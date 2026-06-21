@@ -1,6 +1,7 @@
 from .clients import KubeClient
 from .repositories import (
     ConfigMapRepository,
+    DaemonSetRepository,
     DeploymentRepository,
     NamespaceRepository,
     PodRepository,
@@ -12,6 +13,7 @@ from .repositories import (
 
 __all__ = [
     "ConfigMapRepository",
+    "DaemonSetRepository",
     "DeploymentRepository",
     "NamespaceRepository",
     "PodRepository",

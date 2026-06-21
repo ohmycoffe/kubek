@@ -92,6 +92,29 @@ def _spec(name, namespace=None, remote=None, local=None, kind=TargetKind.POD):
                 kind=TargetKind.STATEFULSET,
             ),
         ),
+        # DaemonSet aliases.
+        ("daemonset/agent", _spec(name="agent", kind=TargetKind.DAEMONSET)),
+        ("ds/agent", _spec(name="agent", kind=TargetKind.DAEMONSET)),
+        ("daemonsets/agent", _spec(name="agent", kind=TargetKind.DAEMONSET)),
+        (
+            "default/daemonset/agent:2020",
+            _spec(
+                name="agent",
+                namespace="default",
+                remote=2020,
+                kind=TargetKind.DAEMONSET,
+            ),
+        ),
+        (
+            "ns/ds/agent:80::9000",
+            _spec(
+                name="agent",
+                namespace="ns",
+                remote=80,
+                local=9000,
+                kind=TargetKind.DAEMONSET,
+            ),
+        ),
     ],
 )
 def test_from_string_valid(tested, expected):
@@ -126,13 +149,13 @@ def test_from_string_invalid_syntax(tested):
 
 
 def test_format_invalid_spec_includes_example():
-    """format_invalid_spec produces a message listing pod, service, deployment, and statefulset as valid types."""
+    """format_invalid_spec produces a message listing pod, service, deployment, statefulset, and daemonset as valid types."""
     from portfwd.presentation.spec_parser import format_invalid_spec
 
     message = format_invalid_spec("ns/nginx:80:50001")
     assert message == (
         'invalid "ns/nginx:80:50001"; '
-        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset); "
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset); "
         "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )
 

@@ -92,3 +92,22 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: log-agent
+spec:
+  selector:
+    matchLabels:
+      app: log-agent
+  template:
+    metadata:
+      labels:
+        app: log-agent
+    spec:
+      containers:
+        - name: log-agent
+          image: fluent/fluent-bit:latest
+          ports:
+            - containerPort: 2020

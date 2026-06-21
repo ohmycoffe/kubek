@@ -14,6 +14,14 @@ def make_statefulset(name: str, namespace: str) -> dict:
     }
 
 
+def make_daemonset(name: str, namespace: str) -> dict:
+    return {
+        "metadata": {"name": name, "namespace": namespace},
+        "spec": {"template": {"spec": {"containers": []}}},
+        "kind": "DaemonSet",
+    }
+
+
 def make_secret(name: str, namespace: str) -> dict:
     return {
         "metadata": {"name": name, "namespace": namespace},

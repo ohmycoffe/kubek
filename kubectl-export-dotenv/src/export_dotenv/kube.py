@@ -15,6 +15,7 @@ from kubek.kube import (
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.contracts.repositories import (
     ConfigMapRepository,
+    DaemonSetRepository,
     DeploymentRepository,
     NamespaceRepository,
     PodRepository,
@@ -41,6 +42,9 @@ class KubeGateway(Protocol):
 
     @property
     def statefulset(self) -> StatefulSetRepository: ...
+
+    @property
+    def daemonset(self) -> DaemonSetRepository: ...
 
     @property
     def workflowtemplate(self) -> WorkflowTemplateRepository: ...
@@ -112,6 +116,21 @@ def get_statefulset_envs(name: str, api: KubeGateway) -> dict[str, str]:
         raise AmbiguousResourceError(
             f"StatefulSet {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
             "This tool only supports exporting env vars for statefulsets with a single container."
+        )
+    container = containers[0]
+    return extract_envs_from_container(api=api, container=container)
+
+
+def get_daemonset_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    daemonset = api.daemonset.get(name=name, namespace=ns)
+    if not daemonset:
+        raise ResourceNotFoundError(f"DaemonSet {name} not found in namespace {ns}")
+    containers = daemonset.spec.template.spec.containers
+    if len(containers) != 1:
+        raise AmbiguousResourceError(
+            f"DaemonSet {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for daemonsets with a single container."
         )
     container = containers[0]
     return extract_envs_from_container(api=api, container=container)

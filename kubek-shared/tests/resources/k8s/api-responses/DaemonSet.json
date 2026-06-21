@@ -1,0 +1,118 @@
+[
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "log-agent",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "912",
+      "uid": "d3a1b2c4-3333-4c4d-9e5f-cc33dd44ee55"
+    },
+    "spec": {
+      "selector": {
+        "match_labels": {
+          "app": "log-agent"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "log-agent"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DB_PASSWORD",
+                  "value": null,
+                  "value_from": {
+                    "config_map_key_ref": null,
+                    "secret_key_ref": {
+                      "key": "DATABASE_PASSWORD",
+                      "name": "app-secrets"
+                    }
+                  }
+                },
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-agent",
+                  "value_from": null
+                }
+              ],
+              "env_from": [
+                {
+                  "config_map_ref": {
+                    "name": "app-config"
+                  },
+                  "secret_ref": null
+                },
+                {
+                  "config_map_ref": null,
+                  "secret_ref": {
+                    "name": "app-secrets"
+                  }
+                }
+              ],
+              "image": "fluent/fluent-bit:latest",
+              "name": "log-agent",
+              "ports": [
+                {
+                  "container_port": 2020,
+                  "protocol": "TCP"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "api_version": null,
+    "kind": null,
+    "metadata": {
+      "name": "dummy-daemonset",
+      "namespace": "ns-kubek-shared",
+      "resource_version": "913",
+      "uid": "e4b2c3d5-4444-4d5e-8f6a-dd44ee55ff66"
+    },
+    "spec": {
+      "selector": {
+        "match_labels": {
+          "app": "dummy-daemonset"
+        }
+      },
+      "template": {
+        "metadata": {
+          "labels": {
+            "app": "dummy-daemonset"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "DIRECT_VALUE",
+                  "value": "hello-from-dummy-daemonset",
+                  "value_from": null
+                }
+              ],
+              "env_from": null,
+              "image": "nginx:alpine",
+              "name": "dummy-daemonset",
+              "ports": [
+                {
+                  "container_port": 80,
+                  "protocol": "TCP"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+]

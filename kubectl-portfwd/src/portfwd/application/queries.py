@@ -1,7 +1,7 @@
 import itertools
 from collections.abc import Iterable
 
-from kubek.kube import Deployment, Pod, Service, StatefulSet
+from kubek.kube import DaemonSet, Deployment, Pod, Service, StatefulSet
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.models import (
@@ -129,11 +129,44 @@ def fetch_statefulsets_for_namespaces(
     return _convert_statefulsets_to_specs(raw)
 
 
+def _convert_daemonsets_to_specs(
+    daemonsets: Iterable[DaemonSet],
+) -> list[PortForwardSpec]:
+    """Flatten DaemonSet list to (target, remote_port) specs, one per declared container port."""
+    return [
+        PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.DAEMONSET,
+                namespace=daemonset.metadata.namespace,
+                name=daemonset.metadata.name,
+            ),
+            remote_port=container_port,
+        )
+        for daemonset in sorted(
+            daemonsets, key=lambda d: (d.metadata.namespace, d.metadata.name)
+        )
+        for container_port in sorted(
+            get_unique_ports(daemonset.spec.template.spec.containers)
+        )
+    ]
+
+
+def fetch_daemonsets_for_namespaces(
+    namespaces: list[str], api: KubeGateway
+) -> list[PortForwardSpec]:
+    """Fetch daemonsets with declared container ports for the picker."""
+    raw = itertools.chain.from_iterable(
+        api.daemonset.list(namespace=ns) for ns in namespaces
+    )
+    return _convert_daemonsets_to_specs(raw)
+
+
 _FETCH_BY_KIND = {
     TargetKind.SERVICE: fetch_services_for_namespaces,
     TargetKind.POD: fetch_pods_for_namespaces,
     TargetKind.DEPLOYMENT: fetch_deployments_for_namespaces,
     TargetKind.STATEFULSET: fetch_statefulsets_for_namespaces,
+    TargetKind.DAEMONSET: fetch_daemonsets_for_namespaces,
 }
 
 

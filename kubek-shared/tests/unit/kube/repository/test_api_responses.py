@@ -5,6 +5,9 @@ from conftest import RESOURCES_DIR
 from kubek.kube._infrastructure.repositories.configmap import (
     KubernetesConfigMapRepository,
 )
+from kubek.kube._infrastructure.repositories.daemonset import (
+    KubernetesDaemonSetRepository,
+)
 from kubek.kube._infrastructure.repositories.deployment import (
     KubernetesDeploymentRepository,
 )
@@ -72,6 +75,12 @@ def real_data_client():
         ns = item["metadata"]["namespace"]
         name = item["metadata"]["name"]
         client.add_namespaced_resource(Kind.STATEFULSET, name, item, namespace=ns)
+
+    # Add daemonsets
+    for item in _load_json("DaemonSet.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.DAEMONSET, name, item, namespace=ns)
 
     # Add services
     for item in _load_json("Service.json"):
@@ -147,6 +156,30 @@ class TestRepositoriesWithRealData:
 
         cache = next(s for s in result if s.metadata.name == "cache-service")
         container = cache.spec.template.spec.containers[0]
+
+        assert container.env_from
+        assert any(e.config_map_ref for e in container.env_from)
+        assert any(e.secret_ref for e in container.env_from)
+
+        assert container.env
+        assert any(e.name == "DB_PASSWORD" for e in container.env)
+        assert any(e.name == "DIRECT_VALUE" for e in container.env)
+
+    def test_daemonset_names(self, real_data_client):
+        repo = KubernetesDaemonSetRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        assert {d.metadata.name for d in result} == {
+            "log-agent",
+            "dummy-daemonset",
+        }
+
+    def test_daemonset_env_parsing(self, real_data_client):
+        repo = KubernetesDaemonSetRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        agent = next(d for d in result if d.metadata.name == "log-agent")
+        container = agent.spec.template.spec.containers[0]
 
         assert container.env_from
         assert any(e.config_map_ref for e in container.env_from)

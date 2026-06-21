@@ -7,6 +7,7 @@ from kubek.kube.dto.service import Service
 from kubek.net import get_deterministic_port
 from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
+    resolve_daemonset_remote_port,
     resolve_deployment_remote_port,
     resolve_local_port,
     resolve_pod_remote_port,
@@ -15,12 +16,15 @@ from portfwd.application.port_forwarding.planner import (
 )
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
+    AmbiguousDaemonSetPortError,
     AmbiguousDeploymentPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
+    DaemonSetNotFoundError,
     DeploymentNotFoundError,
     MissingNamespaceError,
+    NoDaemonSetPortsError,
     NoDeploymentPortsError,
     NoPodPortsError,
     NoServicePortsError,
@@ -34,7 +38,12 @@ from portfwd.domain.models import (
     TargetKind,
     TargetRef,
 )
-from portfwd_test_utils.fakes import make_deployment, make_pod, make_statefulset
+from portfwd_test_utils.fakes import (
+    make_daemonset,
+    make_deployment,
+    make_pod,
+    make_statefulset,
+)
 
 _FALLBACK_PORT = 50_000
 _SVC_DETERMINISTIC_PORT = get_deterministic_port(
@@ -68,7 +77,12 @@ def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
 
 
 def _make_api(
-    namespace=None, services=None, pods=None, deployments=None, statefulsets=None
+    namespace=None,
+    services=None,
+    pods=None,
+    deployments=None,
+    statefulsets=None,
+    daemonsets=None,
 ) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
@@ -79,6 +93,7 @@ def _make_api(
     statefulsets_map = {
         (ns, name): sts for (ns, name), sts in (statefulsets or {}).items()
     }
+    daemonsets_map = {(ns, name): ds for (ns, name), ds in (daemonsets or {}).items()}
 
     class FakeServiceRepo:
         def get(self, name, namespace=None):
@@ -96,6 +111,10 @@ def _make_api(
         def get(self, name, namespace=None):
             return statefulsets_map.get((namespace, name))
 
+    class FakeDaemonSetRepo:
+        def get(self, name, namespace=None):
+            return daemonsets_map.get((namespace, name))
+
     return cast(
         KubeGateway,
         SimpleNamespace(
@@ -104,6 +123,7 @@ def _make_api(
             pod=FakePodRepo(),
             deployment=FakeDeploymentRepo(),
             statefulset=FakeStatefulSetRepo(),
+            daemonset=FakeDaemonSetRepo(),
         ),
     )
 
@@ -359,6 +379,41 @@ class TestBuildPortForwardPlan:
         with pytest.raises(StatefulSetNotFoundError):
             build_port_forward_plan(spec, api)
 
+    def test_resolves_remote_port_from_daemonset(self):
+        """A daemonset spec without a remote_port reads the single declared container port."""
+        daemonset = make_daemonset("agent", "ns", [[2020]])
+        api = _make_api(namespace="ns", daemonsets={("ns", "agent"): daemonset})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.DAEMONSET, name="agent", namespace="ns"),
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.target.kind == TargetKind.DAEMONSET
+        assert plan.remote_port == 2020
+
+    def test_daemonset_spec_explicit_port_used_directly(self):
+        """An explicit remote_port in the spec is forwarded unchanged for daemonsets."""
+        daemonset = make_daemonset("agent", "ns", [[2020]])
+        api = _make_api(namespace="ns", daemonsets={("ns", "agent"): daemonset})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.DAEMONSET, name="agent", namespace="ns"),
+            remote_port=8080,
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.remote_port == 8080
+
+    def test_raises_when_daemonset_not_found(self):
+        """DaemonSetNotFoundError is raised when the DaemonSet does not exist."""
+        api = _make_api(namespace="ns")
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.DAEMONSET, name="missing", namespace="ns"),
+            remote_port=80,
+            local_port=9000,
+        )
+        with pytest.raises(DaemonSetNotFoundError):
+            build_port_forward_plan(spec, api)
+
 
 class TestResolveDeploymentRemotePort:
     def test_returns_single_port(self):
@@ -406,3 +461,27 @@ class TestResolveStatefulSetRemotePort:
         statefulset = make_statefulset("cache", "ns", [[80, 6379]])
         with pytest.raises(AmbiguousStatefulSetPortError):
             resolve_statefulset_remote_port(statefulset)
+
+
+class TestResolveDaemonSetRemotePort:
+    def test_returns_single_port(self):
+        """Returns the container port when the daemonset declares exactly one."""
+        daemonset = make_daemonset("agent", "ns", [[2020]])
+        assert resolve_daemonset_remote_port(daemonset) == 2020
+
+    def test_returns_single_unique_port_across_containers(self):
+        """Duplicate container ports across containers collapse to one unique port."""
+        daemonset = make_daemonset("agent", "ns", [[2020], [2020]])
+        assert resolve_daemonset_remote_port(daemonset) == 2020
+
+    def test_raises_when_no_ports(self):
+        """NoDaemonSetPortsError is raised when no container ports are declared."""
+        daemonset = make_daemonset("agent", "ns", [[]])
+        with pytest.raises(NoDaemonSetPortsError):
+            resolve_daemonset_remote_port(daemonset)
+
+    def test_raises_when_multiple_ports(self):
+        """AmbiguousDaemonSetPortError is raised when more than one port is declared."""
+        daemonset = make_daemonset("agent", "ns", [[80, 2020]])
+        with pytest.raises(AmbiguousDaemonSetPortError):
+            resolve_daemonset_remote_port(daemonset)

@@ -66,8 +66,20 @@ class AmbiguousStatefulSetPortError(PortForwardError):
     """A Kubernetes StatefulSet declares multiple container ports and none was selected."""
 
 
+class DaemonSetNotFoundError(PortForwardError):
+    """A Kubernetes DaemonSet was not found in the given namespace."""
+
+
+class NoDaemonSetPortsError(PortForwardError):
+    """A Kubernetes DaemonSet declares no container ports and none was specified."""
+
+
+class AmbiguousDaemonSetPortError(PortForwardError):
+    """A Kubernetes DaemonSet declares multiple container ports and none was selected."""
+
+
 class NoTargetsFoundError(PortForwardError):
-    """Target discovery returned no services, pods, deployments, or statefulsets for the selected namespaces."""
+    """Target discovery returned no services, pods, deployments, statefulsets, or daemonsets for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):

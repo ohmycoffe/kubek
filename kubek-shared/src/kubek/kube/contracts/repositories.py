@@ -2,6 +2,7 @@ from typing import Protocol
 
 from kubek.kube.dto import WorkflowTemplate
 from kubek.kube.dto.configmap import ConfigMap
+from kubek.kube.dto.daemonset import DaemonSet
 from kubek.kube.dto.deployment import Deployment
 from kubek.kube.dto.namespace import Namespace
 from kubek.kube.dto.pod import Pod
@@ -43,6 +44,11 @@ class ServiceRepository(Protocol):
 class StatefulSetRepository(Protocol):
     def list(self, namespace: str | None = None) -> list[StatefulSet]: ...
     def get(self, name: str, namespace: str | None = None) -> StatefulSet | None: ...
+
+
+class DaemonSetRepository(Protocol):
+    def list(self, namespace: str | None = None) -> list[DaemonSet]: ...
+    def get(self, name: str, namespace: str | None = None) -> DaemonSet | None: ...
 
 
 class WorkflowTemplateRepository(Protocol):

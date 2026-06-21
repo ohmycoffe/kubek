@@ -4,6 +4,7 @@ from export_dotenv.errors import UnsupportedKindError
 from export_dotenv.kube import (
     KubeGateway,
     get_configmap_envs,
+    get_daemonset_envs,
     get_deployment_envs,
     get_pod_envs,
     get_secret_envs,
@@ -18,6 +19,9 @@ def fetch_environment_values(kind: Kind, name: str, api: KubeGateway) -> dict[st
 
     if kind == Kind.STATEFULSET:
         return get_statefulset_envs(name=name, api=api)
+
+    if kind == Kind.DAEMONSET:
+        return get_daemonset_envs(name=name, api=api)
 
     if kind == Kind.WORKFLOWTEMPLATE:
         return get_workflowtemplate_envs(name=name, api=api)

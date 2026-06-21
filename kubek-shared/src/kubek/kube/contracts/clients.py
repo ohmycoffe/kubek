@@ -43,6 +43,14 @@ class KubeClient(Protocol):
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
+    def get_daemonsets(self, namespace: str | None = None) -> KubeRawResponse: ...
+
+    def get_daemonset(
+        self,
+        name: str,
+        namespace: str | None = None,
+    ) -> KubeRawResponse: ...
+
     def get_secrets(self, namespace: str | None = None) -> KubeRawResponse: ...
 
     def get_secret(
