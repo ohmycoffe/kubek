@@ -26,6 +26,8 @@ from kubek.kube.dto.container import (
     EnvFromSource,
     EnvValueFrom,
     EnvVar,
+    FieldRef,
+    ResourceFieldRef,
     SecretKeyRef,
     SecretRef,
 )
@@ -688,6 +690,90 @@ def test_env_with_no_value_or_value_from_is_skipped(api):
     container = Container(env=[EnvVar(name="EMPTY")])
 
     assert extract_envs_from_container(api=api, container=container) == {}
+
+
+def test_field_ref_is_skipped_silently(api, caplog):
+    """Downward API fieldRef env vars resolve at pod runtime, so they are skipped without a warning."""
+    container = Container(
+        env=[
+            EnvVar(
+                name="MY_POD_NAME",
+                value_from=EnvValueFrom(field_ref=FieldRef(field_path="metadata.name")),
+            ),
+            EnvVar(
+                name="MY_POD_NAMESPACE",
+                value_from=EnvValueFrom(
+                    field_ref=FieldRef(field_path="metadata.namespace")
+                ),
+            ),
+        ]
+    )
+
+    with caplog.at_level("WARNING"):
+        result = extract_envs_from_container(api=api, container=container)
+
+    assert result == {}
+    assert caplog.records == []
+
+
+def test_resource_field_ref_is_skipped_silently(api, caplog):
+    """Downward API resourceFieldRef env vars are skipped without a warning."""
+    container = Container(
+        env=[
+            EnvVar(
+                name="CPU_LIMIT",
+                value_from=EnvValueFrom(
+                    resource_field_ref=ResourceFieldRef(
+                        container_name="app", resource="limits.cpu"
+                    )
+                ),
+            )
+        ]
+    )
+
+    with caplog.at_level("WARNING"):
+        result = extract_envs_from_container(api=api, container=container)
+
+    assert result == {}
+    assert caplog.records == []
+
+
+def test_statefulset_skips_field_ref_env(api):
+    """get_statefulset_envs skips fieldRef env vars while still emitting resolvable ones."""
+    api.statefulset = InMemoryRepository(
+        [
+            StatefulSetDTO(
+                metadata=StatefulSetMetadata(name="cache-service", namespace=NS),
+                spec=StatefulSetSpec(
+                    template=StatefulSetTemplate(
+                        spec=StatefulSetTemplateSpec(
+                            containers=[
+                                Container(
+                                    env=[
+                                        EnvVar(
+                                            name="MY_POD_NAME",
+                                            value_from=EnvValueFrom(
+                                                field_ref=FieldRef(
+                                                    field_path="metadata.name"
+                                                )
+                                            ),
+                                        ),
+                                        EnvVar(
+                                            name="DIRECT_VALUE",
+                                            value="hello",
+                                        ),
+                                    ]
+                                )
+                            ]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = get_statefulset_envs(name="cache-service", api=api)
+    assert result == {"DIRECT_VALUE": "hello"}
 
 
 def test_workflowtemplate_not_found_raises(api):

@@ -258,6 +258,10 @@ def extract_envs_from_container(
                     else:
                         value = secret.decoded(key)
                     result[name] = value
+                elif value_from.field_ref or value_from.resource_field_ref:
+                    # Downward API (fieldRef / resourceFieldRef) resolves at pod
+                    # runtime and cannot be known from a static spec, so skip it.
+                    continue
                 else:
                     logger.warning(
                         f"Unknown valueFrom format: {value_from} for {name} ({env})"

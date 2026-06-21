@@ -23,3 +23,64 @@ def test_container_port_protocol_is_optional():
     container = Container.model_validate(raw)
 
     assert container.ports[0].protocol is None
+
+
+def test_env_value_from_parses_field_ref_camel_case():
+    """EnvValueFrom.field_ref is populated from the camelCase 'fieldRef' field."""
+    raw = {
+        "env": [
+            {
+                "name": "MY_POD_NAME",
+                "valueFrom": {"fieldRef": {"fieldPath": "metadata.name"}},
+            }
+        ]
+    }
+    container = Container.model_validate(raw)
+
+    value_from = container.env[0].value_from
+    assert value_from is not None
+    assert value_from.field_ref is not None
+    assert value_from.field_ref.field_path == "metadata.name"
+    assert value_from.secret_key_ref is None
+    assert value_from.config_map_key_ref is None
+
+
+def test_env_value_from_parses_field_ref_snake_case():
+    """EnvValueFrom.field_ref is populated from the snake_case 'field_ref' field (k8s client dicts)."""
+    raw = {
+        "env": [
+            {
+                "name": "MY_POD_NAMESPACE",
+                "value_from": {"field_ref": {"field_path": "metadata.namespace"}},
+            }
+        ]
+    }
+    container = Container.model_validate(raw)
+
+    value_from = container.env[0].value_from
+    assert value_from is not None
+    assert value_from.field_ref is not None
+    assert value_from.field_ref.field_path == "metadata.namespace"
+
+
+def test_env_value_from_parses_resource_field_ref():
+    """EnvValueFrom.resource_field_ref is populated from 'resourceFieldRef'."""
+    raw = {
+        "env": [
+            {
+                "name": "CPU_LIMIT",
+                "valueFrom": {
+                    "resourceFieldRef": {
+                        "containerName": "app",
+                        "resource": "limits.cpu",
+                    }
+                },
+            }
+        ]
+    }
+    container = Container.model_validate(raw)
+
+    value_from = container.env[0].value_from
+    assert value_from is not None
+    assert value_from.resource_field_ref is not None
+    assert value_from.resource_field_ref.resource == "limits.cpu"
