@@ -68,6 +68,14 @@ class FakeKubeClient:
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.JOB, namespace)
 
+    def get_cronjob(self, name, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_one(Kind.CRONJOB, name, namespace)
+
+    def get_cronjobs(self, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_list(Kind.CRONJOB, namespace)
+
     def get_secret(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.SECRET, name, namespace)

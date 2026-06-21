@@ -5,6 +5,9 @@ from conftest import RESOURCES_DIR
 from kubek.kube._infrastructure.repositories.configmap import (
     KubernetesConfigMapRepository,
 )
+from kubek.kube._infrastructure.repositories.cronjob import (
+    KubernetesCronJobRepository,
+)
 from kubek.kube._infrastructure.repositories.daemonset import (
     KubernetesDaemonSetRepository,
 )
@@ -90,6 +93,12 @@ def real_data_client():
         ns = item["metadata"]["namespace"]
         name = item["metadata"]["name"]
         client.add_namespaced_resource(Kind.JOB, name, item, namespace=ns)
+
+    # Add cronjobs
+    for item in _load_json("CronJob.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.CRONJOB, name, item, namespace=ns)
 
     # Add services
     for item in _load_json("Service.json"):
@@ -213,6 +222,30 @@ class TestRepositoriesWithRealData:
 
         migration = next(j for j in result if j.metadata.name == "data-migration")
         container = migration.spec.template.spec.containers[0]
+
+        assert container.env_from
+        assert any(e.config_map_ref for e in container.env_from)
+        assert any(e.secret_ref for e in container.env_from)
+
+        assert container.env
+        assert any(e.name == "DB_PASSWORD" for e in container.env)
+        assert any(e.name == "DIRECT_VALUE" for e in container.env)
+
+    def test_cronjob_names(self, real_data_client):
+        repo = KubernetesCronJobRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        assert {c.metadata.name for c in result} == {
+            "nightly-backup",
+            "dummy-cronjob",
+        }
+
+    def test_cronjob_env_parsing(self, real_data_client):
+        repo = KubernetesCronJobRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        backup = next(c for c in result if c.metadata.name == "nightly-backup")
+        container = backup.spec.job_template.spec.template.spec.containers[0]
 
         assert container.env_from
         assert any(e.config_map_ref for e in container.env_from)

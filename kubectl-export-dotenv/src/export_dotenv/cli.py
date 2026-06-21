@@ -34,6 +34,7 @@ def get(
             Kind.STATEFULSET,
             Kind.DAEMONSET,
             Kind.JOB,
+            Kind.CRONJOB,
             Kind.WORKFLOWTEMPLATE,
             Kind.CONFIGMAP,
             Kind.SECRET,
@@ -83,7 +84,7 @@ def get(
     ] = 0,
 ):
     """
-    Get environment variables for a Kubernetes Deployment, StatefulSet, DaemonSet, Job, or Argo WorkflowTemplate.
+    Get environment variables for a Kubernetes Deployment, StatefulSet, DaemonSet, Job, CronJob, or Argo WorkflowTemplate.
     """
     setup_logging_from_count(verbose, "kubek", "export-dotenv")
     out: CLIOutput = create_output(verbosity_count=verbose)
@@ -173,6 +174,8 @@ def _select_resource_name(
             resources = api.daemonset.list()
         elif kind == Kind.JOB:
             resources = api.job.list()
+        elif kind == Kind.CRONJOB:
+            resources = api.cronjob.list()
         elif kind == Kind.WORKFLOWTEMPLATE:
             resources = api.workflowtemplate.list()
         elif kind == Kind.CONFIGMAP:

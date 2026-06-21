@@ -7,6 +7,21 @@ from export_dotenv.errors import NoResourcesFoundError
 from export_dotenv.prompts import ask_for_kind, ask_for_resource
 from kubek.kube import Kind, ResolvedKubeConfig
 from kubek.kube.dto.container import Container
+from kubek.kube.dto.cronjob import (
+    CronJob,
+    CronJobJobSpec,
+    CronJobMetadata,
+    CronJobSpec,
+)
+from kubek.kube.dto.cronjob import (
+    JobTemplate as CronJobJobTemplate,
+)
+from kubek.kube.dto.cronjob import (
+    Template as CronJobPodTemplate,
+)
+from kubek.kube.dto.cronjob import (
+    TemplateSpec as CronJobPodTemplateSpec,
+)
 from kubek.kube.dto.daemonset import (
     DaemonSet,
     DaemonSetMetadata,
@@ -102,12 +117,28 @@ def _build_job() -> Job:
     )
 
 
+def _build_cronjob() -> CronJob:
+    return CronJob(
+        metadata=CronJobMetadata(name="nightly-backup", namespace=NS),
+        spec=CronJobSpec(
+            job_template=CronJobJobTemplate(
+                spec=CronJobJobSpec(
+                    template=CronJobPodTemplate(
+                        spec=CronJobPodTemplateSpec(containers=[])
+                    )
+                )
+            )
+        ),
+    )
+
+
 def _create_api(
     *,
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
     daemonsets: list[DaemonSet] | None = None,
     jobs: list[Job] | None = None,
+    cronjobs: list[CronJob] | None = None,
 ):
     if deployments is None:
         deployments = [_build_deployment()]
@@ -116,6 +147,7 @@ def _create_api(
         statefulset=_InMemoryRepository(statefulsets or []),
         daemonset=_InMemoryRepository(daemonsets or []),
         job=_InMemoryRepository(jobs or []),
+        cronjob=_InMemoryRepository(cronjobs or []),
         workflowtemplate=_InMemoryRepository([]),
         current_config=ResolvedKubeConfig(context="test", namespace=NS),
     )
@@ -270,6 +302,27 @@ def test_select_resource_name_lists_jobs():
     ask.assert_called_once_with(
         resources=["data-migration"],
         kind=Kind.JOB,
+    )
+
+
+def test_select_resource_name_lists_cronjobs():
+    """_select_resource_name lists CronJobs from the cronjob repo for the CronJob kind."""
+    api = _create_api(deployments=[], cronjobs=[_build_cronjob()])
+
+    with patch(
+        "export_dotenv.cli.ask_for_resource",
+        return_value="nightly-backup",
+    ) as ask:
+        name = _select_resource_name(
+            out=create_output(),
+            kind=Kind.CRONJOB,
+            api=api,
+        )
+
+    assert name == "nightly-backup"
+    ask.assert_called_once_with(
+        resources=["nightly-backup"],
+        kind=Kind.CRONJOB,
     )
 
 

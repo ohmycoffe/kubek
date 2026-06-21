@@ -123,6 +123,22 @@ def _api_response(payload: dict) -> MagicMock:
             ("worker", "default"),
         ),
         (
+            "get_cronjobs",
+            "batch_v1",
+            "list_namespaced_cron_job",
+            (),
+            {},
+            ("default",),
+        ),
+        (
+            "get_cronjob",
+            "batch_v1",
+            "read_namespaced_cron_job",
+            ("nightly",),
+            {},
+            ("nightly", "default"),
+        ),
+        (
             "get_secrets",
             "core_v1",
             "list_namespaced_secret",

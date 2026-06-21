@@ -59,6 +59,14 @@ class KubeClient(Protocol):
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
+    def get_cronjobs(self, namespace: str | None = None) -> KubeRawResponse: ...
+
+    def get_cronjob(
+        self,
+        name: str,
+        namespace: str | None = None,
+    ) -> KubeRawResponse: ...
+
     def get_secrets(self, namespace: str | None = None) -> KubeRawResponse: ...
 
     def get_secret(

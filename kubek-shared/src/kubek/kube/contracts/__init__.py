@@ -1,6 +1,7 @@
 from .clients import KubeClient
 from .repositories import (
     ConfigMapRepository,
+    CronJobRepository,
     DaemonSetRepository,
     DeploymentRepository,
     JobRepository,
@@ -14,6 +15,7 @@ from .repositories import (
 
 __all__ = [
     "ConfigMapRepository",
+    "CronJobRepository",
     "DaemonSetRepository",
     "DeploymentRepository",
     "JobRepository",

@@ -127,6 +127,19 @@ def _spec(name, namespace=None, remote=None, local=None, kind=TargetKind.POD):
                 kind=TargetKind.JOB,
             ),
         ),
+        # CronJob aliases.
+        ("cronjob/backup", _spec(name="backup", kind=TargetKind.CRONJOB)),
+        ("cronjobs/backup", _spec(name="backup", kind=TargetKind.CRONJOB)),
+        ("cj/backup", _spec(name="backup", kind=TargetKind.CRONJOB)),
+        (
+            "default/cronjob/backup:1700",
+            _spec(
+                name="backup",
+                namespace="default",
+                remote=1700,
+                kind=TargetKind.CRONJOB,
+            ),
+        ),
     ],
 )
 def test_from_string_valid(tested, expected):
@@ -161,13 +174,13 @@ def test_from_string_invalid_syntax(tested):
 
 
 def test_format_invalid_spec_includes_example():
-    """format_invalid_spec produces a message listing pod, service, deployment, statefulset, daemonset, and job as valid types."""
+    """format_invalid_spec lists pod, service, deployment, statefulset, daemonset, job, and cronjob as valid types."""
     from portfwd.presentation.spec_parser import format_invalid_spec
 
     message = format_invalid_spec("ns/nginx:80:50001")
     assert message == (
         'invalid "ns/nginx:80:50001"; '
-        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset | job); "
+        "expected [namespace/][type/]name[:remote_port][::local_port] (type: pod | service | deployment | statefulset | daemonset | job | cronjob); "
         "example ns-kubectl-portfwd/pod/nginx:80::50001"
     )
 

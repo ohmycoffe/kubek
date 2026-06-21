@@ -125,3 +125,20 @@ spec:
           ports:
             - containerPort: 5432
       restartPolicy: Never
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-backup
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: nightly-backup
+              image: postgres:alpine
+              ports:
+                - containerPort: 5432
+          restartPolicy: OnFailure

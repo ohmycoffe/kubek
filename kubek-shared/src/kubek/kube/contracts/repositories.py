@@ -2,6 +2,7 @@ from typing import Protocol
 
 from kubek.kube.dto import WorkflowTemplate
 from kubek.kube.dto.configmap import ConfigMap
+from kubek.kube.dto.cronjob import CronJob
 from kubek.kube.dto.daemonset import DaemonSet
 from kubek.kube.dto.deployment import Deployment
 from kubek.kube.dto.job import Job
@@ -55,6 +56,11 @@ class DaemonSetRepository(Protocol):
 class JobRepository(Protocol):
     def list(self, namespace: str | None = None) -> list[Job]: ...
     def get(self, name: str, namespace: str | None = None) -> Job | None: ...
+
+
+class CronJobRepository(Protocol):
+    def list(self, namespace: str | None = None) -> list[CronJob]: ...
+    def get(self, name: str, namespace: str | None = None) -> CronJob | None: ...
 
 
 class WorkflowTemplateRepository(Protocol):

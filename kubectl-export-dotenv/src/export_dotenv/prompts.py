@@ -14,6 +14,7 @@ def ask_for_kind() -> (
         Kind.STATEFULSET,
         Kind.DAEMONSET,
         Kind.JOB,
+        Kind.CRONJOB,
         Kind.WORKFLOWTEMPLATE,
         Kind.CONFIGMAP,
         Kind.SECRET,
@@ -43,6 +44,11 @@ def ask_for_kind() -> (
                 title="Job",
                 value=Kind.JOB,
                 description="(Kubernetes Job)",
+            ),
+            questionary.Choice(
+                title="CronJob",
+                value=Kind.CRONJOB,
+                description="(Kubernetes CronJob)",
             ),
             questionary.Choice(
                 title="WorkflowTemplate",

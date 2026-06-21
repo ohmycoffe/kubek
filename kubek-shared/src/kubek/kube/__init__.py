@@ -1,5 +1,6 @@
 from kubek.kube._infrastructure import (
     KubernetesConfigMapRepository,
+    KubernetesCronJobRepository,
     KubernetesDaemonSetRepository,
     KubernetesDeploymentRepository,
     KubernetesJobRepository,
@@ -15,6 +16,7 @@ from kubek.kube.config import KubeConfig, ResolvedKubeConfig
 from kubek.kube.dto import (
     ConfigMap,
     Container,
+    CronJob,
     DaemonSet,
     Deployment,
     Job,
@@ -45,6 +47,7 @@ __all__ = [
     "StatefulSet",
     "DaemonSet",
     "Job",
+    "CronJob",
     "Secret",
     "ConfigMap",
     "Container",
@@ -52,6 +55,7 @@ __all__ = [
     "KubeClientError",
     "KubeApiNotFoundError",
     "KubernetesConfigMapRepository",
+    "KubernetesCronJobRepository",
     "KubernetesDaemonSetRepository",
     "KubernetesDeploymentRepository",
     "KubernetesJobRepository",

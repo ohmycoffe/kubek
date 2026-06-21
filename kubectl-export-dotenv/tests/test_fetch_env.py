@@ -10,6 +10,7 @@ from export_dotenv.errors import (
 )
 from export_dotenv.kube import (
     extract_envs_from_container,
+    get_cronjob_envs,
     get_daemonset_envs,
     get_deployment_envs,
     get_job_envs,
@@ -31,6 +32,23 @@ from kubek.kube.dto.container import (
     ResourceFieldRef,
     SecretKeyRef,
     SecretRef,
+)
+from kubek.kube.dto.cronjob import (
+    CronJob as CronJobDTO,
+)
+from kubek.kube.dto.cronjob import (
+    CronJobJobSpec,
+    CronJobMetadata,
+    CronJobSpec,
+)
+from kubek.kube.dto.cronjob import (
+    JobTemplate as CronJobJobTemplate,
+)
+from kubek.kube.dto.cronjob import (
+    Template as CronJobPodTemplate,
+)
+from kubek.kube.dto.cronjob import (
+    TemplateSpec as CronJobPodTemplateSpec,
 )
 from kubek.kube.dto.daemonset import (
     DaemonSet as DaemonSetDTO,
@@ -340,6 +358,51 @@ def build_job():
     )
 
 
+def build_cronjob():
+    return CronJobDTO(
+        metadata=CronJobMetadata(name="nightly-backup", namespace=NS),
+        spec=CronJobSpec(
+            job_template=CronJobJobTemplate(
+                spec=CronJobJobSpec(
+                    template=CronJobPodTemplate(
+                        spec=CronJobPodTemplateSpec(
+                            containers=[
+                                Container(
+                                    env=[
+                                        EnvVar(
+                                            name="DB_PASSWORD",
+                                            value_from=EnvValueFrom(
+                                                secret_key_ref=SecretKeyRef(
+                                                    name="app-secrets",
+                                                    key="DATABASE_PASSWORD",
+                                                )
+                                            ),
+                                        ),
+                                        EnvVar(
+                                            name="DIRECT_VALUE",
+                                            value="hello-from-cronjob",
+                                        ),
+                                    ],
+                                    env_from=[
+                                        EnvFromSource(
+                                            config_map_ref=ConfigMapRef(
+                                                name="app-config"
+                                            )
+                                        ),
+                                        EnvFromSource(
+                                            secret_ref=SecretRef(name="app-secrets")
+                                        ),
+                                    ],
+                                )
+                            ]
+                        )
+                    )
+                )
+            )
+        ),
+    )
+
+
 def build_workflow():
     return WorkflowTemplate(
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
@@ -396,6 +459,7 @@ def api():
         statefulset=InMemoryRepository([build_statefulset()]),
         daemonset=InMemoryRepository([build_daemonset()]),
         job=InMemoryRepository([build_job()]),
+        cronjob=InMemoryRepository([build_cronjob()]),
         pod=InMemoryRepository([build_pod()]),
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
@@ -613,6 +677,63 @@ def test_job_with_multiple_containers_raises(api):
 
     with pytest.raises(AmbiguousResourceError, match="2 containers"):
         get_job_envs(name="data-migration", api=api)
+
+
+def test_cronjob_env_vars(api):
+    """A single-container CronJob resolves env, envFrom, and value refs like a Deployment."""
+    result = fetch_environment_values(
+        kind=Kind.CRONJOB,
+        name="nightly-backup",
+        api=api,
+    )
+
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+        "DB_PASSWORD": "secretpassword",
+        "DIRECT_VALUE": "hello-from-cronjob",
+    }
+
+
+def test_cronjob_not_found_raises(api):
+    """A missing CronJob name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="CronJob missing"):
+        get_cronjob_envs(name="missing", api=api)
+
+
+def test_cronjob_with_multiple_containers_raises(api):
+    """A CronJob with more than one container is rejected as ambiguous."""
+    api.cronjob = InMemoryRepository(
+        [
+            CronJobDTO(
+                metadata=CronJobMetadata(name="nightly-backup", namespace=NS),
+                spec=CronJobSpec(
+                    job_template=CronJobJobTemplate(
+                        spec=CronJobJobSpec(
+                            template=CronJobPodTemplate(
+                                spec=CronJobPodTemplateSpec(
+                                    containers=[Container(), Container()]
+                                )
+                            )
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_cronjob_envs(name="nightly-backup", api=api)
 
 
 def test_pod_env_vars(api):

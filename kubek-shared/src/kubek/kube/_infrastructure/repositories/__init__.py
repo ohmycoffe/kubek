@@ -1,4 +1,5 @@
 from .configmap import KubernetesConfigMapRepository
+from .cronjob import KubernetesCronJobRepository
 from .daemonset import KubernetesDaemonSetRepository
 from .deployment import KubernetesDeploymentRepository
 from .job import KubernetesJobRepository
@@ -11,6 +12,7 @@ from .workflowtemplate import KubernetesWorkflowTemplateRepository
 
 __all__ = [
     "KubernetesConfigMapRepository",
+    "KubernetesCronJobRepository",
     "KubernetesDaemonSetRepository",
     "KubernetesDeploymentRepository",
     "KubernetesJobRepository",

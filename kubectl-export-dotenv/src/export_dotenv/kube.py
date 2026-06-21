@@ -15,6 +15,7 @@ from kubek.kube import (
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.contracts.repositories import (
     ConfigMapRepository,
+    CronJobRepository,
     DaemonSetRepository,
     DeploymentRepository,
     JobRepository,
@@ -49,6 +50,9 @@ class KubeGateway(Protocol):
 
     @property
     def job(self) -> JobRepository: ...
+
+    @property
+    def cronjob(self) -> CronJobRepository: ...
 
     @property
     def workflowtemplate(self) -> WorkflowTemplateRepository: ...
@@ -150,6 +154,21 @@ def get_job_envs(name: str, api: KubeGateway) -> dict[str, str]:
         raise AmbiguousResourceError(
             f"Job {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
             "This tool only supports exporting env vars for jobs with a single container."
+        )
+    container = containers[0]
+    return extract_envs_from_container(api=api, container=container)
+
+
+def get_cronjob_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    cronjob = api.cronjob.get(name=name, namespace=ns)
+    if not cronjob:
+        raise ResourceNotFoundError(f"CronJob {name} not found in namespace {ns}")
+    containers = cronjob.spec.job_template.spec.template.spec.containers
+    if len(containers) != 1:
+        raise AmbiguousResourceError(
+            f"CronJob {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for cronjobs with a single container."
         )
     container = containers[0]
     return extract_envs_from_container(api=api, container=container)
