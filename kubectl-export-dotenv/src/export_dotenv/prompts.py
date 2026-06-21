@@ -9,7 +9,10 @@ QUESTIONARY_STYLE = Style(DEFAULT_QUESTIONARY_THEME)
 
 
 def ask_for_kind() -> (
-    Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE, Kind.CONFIGMAP, Kind.SECRET] | None
+    Literal[
+        Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE, Kind.CONFIGMAP, Kind.SECRET, Kind.POD
+    ]
+    | None
 ):
     selected = questionary.select(
         "Select a kind:",
@@ -23,6 +26,11 @@ def ask_for_kind() -> (
                 title="ConfigMap",
                 value=Kind.CONFIGMAP,
                 description="(Kubernetes ConfigMap)",
+            ),
+            questionary.Choice(
+                title="Pod",
+                value=Kind.POD,
+                description="(Kubernetes Pod)",
             ),
             questionary.Choice(
                 title="Secret",

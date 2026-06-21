@@ -11,6 +11,7 @@ from export_dotenv.errors import (
 from export_dotenv.kube import (
     extract_envs_from_container,
     get_deployment_envs,
+    get_pod_envs,
     get_workflowtemplate_envs,
 )
 from export_dotenv.use_case import fetch_environment_values
@@ -36,6 +37,7 @@ from kubek.kube.dto.deployment import (
     TemplateSpec,
 )
 from kubek.kube.dto.kind import Kind
+from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
 from kubek.kube.dto.secret import Secret as SecretDTO
 from kubek.kube.dto.secret import SecretMetadata
 from kubek.kube.dto.workflowtemplate.template import (
@@ -153,6 +155,45 @@ def build_deployment():
     )
 
 
+def build_pod():
+    return Pod(
+        metadata=PodMetadata(name="api-pod", namespace=NS),
+        spec=PodSpec(
+            containers=[
+                Container(
+                    env=[
+                        EnvVar(
+                            name="DB_PASSWORD",
+                            value_from=EnvValueFrom(
+                                secret_key_ref=SecretKeyRef(
+                                    name="app-secrets",
+                                    key="DATABASE_PASSWORD",
+                                )
+                            ),
+                        ),
+                        EnvVar(
+                            name="LOG_LEVEL_OVERRIDE",
+                            value_from=EnvValueFrom(
+                                config_map_key_ref=ConfigMapKeyRef(
+                                    name="app-config",
+                                    key="LOG_LEVEL",
+                                )
+                            ),
+                        ),
+                        EnvVar(name="DIRECT_VALUE", value="hello-from-api"),
+                        EnvVar(name="API_VERSION", value="v2"),
+                        EnvVar(name="ENABLE_TRACING", value="true"),
+                    ],
+                    env_from=[
+                        EnvFromSource(config_map_ref=ConfigMapRef(name="app-config")),
+                        EnvFromSource(secret_ref=SecretRef(name="app-secrets")),
+                    ],
+                )
+            ]
+        ),
+    )
+
+
 def build_workflow():
     return WorkflowTemplate(
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
@@ -206,6 +247,7 @@ def build_workflow():
 def api():
     return SimpleNamespace(
         deployment=InMemoryRepository([build_deployment()]),
+        pod=InMemoryRepository([build_pod()]),
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
         configmap=InMemoryRepository([build_configmap()]),
@@ -243,6 +285,34 @@ def test_deployment_env_vars(api):
     result = fetch_environment_values(
         kind=Kind.DEPLOYMENT,
         name="api-service",
+        api=api,
+    )
+
+    assert result == {
+        "APP_ENV": "local",
+        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+        "DATABASE_PORT": "5432",
+        "FEATURE_FLAG_NEW_UI": "true",
+        "LOG_LEVEL": "debug",
+        "MAX_CONNECTIONS": "20",
+        "SERVICE_TIMEOUT_MS": "3000",
+        "API_KEY": "myapikey123",
+        "DATABASE_PASSWORD": "secretpassword",
+        "JWT_SECRET": "jwt-secret-token-xyz",
+        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+        "S3_ACCESS_KEY": "s3-access-key-abc",
+        "DB_PASSWORD": "secretpassword",
+        "LOG_LEVEL_OVERRIDE": "debug",
+        "DIRECT_VALUE": "hello-from-api",
+        "API_VERSION": "v2",
+        "ENABLE_TRACING": "true",
+    }
+
+
+def test_pod_env_vars(api):
+    result = fetch_environment_values(
+        kind=Kind.POD,
+        name="api-pod",
         api=api,
     )
 
@@ -320,6 +390,25 @@ def test_deployment_with_multiple_containers_raises(api):
 
     with pytest.raises(AmbiguousResourceError, match="2 containers"):
         get_deployment_envs(name="api-service", api=api)
+
+
+def test_pod_not_found_raises(api):
+    with pytest.raises(ResourceNotFoundError, match="Pod missing"):
+        get_pod_envs(name="missing", api=api)
+
+
+def test_pod_with_multiple_containers_raises(api):
+    api.pod = InMemoryRepository(
+        [
+            Pod(
+                metadata=PodMetadata(name="api-pod", namespace=NS),
+                spec=PodSpec(containers=[Container(), Container()]),
+            )
+        ]
+    )
+
+    with pytest.raises(AmbiguousResourceError, match="2 containers"):
+        get_pod_envs(name="api-pod", api=api)
 
 
 def test_missing_configmap_in_env_from_is_skipped(api):

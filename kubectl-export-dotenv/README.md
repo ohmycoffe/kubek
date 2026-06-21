@@ -1,6 +1,6 @@
 # kubectl export-dotenv
 
-Export environment variables from Kubernetes Deployments, Argo WorkflowTemplates, ConfigMaps, and Secrets into a `.env` file or JSON format. Values from ConfigMap and Secret references are resolved from the cluster.
+Export environment variables from Kubernetes Deployments, Argo WorkflowTemplates, ConfigMaps, Secrets, and Pods into a `.env` file or JSON format. Values from ConfigMap and Secret references are resolved from the cluster.
 
 ## Usage
 
@@ -36,7 +36,7 @@ kubectl export-dotenv --kubeconfig ~/.kube/staging-config --context staging
 
 | Option | Default | Description |
 |---|---|---|
-| `--kind` | — | `deployment`, `workflowtemplate`, `configmap`, or `secret`. Prompted if omitted. |
+| `--kind` | — | `deployment`, `workflowtemplate`, `configmap`, `secret`, or `pod`. Prompted if omitted. |
 | `--namespace` | context namespace | Kubernetes namespace (`default` if unset in kubeconfig). |
 | `--context` | current | Kubernetes context from kubeconfig. |
 | `--kubeconfig` | — | Path to kubeconfig file (optional). |
@@ -46,7 +46,7 @@ kubectl export-dotenv --kubeconfig ~/.kube/staging-config --context staging
 
 ### Limitations
 
-- Deployments must have exactly one container.
+- Deployments and Pods must have exactly one container.
 - WorkflowTemplates: env vars are merged from all container templates.
 
 ## Examples

@@ -29,7 +29,13 @@ app = typer.Typer()
 @app.callback(invoke_without_command=True)
 def get(
     kind: Annotated[
-        Literal[Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE, Kind.CONFIGMAP, Kind.SECRET]
+        Literal[
+            Kind.DEPLOYMENT,
+            Kind.WORKFLOWTEMPLATE,
+            Kind.CONFIGMAP,
+            Kind.SECRET,
+            Kind.POD,
+        ]
         | None,
         typer.Option(
             case_sensitive=False,
@@ -164,6 +170,8 @@ def _select_resource_name(
             resources = api.configmap.list()
         elif kind == Kind.SECRET:
             resources = api.secret.list()
+        elif kind == Kind.POD:
+            resources = api.pod.list()
         else:
             raise UnsupportedResourceError(f"Unsupported kind: {kind}")
 
