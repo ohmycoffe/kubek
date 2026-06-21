@@ -9,6 +9,7 @@ from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
     resolve_daemonset_remote_port,
     resolve_deployment_remote_port,
+    resolve_job_remote_port,
     resolve_local_port,
     resolve_pod_remote_port,
     resolve_service_remote_port,
@@ -18,14 +19,17 @@ from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
     AmbiguousDaemonSetPortError,
     AmbiguousDeploymentPortError,
+    AmbiguousJobPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
     DaemonSetNotFoundError,
     DeploymentNotFoundError,
+    JobNotFoundError,
     MissingNamespaceError,
     NoDaemonSetPortsError,
     NoDeploymentPortsError,
+    NoJobPortsError,
     NoPodPortsError,
     NoServicePortsError,
     NoStatefulSetPortsError,
@@ -41,6 +45,7 @@ from portfwd.domain.models import (
 from portfwd_test_utils.fakes import (
     make_daemonset,
     make_deployment,
+    make_job,
     make_pod,
     make_statefulset,
 )
@@ -83,6 +88,7 @@ def _make_api(
     deployments=None,
     statefulsets=None,
     daemonsets=None,
+    jobs=None,
 ) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
@@ -94,6 +100,7 @@ def _make_api(
         (ns, name): sts for (ns, name), sts in (statefulsets or {}).items()
     }
     daemonsets_map = {(ns, name): ds for (ns, name), ds in (daemonsets or {}).items()}
+    jobs_map = {(ns, name): job for (ns, name), job in (jobs or {}).items()}
 
     class FakeServiceRepo:
         def get(self, name, namespace=None):
@@ -115,6 +122,10 @@ def _make_api(
         def get(self, name, namespace=None):
             return daemonsets_map.get((namespace, name))
 
+    class FakeJobRepo:
+        def get(self, name, namespace=None):
+            return jobs_map.get((namespace, name))
+
     return cast(
         KubeGateway,
         SimpleNamespace(
@@ -124,6 +135,7 @@ def _make_api(
             deployment=FakeDeploymentRepo(),
             statefulset=FakeStatefulSetRepo(),
             daemonset=FakeDaemonSetRepo(),
+            job=FakeJobRepo(),
         ),
     )
 
@@ -414,6 +426,41 @@ class TestBuildPortForwardPlan:
         with pytest.raises(DaemonSetNotFoundError):
             build_port_forward_plan(spec, api)
 
+    def test_resolves_remote_port_from_job(self):
+        """A job spec without a remote_port reads the single declared container port."""
+        job = make_job("migration", "ns", [[5432]])
+        api = _make_api(namespace="ns", jobs={("ns", "migration"): job})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.JOB, name="migration", namespace="ns"),
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.target.kind == TargetKind.JOB
+        assert plan.remote_port == 5432
+
+    def test_job_spec_explicit_port_used_directly(self):
+        """An explicit remote_port in the spec is forwarded unchanged for jobs."""
+        job = make_job("migration", "ns", [[5432]])
+        api = _make_api(namespace="ns", jobs={("ns", "migration"): job})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.JOB, name="migration", namespace="ns"),
+            remote_port=8080,
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.remote_port == 8080
+
+    def test_raises_when_job_not_found(self):
+        """JobNotFoundError is raised when the Job does not exist."""
+        api = _make_api(namespace="ns")
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.JOB, name="missing", namespace="ns"),
+            remote_port=80,
+            local_port=9000,
+        )
+        with pytest.raises(JobNotFoundError):
+            build_port_forward_plan(spec, api)
+
 
 class TestResolveDeploymentRemotePort:
     def test_returns_single_port(self):
@@ -485,3 +532,27 @@ class TestResolveDaemonSetRemotePort:
         daemonset = make_daemonset("agent", "ns", [[80, 2020]])
         with pytest.raises(AmbiguousDaemonSetPortError):
             resolve_daemonset_remote_port(daemonset)
+
+
+class TestResolveJobRemotePort:
+    def test_returns_single_port(self):
+        """Returns the container port when the job declares exactly one."""
+        job = make_job("migration", "ns", [[5432]])
+        assert resolve_job_remote_port(job) == 5432
+
+    def test_returns_single_unique_port_across_containers(self):
+        """Duplicate container ports across containers collapse to one unique port."""
+        job = make_job("migration", "ns", [[5432], [5432]])
+        assert resolve_job_remote_port(job) == 5432
+
+    def test_raises_when_no_ports(self):
+        """NoJobPortsError is raised when no container ports are declared."""
+        job = make_job("migration", "ns", [[]])
+        with pytest.raises(NoJobPortsError):
+            resolve_job_remote_port(job)
+
+    def test_raises_when_multiple_ports(self):
+        """AmbiguousJobPortError is raised when more than one port is declared."""
+        job = make_job("migration", "ns", [[80, 5432]])
+        with pytest.raises(AmbiguousJobPortError):
+            resolve_job_remote_port(job)

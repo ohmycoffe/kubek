@@ -1,6 +1,7 @@
 from .configmap import KubernetesConfigMapRepository
 from .daemonset import KubernetesDaemonSetRepository
 from .deployment import KubernetesDeploymentRepository
+from .job import KubernetesJobRepository
 from .namespace import KubernetesNamespaceRepository
 from .pod import KubernetesPodRepository
 from .secret import KubernetesSecretRepository
@@ -12,6 +13,7 @@ __all__ = [
     "KubernetesConfigMapRepository",
     "KubernetesDaemonSetRepository",
     "KubernetesDeploymentRepository",
+    "KubernetesJobRepository",
     "KubernetesNamespaceRepository",
     "KubernetesPodRepository",
     "KubernetesSecretRepository",

@@ -78,8 +78,20 @@ class AmbiguousDaemonSetPortError(PortForwardError):
     """A Kubernetes DaemonSet declares multiple container ports and none was selected."""
 
 
+class JobNotFoundError(PortForwardError):
+    """A Kubernetes Job was not found in the given namespace."""
+
+
+class NoJobPortsError(PortForwardError):
+    """A Kubernetes Job declares no container ports and none was specified."""
+
+
+class AmbiguousJobPortError(PortForwardError):
+    """A Kubernetes Job declares multiple container ports and none was selected."""
+
+
 class NoTargetsFoundError(PortForwardError):
-    """Target discovery returned no services, pods, deployments, statefulsets, or daemonsets for the selected namespaces."""
+    """Target discovery returned no services, pods, deployments, statefulsets, daemonsets, or jobs for the selected namespaces."""
 
 
 class NoSelectionError(PortForwardError):

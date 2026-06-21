@@ -17,6 +17,7 @@ from kubek.kube.contracts.repositories import (
     ConfigMapRepository,
     DaemonSetRepository,
     DeploymentRepository,
+    JobRepository,
     NamespaceRepository,
     PodRepository,
     SecretRepository,
@@ -45,6 +46,9 @@ class KubeGateway(Protocol):
 
     @property
     def daemonset(self) -> DaemonSetRepository: ...
+
+    @property
+    def job(self) -> JobRepository: ...
 
     @property
     def workflowtemplate(self) -> WorkflowTemplateRepository: ...
@@ -131,6 +135,21 @@ def get_daemonset_envs(name: str, api: KubeGateway) -> dict[str, str]:
         raise AmbiguousResourceError(
             f"DaemonSet {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
             "This tool only supports exporting env vars for daemonsets with a single container."
+        )
+    container = containers[0]
+    return extract_envs_from_container(api=api, container=container)
+
+
+def get_job_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    job = api.job.get(name=name, namespace=ns)
+    if not job:
+        raise ResourceNotFoundError(f"Job {name} not found in namespace {ns}")
+    containers = job.spec.template.spec.containers
+    if len(containers) != 1:
+        raise AmbiguousResourceError(
+            f"Job {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for jobs with a single container."
         )
     container = containers[0]
     return extract_envs_from_container(api=api, container=container)

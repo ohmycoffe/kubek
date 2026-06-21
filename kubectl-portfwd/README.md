@@ -10,6 +10,7 @@ kubectl portfwd -t kube-public/pod/worker-xyz                # forward a single 
 kubectl portfwd -t kube-public/deploy/my-app                 # forward a deployment
 kubectl portfwd -t kube-public/sts/my-db                     # forward a statefulset
 kubectl portfwd -t kube-public/ds/log-agent                  # forward a daemonset
+kubectl portfwd -t kube-public/job/data-migration            # forward a job
 kubectl portfwd -t kube-public/svc/auth-service:8080         # specify remote port explicitly
 kubectl portfwd -t kube-public/deploy/my-app:8080            # specify remote port for a deployment
 kubectl portfwd -t kube-public/svc/auth-service:8080::50000  # specify remote and local ports
@@ -21,8 +22,8 @@ kubectl portfwd --help                                       # full option refer
 ```
 
 `--file` and `--target` are mutually exclusive. Every target names its type
-explicitly with a `svc/`, `pod/`, `deploy/`, `sts/`, or `ds/` segment (aliases: `service`/`services`,
-`po`/`pods`, `deployment`/`deployments`, `statefulset`/`statefulsets`, `daemonset`/`daemonsets`); there is no implicit default.
+explicitly with a `svc/`, `pod/`, `deploy/`, `sts/`, `ds/`, or `job/` segment (aliases: `service`/`services`,
+`po`/`pods`, `deployment`/`deployments`, `statefulset`/`statefulsets`, `daemonset`/`daemonsets`, `jobs`); there is no implicit default.
 
 ### Context
 
@@ -59,10 +60,11 @@ ns-kubectl-portfwd/pod/nginx:80::50001
 ns-kubectl-portfwd/deploy/api:8080::50002
 ns-kubectl-portfwd/sts/redis:6379::50003
 ns-kubectl-portfwd/ds/log-agent:2020::50004
+ns-kubectl-portfwd/job/data-migration:5432::50005
 ```
 
-Each line uses the same format as `--target`: `[namespace/]type/name[:remote_port][::local_port]`, where `type` is `svc`, `pod`, `deploy`, `sts`, or `ds` (aliases: `service`/`services`, `po`/`pods`, `deployment`/`deployments`, `statefulset`/`statefulsets`, `daemonset`/`daemonsets`).
+Each line uses the same format as `--target`: `[namespace/]type/name[:remote_port][::local_port]`, where `type` is `svc`, `pod`, `deploy`, `sts`, `ds`, or `job` (aliases: `service`/`services`, `po`/`pods`, `deployment`/`deployments`, `statefulset`/`statefulsets`, `daemonset`/`daemonsets`, `jobs`).
 
-When ports are omitted, the remote port is read from the target (single-port services/pods/deployments/statefulsets/daemonsets only) and the local port is chosen automatically.
+When ports are omitted, the remote port is read from the target (single-port services/pods/deployments/statefulsets/daemonsets/jobs only) and the local port is chosen automatically.
 
 Interactive mode (no `--file` or `--target`) prompts for the types to forward, then namespaces, then the targets.

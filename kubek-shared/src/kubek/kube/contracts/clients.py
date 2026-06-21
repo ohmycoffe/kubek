@@ -51,6 +51,14 @@ class KubeClient(Protocol):
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
+    def get_jobs(self, namespace: str | None = None) -> KubeRawResponse: ...
+
+    def get_job(
+        self,
+        name: str,
+        namespace: str | None = None,
+    ) -> KubeRawResponse: ...
+
     def get_secrets(self, namespace: str | None = None) -> KubeRawResponse: ...
 
     def get_secret(

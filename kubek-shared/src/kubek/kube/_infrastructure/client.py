@@ -34,11 +34,13 @@ class KubeSession:
         *,
         core_v1: client.CoreV1Api,
         apps_v1: client.AppsV1Api,
+        batch_v1: client.BatchV1Api,
         custom: client.CustomObjectsApi,
         current_config: ResolvedKubeConfig,
     ) -> None:
         self.core_v1 = core_v1
         self.apps_v1 = apps_v1
+        self.batch_v1 = batch_v1
         self.custom = custom
         self.current_config = current_config
 
@@ -60,6 +62,7 @@ class KubeSession:
         return cls(
             core_v1=client.CoreV1Api(api),
             apps_v1=client.AppsV1Api(api),
+            batch_v1=client.BatchV1Api(api),
             custom=client.CustomObjectsApi(api),
             current_config=cls.__resolve_config(cfg),
         )
@@ -254,6 +257,22 @@ class KubernetesClient:
         """Get daemonset by name in the specified namespace."""
         ns = namespace or self.session.current_config.namespace
         res = self.session.apps_v1.read_namespaced_daemon_set(name, ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_jobs(self, namespace: str | None = None):
+        """List jobs in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.batch_v1.list_namespaced_job(ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_job(self, name: str, namespace: str | None = None):
+        """Get job by name in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.batch_v1.read_namespaced_job(name, ns)
         return res
 
     @as_dict

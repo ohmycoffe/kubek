@@ -25,6 +25,17 @@ from kubek.kube.dto.deployment import (
     Template,
     TemplateSpec,
 )
+from kubek.kube.dto.job import (
+    Job,
+    JobMetadata,
+    JobSpec,
+)
+from kubek.kube.dto.job import (
+    Template as JobTemplate,
+)
+from kubek.kube.dto.job import (
+    TemplateSpec as JobTemplateSpec,
+)
 from kubek.kube.dto.statefulset import (
     StatefulSet,
     StatefulSetMetadata,
@@ -84,11 +95,19 @@ def _build_daemonset() -> DaemonSet:
     )
 
 
+def _build_job() -> Job:
+    return Job(
+        metadata=JobMetadata(name="data-migration", namespace=NS),
+        spec=JobSpec(template=JobTemplate(spec=JobTemplateSpec(containers=[]))),
+    )
+
+
 def _create_api(
     *,
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
     daemonsets: list[DaemonSet] | None = None,
+    jobs: list[Job] | None = None,
 ):
     if deployments is None:
         deployments = [_build_deployment()]
@@ -96,6 +115,7 @@ def _create_api(
         deployment=_InMemoryRepository(deployments),
         statefulset=_InMemoryRepository(statefulsets or []),
         daemonset=_InMemoryRepository(daemonsets or []),
+        job=_InMemoryRepository(jobs or []),
         workflowtemplate=_InMemoryRepository([]),
         current_config=ResolvedKubeConfig(context="test", namespace=NS),
     )
@@ -229,6 +249,27 @@ def test_select_resource_name_lists_daemonsets():
     ask.assert_called_once_with(
         resources=["log-agent"],
         kind=Kind.DAEMONSET,
+    )
+
+
+def test_select_resource_name_lists_jobs():
+    """_select_resource_name lists Jobs from the job repo for the Job kind."""
+    api = _create_api(deployments=[], jobs=[_build_job()])
+
+    with patch(
+        "export_dotenv.cli.ask_for_resource",
+        return_value="data-migration",
+    ) as ask:
+        name = _select_resource_name(
+            out=create_output(),
+            kind=Kind.JOB,
+            api=api,
+        )
+
+    assert name == "data-migration"
+    ask.assert_called_once_with(
+        resources=["data-migration"],
+        kind=Kind.JOB,
     )
 
 

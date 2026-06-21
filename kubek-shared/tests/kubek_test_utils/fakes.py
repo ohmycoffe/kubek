@@ -60,6 +60,14 @@ class FakeKubeClient:
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.DAEMONSET, namespace)
 
+    def get_job(self, name, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_one(Kind.JOB, name, namespace)
+
+    def get_jobs(self, namespace=None):
+        namespace = namespace or self.current_config.namespace
+        return self._get_list(Kind.JOB, namespace)
+
     def get_secret(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.SECRET, name, namespace)

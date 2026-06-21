@@ -111,3 +111,17 @@ spec:
           image: fluent/fluent-bit:latest
           ports:
             - containerPort: 2020
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-migration
+spec:
+  template:
+    spec:
+      containers:
+        - name: data-migration
+          image: postgres:alpine
+          ports:
+            - containerPort: 5432
+      restartPolicy: Never

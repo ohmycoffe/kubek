@@ -1,18 +1,21 @@
-from kubek.kube import DaemonSet, Deployment, Pod, Service, StatefulSet
+from kubek.kube import DaemonSet, Deployment, Job, Pod, Service, StatefulSet
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
     AmbiguousDaemonSetPortError,
     AmbiguousDeploymentPortError,
+    AmbiguousJobPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
     DaemonSetNotFoundError,
     DeploymentNotFoundError,
+    JobNotFoundError,
     MissingNamespaceError,
     NoDaemonSetPortsError,
     NoDeploymentPortsError,
+    NoJobPortsError,
     NoPodPortsError,
     NoServicePortsError,
     NoStatefulSetPortsError,
@@ -239,12 +242,52 @@ def _remote_port_from_daemonset(
     return resolve_daemonset_remote_port(daemonset)
 
 
+def resolve_job_remote_port(job: Job) -> int:
+    """Pick the single declared container port of a Job or raise if ambiguous."""
+    ref = f"{job.metadata.namespace}/{job.metadata.name}"
+    ports = get_unique_ports(job.spec.template.spec.containers)
+    if not ports:
+        raise NoJobPortsError(
+            f'job "{ref}" declares no container ports; '
+            "specify one with :port in the job spec"
+        )
+    if len(ports) > 1:
+        port_list = ", ".join(str(p) for p in sorted(ports))
+        raise AmbiguousJobPortError(
+            f'job "{ref}" has multiple container ports ({port_list}); '
+            "specify one with :port in the job spec"
+        )
+    return min(ports)
+
+
+def _fetch_job(name: str, namespace: str, api: KubeGateway) -> Job:
+    """Fetch a job or raise JobNotFoundError."""
+    job = api.job.get(name=name, namespace=namespace)
+    if not job:
+        raise JobNotFoundError(f'job "{name}" not found in namespace "{namespace}"')
+    return job
+
+
+def _remote_port_from_job(
+    name: str,
+    namespace: str,
+    api: KubeGateway,
+    explicit_port: int | None,
+) -> int:
+    """Resolve the remote port for a job target."""
+    job = _fetch_job(name, namespace, api)
+    if explicit_port is not None:
+        return explicit_port
+    return resolve_job_remote_port(job)
+
+
 _REMOTE_PORT_BY_KIND = {
     TargetKind.SERVICE: _remote_port_from_service,
     TargetKind.POD: _remote_port_from_pod,
     TargetKind.DEPLOYMENT: _remote_port_from_deployment,
     TargetKind.STATEFULSET: _remote_port_from_statefulset,
     TargetKind.DAEMONSET: _remote_port_from_daemonset,
+    TargetKind.JOB: _remote_port_from_job,
 }
 
 

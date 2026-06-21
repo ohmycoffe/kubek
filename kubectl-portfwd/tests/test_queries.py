@@ -1,11 +1,12 @@
 from types import SimpleNamespace
 from typing import cast
 
-from kubek.kube.dto import DaemonSet, Deployment, Pod, Service, StatefulSet
+from kubek.kube.dto import DaemonSet, Deployment, Job, Pod, Service, StatefulSet
 from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import (
     fetch_daemonsets_for_namespaces,
     fetch_deployments_for_namespaces,
+    fetch_jobs_for_namespaces,
     fetch_pods_for_namespaces,
     fetch_services_for_namespaces,
     fetch_statefulsets_for_namespaces,
@@ -15,6 +16,7 @@ from portfwd.domain.models import TargetKind
 from portfwd_test_utils.fakes import (
     make_daemonset,
     make_deployment,
+    make_job,
     make_pod,
     make_statefulset,
 )
@@ -48,8 +50,13 @@ def _daemonset(name: str, namespace: str, container_ports: list[int]) -> DaemonS
     return make_daemonset(name, namespace, [container_ports])
 
 
+def _job(name: str, namespace: str, container_ports: list[int]) -> Job:
+    """One single-container job expressed in terms of make_job."""
+    return make_job(name, namespace, [container_ports])
+
+
 def _make_api(
-    service=None, pod=None, deployment=None, statefulset=None, daemonset=None
+    service=None, pod=None, deployment=None, statefulset=None, daemonset=None, job=None
 ) -> KubeGateway:
     """Minimal fake KubeGateway with optional repo attributes."""
     return cast(
@@ -60,6 +67,7 @@ def _make_api(
             deployment=deployment,
             statefulset=statefulset,
             daemonset=daemonset,
+            job=job,
         ),
     )
 
@@ -412,4 +420,76 @@ def test_fetch_targets_honors_daemonset_kind_filter():
 
     assert {(s.target.kind, s.target.name) for s in specs} == {
         (TargetKind.DAEMONSET, "agent")
+    }
+
+
+def test_fetch_jobs_for_namespaces_flattens_declared_container_ports():
+    """Jobs with declared container ports produce one spec per unique port; portless jobs are omitted."""
+    job_a = _job("worker", "ns-1", [9090])
+    job_b = _job("api", "ns-2", [8080, 8443])
+    job_no_ports = _job("sidecar", "ns-1", [])
+
+    class FakeJobRepo:
+        def list(self, namespace: str) -> list[Job]:
+            return {
+                "ns-1": [job_a, job_no_ports],
+                "ns-2": [job_b],
+            }.get(namespace, [])
+
+    api = _make_api(job=FakeJobRepo())
+    specs = fetch_jobs_for_namespaces(["ns-1", "ns-2"], api)
+
+    keys = [
+        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
+    ]
+    assert keys == [
+        (TargetKind.JOB, "ns-1", "worker", 9090),
+        (TargetKind.JOB, "ns-2", "api", 8080),
+        (TargetKind.JOB, "ns-2", "api", 8443),
+    ]
+
+
+def test_fetch_targets_includes_jobs():
+    """The combined picker returns jobs when that kind is selected."""
+    svc = _service("alpha", "ns-1", [80])
+    job = _job("migration", "ns-1", [5432])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeJobRepo:
+        def list(self, namespace: str) -> list[Job]:
+            return {"ns-1": [job]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), job=FakeJobRepo())
+    specs = fetch_targets_for_namespaces(
+        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.JOB]
+    )
+
+    kinds = {(s.target.kind, s.target.name) for s in specs}
+    assert kinds == {
+        (TargetKind.SERVICE, "alpha"),
+        (TargetKind.JOB, "migration"),
+    }
+
+
+def test_fetch_targets_honors_job_kind_filter():
+    """Only job specs are returned when kinds=[TargetKind.JOB]."""
+    svc = _service("alpha", "ns-1", [80])
+    job = _job("migration", "ns-1", [5432])
+
+    class FakeServiceRepo:
+        def list(self, namespace: str) -> list[Service]:
+            return {"ns-1": [svc]}.get(namespace, [])
+
+    class FakeJobRepo:
+        def list(self, namespace: str) -> list[Job]:
+            return {"ns-1": [job]}.get(namespace, [])
+
+    api = _make_api(service=FakeServiceRepo(), job=FakeJobRepo())
+    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.JOB])
+
+    assert {(s.target.kind, s.target.name) for s in specs} == {
+        (TargetKind.JOB, "migration")
     }

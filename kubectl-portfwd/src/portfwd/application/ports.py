@@ -6,6 +6,7 @@ from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.contracts.repositories import (
     DaemonSetRepository,
     DeploymentRepository,
+    JobRepository,
     NamespaceRepository,
     PodRepository,
     ServiceRepository,
@@ -47,6 +48,9 @@ class KubeGateway(Protocol):
 
     @property
     def daemonset(self) -> DaemonSetRepository: ...
+
+    @property
+    def job(self) -> JobRepository: ...
 
 
 class PortForwardSession(ABC):

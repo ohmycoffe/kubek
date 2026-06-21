@@ -200,6 +200,33 @@ spec:
             - name: DIRECT_VALUE
               value: "hello-from-dummy-daemonset"
 ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-migration
+spec:
+  template:
+    spec:
+      containers:
+        - name: data-migration
+          image: postgres:alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_PASSWORD
+            - name: DIRECT_VALUE
+              value: "hello-from-job"
+      restartPolicy: Never
+---
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:

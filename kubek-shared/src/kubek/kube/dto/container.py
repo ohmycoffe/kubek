@@ -113,4 +113,4 @@ class Container(BaseModel):
 
     env: list[EnvVar] | None = Field(default_factory=list)
     env_from: list[EnvFromSource] | None = Field(default_factory=list)
-    ports: list[ContainerPort] = Field(default_factory=list)
+    ports: list[ContainerPort] | None = Field(default_factory=list)

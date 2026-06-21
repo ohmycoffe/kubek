@@ -33,6 +33,17 @@ from kubek.kube.dto.deployment import (
     Template,
     TemplateSpec,
 )
+from kubek.kube.dto.job import (
+    Job,
+    JobMetadata,
+    JobSpec,
+)
+from kubek.kube.dto.job import (
+    Template as JobTemplate,
+)
+from kubek.kube.dto.job import (
+    TemplateSpec as JobTemplateSpec,
+)
 from kubek.kube.dto.namespace import Namespace, NamespaceMetadata
 from kubek.kube.dto.pod import Pod, PodMetadata, PodSpec
 from kubek.kube.dto.service import (
@@ -396,19 +407,53 @@ def build_daemonsets() -> list[DaemonSet]:
     ]
 
 
+def make_job(
+    name: str,
+    namespace: str = NAMESPACE,
+    container_ports: list[list[int]] | None = None,
+) -> Job:
+    """Build a Job; each inner list is one container's declared container ports."""
+    containers = [[]] if container_ports is None else container_ports
+    return Job(
+        metadata=JobMetadata(name=name, namespace=namespace),
+        spec=JobSpec(
+            template=JobTemplate(
+                spec=JobTemplateSpec(
+                    containers=[
+                        Container(
+                            ports=[ContainerPort(container_port=p) for p in ports]
+                        )
+                        for ports in containers
+                    ]
+                )
+            )
+        ),
+    )
+
+
+def build_jobs() -> list[Job]:
+    """Two jobs in the shared test namespace, each with one container port."""
+    return [
+        make_job("job-foo", container_ports=[[130]]),
+        make_job("job-bar", container_ports=[[140]]),
+    ]
+
+
 def make_fake_api(
     services: list[Service] | None = None,
     pods: list[Pod] | None = None,
     deployments: list[Deployment] | None = None,
     statefulsets: list[StatefulSet] | None = None,
     daemonsets: list[DaemonSet] | None = None,
+    jobs: list[Job] | None = None,
 ) -> KubeGateway:
-    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments/statefulsets/daemonsets."""
+    """An in-memory KubeGateway backed by the given (or default) services/pods/deployments/statefulsets/daemonsets/jobs."""
     services = build_services() if services is None else services
     pods = build_pods() if pods is None else pods
     deployments = build_deployments() if deployments is None else deployments
     statefulsets = build_statefulsets() if statefulsets is None else statefulsets
     daemonsets = build_daemonsets() if daemonsets is None else daemonsets
+    jobs = build_jobs() if jobs is None else jobs
     namespace = Namespace(metadata=NamespaceMetadata(name=NAMESPACE))
     return cast(
         KubeGateway,
@@ -419,6 +464,7 @@ def make_fake_api(
             deployment=_InMemoryRepository(deployments),
             statefulset=_InMemoryRepository(statefulsets),
             daemonset=_InMemoryRepository(daemonsets),
+            job=_InMemoryRepository(jobs),
             current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
         ),
     )

@@ -107,6 +107,22 @@ def _api_response(payload: dict) -> MagicMock:
             ("agent", "default"),
         ),
         (
+            "get_jobs",
+            "batch_v1",
+            "list_namespaced_job",
+            (),
+            {},
+            ("default",),
+        ),
+        (
+            "get_job",
+            "batch_v1",
+            "read_namespaced_job",
+            ("worker",),
+            {},
+            ("worker", "default"),
+        ),
+        (
             "get_secrets",
             "core_v1",
             "list_namespaced_secret",

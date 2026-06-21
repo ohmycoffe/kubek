@@ -5,6 +5,7 @@ from kubek.kube._infrastructure import (
     KubernetesConfigMapRepository,
     KubernetesDaemonSetRepository,
     KubernetesDeploymentRepository,
+    KubernetesJobRepository,
     KubernetesNamespaceRepository,
     KubernetesPodRepository,
     KubernetesSecretRepository,
@@ -26,6 +27,7 @@ class KubeFacade:
         deployment: KubernetesDeploymentRepository,
         statefulset: KubernetesStatefulSetRepository,
         daemonset: KubernetesDaemonSetRepository,
+        job: KubernetesJobRepository,
         service: KubernetesServiceRepository,
         pod: KubernetesPodRepository,
         workflowtemplate: KubernetesWorkflowTemplateRepository,
@@ -36,6 +38,7 @@ class KubeFacade:
         self.deployment = deployment
         self.statefulset = statefulset
         self.daemonset = daemonset
+        self.job = job
         self.service = service
         self.pod = pod
         self.workflowtemplate = workflowtemplate
@@ -57,6 +60,7 @@ class KubeFacade:
             deployment=KubernetesDeploymentRepository(client),
             statefulset=KubernetesStatefulSetRepository(client),
             daemonset=KubernetesDaemonSetRepository(client),
+            job=KubernetesJobRepository(client),
             service=KubernetesServiceRepository(client),
             pod=KubernetesPodRepository(client),
             workflowtemplate=KubernetesWorkflowTemplateRepository(client),
