@@ -1,4 +1,4 @@
-from kubek.kube import Deployment, Pod, Service
+from kubek.kube import Deployment, Pod, Service, StatefulSet
 from kubek.net import find_free_port, get_deterministic_port, is_port_free
 from portfwd.application.port_forwarding.containers import get_unique_ports
 from portfwd.application.ports import KubeGateway
@@ -6,13 +6,16 @@ from portfwd.domain.errors import (
     AmbiguousDeploymentPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
+    AmbiguousStatefulSetPortError,
     DeploymentNotFoundError,
     MissingNamespaceError,
     NoDeploymentPortsError,
     NoPodPortsError,
     NoServicePortsError,
+    NoStatefulSetPortsError,
     PodNotFoundError,
     ServiceNotFoundError,
+    StatefulSetNotFoundError,
 )
 from portfwd.domain.models import (
     PortForwardPlan,
@@ -151,10 +154,52 @@ def _remote_port_from_deployment(
     return resolve_deployment_remote_port(deployment)
 
 
+def resolve_statefulset_remote_port(statefulset: StatefulSet) -> int:
+    """Pick the single declared container port of a StatefulSet or raise if ambiguous."""
+    ref = f"{statefulset.metadata.namespace}/{statefulset.metadata.name}"
+    ports = get_unique_ports(statefulset.spec.template.spec.containers)
+    if not ports:
+        raise NoStatefulSetPortsError(
+            f'statefulset "{ref}" declares no container ports; '
+            "specify one with :port in the statefulset spec"
+        )
+    if len(ports) > 1:
+        port_list = ", ".join(str(p) for p in sorted(ports))
+        raise AmbiguousStatefulSetPortError(
+            f'statefulset "{ref}" has multiple container ports ({port_list}); '
+            "specify one with :port in the statefulset spec"
+        )
+    return min(ports)
+
+
+def _fetch_statefulset(name: str, namespace: str, api: KubeGateway) -> StatefulSet:
+    """Fetch a statefulset or raise StatefulSetNotFoundError."""
+    statefulset = api.statefulset.get(name=name, namespace=namespace)
+    if not statefulset:
+        raise StatefulSetNotFoundError(
+            f'statefulset "{name}" not found in namespace "{namespace}"'
+        )
+    return statefulset
+
+
+def _remote_port_from_statefulset(
+    name: str,
+    namespace: str,
+    api: KubeGateway,
+    explicit_port: int | None,
+) -> int:
+    """Resolve the remote port for a statefulset target."""
+    statefulset = _fetch_statefulset(name, namespace, api)
+    if explicit_port is not None:
+        return explicit_port
+    return resolve_statefulset_remote_port(statefulset)
+
+
 _REMOTE_PORT_BY_KIND = {
     TargetKind.SERVICE: _remote_port_from_service,
     TargetKind.POD: _remote_port_from_pod,
     TargetKind.DEPLOYMENT: _remote_port_from_deployment,
+    TargetKind.STATEFULSET: _remote_port_from_statefulset,
 }
 
 

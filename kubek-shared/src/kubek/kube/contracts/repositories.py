@@ -7,6 +7,7 @@ from kubek.kube.dto.namespace import Namespace
 from kubek.kube.dto.pod import Pod
 from kubek.kube.dto.secret import Secret
 from kubek.kube.dto.service import Service
+from kubek.kube.dto.statefulset import StatefulSet
 
 
 class ConfigMapRepository(Protocol):
@@ -37,6 +38,11 @@ class SecretRepository(Protocol):
 class ServiceRepository(Protocol):
     def list(self, namespace: str | None = None) -> list[Service]: ...
     def get(self, name: str, namespace: str | None = None) -> Service | None: ...
+
+
+class StatefulSetRepository(Protocol):
+    def list(self, namespace: str | None = None) -> list[StatefulSet]: ...
+    def get(self, name: str, namespace: str | None = None) -> StatefulSet | None: ...
 
 
 class WorkflowTemplateRepository(Protocol):

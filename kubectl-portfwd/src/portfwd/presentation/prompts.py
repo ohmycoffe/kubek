@@ -24,6 +24,10 @@ def ask_for_kinds() -> list[TargetKind]:
             title="Deployments",
             value=TargetKind.DEPLOYMENT,
         ),
+        questionary.Choice(
+            title="StatefulSets",
+            value=TargetKind.STATEFULSET,
+        ),
     ]
     return questionary.checkbox(
         "Select resource types to forward:",

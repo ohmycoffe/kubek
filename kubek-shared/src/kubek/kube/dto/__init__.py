@@ -6,6 +6,7 @@ from .namespace import Namespace
 from .pod import Pod, PodList
 from .secret import Secret
 from .service import Service, ServiceList
+from .statefulset import StatefulSet, StatefulSetList
 from .workflowtemplate import (
     WorkflowTemplate,
     WorkflowTemplateList,
@@ -26,6 +27,8 @@ __all__ = [
     "WorkflowTemplateList",
     "Service",
     "ServiceList",
+    "StatefulSet",
+    "StatefulSetList",
     "ConfigMapList",
     "WorkflowTemplateType",
 ]

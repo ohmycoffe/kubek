@@ -11,26 +11,30 @@ from portfwd.application.port_forwarding.planner import (
     resolve_local_port,
     resolve_pod_remote_port,
     resolve_service_remote_port,
+    resolve_statefulset_remote_port,
 )
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
     AmbiguousDeploymentPortError,
     AmbiguousPodPortError,
     AmbiguousServicePortError,
+    AmbiguousStatefulSetPortError,
     DeploymentNotFoundError,
     MissingNamespaceError,
     NoDeploymentPortsError,
     NoPodPortsError,
     NoServicePortsError,
+    NoStatefulSetPortsError,
     PodNotFoundError,
     ServiceNotFoundError,
+    StatefulSetNotFoundError,
 )
 from portfwd.domain.models import (
     PortForwardSpec,
     TargetKind,
     TargetRef,
 )
-from portfwd_test_utils.fakes import make_deployment, make_pod
+from portfwd_test_utils.fakes import make_deployment, make_pod, make_statefulset
 
 _FALLBACK_PORT = 50_000
 _SVC_DETERMINISTIC_PORT = get_deterministic_port(
@@ -64,13 +68,16 @@ def _make_service(name: str, namespace: str, ports: list[int]) -> Service:
 
 
 def _make_api(
-    namespace=None, services=None, pods=None, deployments=None
+    namespace=None, services=None, pods=None, deployments=None, statefulsets=None
 ) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
     pods_map = {(ns, name): pod for (ns, name), pod in (pods or {}).items()}
     deployments_map = {
         (ns, name): dep for (ns, name), dep in (deployments or {}).items()
+    }
+    statefulsets_map = {
+        (ns, name): sts for (ns, name), sts in (statefulsets or {}).items()
     }
 
     class FakeServiceRepo:
@@ -85,6 +92,10 @@ def _make_api(
         def get(self, name, namespace=None):
             return deployments_map.get((namespace, name))
 
+    class FakeStatefulSetRepo:
+        def get(self, name, namespace=None):
+            return statefulsets_map.get((namespace, name))
+
     return cast(
         KubeGateway,
         SimpleNamespace(
@@ -92,6 +103,7 @@ def _make_api(
             service=FakeServiceRepo(),
             pod=FakePodRepo(),
             deployment=FakeDeploymentRepo(),
+            statefulset=FakeStatefulSetRepo(),
         ),
     )
 
@@ -310,6 +322,43 @@ class TestBuildPortForwardPlan:
         with pytest.raises(DeploymentNotFoundError):
             build_port_forward_plan(spec, api)
 
+    def test_resolves_remote_port_from_statefulset(self):
+        """A statefulset spec without a remote_port reads the single declared container port."""
+        statefulset = make_statefulset("cache", "ns", [[6379]])
+        api = _make_api(namespace="ns", statefulsets={("ns", "cache"): statefulset})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.STATEFULSET, name="cache", namespace="ns"),
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.target.kind == TargetKind.STATEFULSET
+        assert plan.remote_port == 6379
+
+    def test_statefulset_spec_explicit_port_used_directly(self):
+        """An explicit remote_port in the spec is forwarded unchanged for statefulsets."""
+        statefulset = make_statefulset("cache", "ns", [[6379]])
+        api = _make_api(namespace="ns", statefulsets={("ns", "cache"): statefulset})
+        spec = PortForwardSpec(
+            target=TargetRef(kind=TargetKind.STATEFULSET, name="cache", namespace="ns"),
+            remote_port=8080,
+            local_port=9000,
+        )
+        plan = build_port_forward_plan(spec, api)
+        assert plan.remote_port == 8080
+
+    def test_raises_when_statefulset_not_found(self):
+        """StatefulSetNotFoundError is raised when the StatefulSet does not exist."""
+        api = _make_api(namespace="ns")
+        spec = PortForwardSpec(
+            target=TargetRef(
+                kind=TargetKind.STATEFULSET, name="missing", namespace="ns"
+            ),
+            remote_port=80,
+            local_port=9000,
+        )
+        with pytest.raises(StatefulSetNotFoundError):
+            build_port_forward_plan(spec, api)
+
 
 class TestResolveDeploymentRemotePort:
     def test_returns_single_port(self):
@@ -333,3 +382,27 @@ class TestResolveDeploymentRemotePort:
         deployment = make_deployment("api", "ns", [[80, 8080]])
         with pytest.raises(AmbiguousDeploymentPortError):
             resolve_deployment_remote_port(deployment)
+
+
+class TestResolveStatefulSetRemotePort:
+    def test_returns_single_port(self):
+        """Returns the container port when the statefulset declares exactly one."""
+        statefulset = make_statefulset("cache", "ns", [[6379]])
+        assert resolve_statefulset_remote_port(statefulset) == 6379
+
+    def test_returns_single_unique_port_across_containers(self):
+        """Duplicate container ports across containers collapse to one unique port."""
+        statefulset = make_statefulset("cache", "ns", [[6379], [6379]])
+        assert resolve_statefulset_remote_port(statefulset) == 6379
+
+    def test_raises_when_no_ports(self):
+        """NoStatefulSetPortsError is raised when no container ports are declared."""
+        statefulset = make_statefulset("cache", "ns", [[]])
+        with pytest.raises(NoStatefulSetPortsError):
+            resolve_statefulset_remote_port(statefulset)
+
+    def test_raises_when_multiple_ports(self):
+        """AmbiguousStatefulSetPortError is raised when more than one port is declared."""
+        statefulset = make_statefulset("cache", "ns", [[80, 6379]])
+        with pytest.raises(AmbiguousStatefulSetPortError):
+            resolve_statefulset_remote_port(statefulset)

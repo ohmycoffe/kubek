@@ -10,7 +10,12 @@ QUESTIONARY_STYLE = Style(DEFAULT_QUESTIONARY_THEME)
 
 def ask_for_kind() -> (
     Literal[
-        Kind.DEPLOYMENT, Kind.WORKFLOWTEMPLATE, Kind.CONFIGMAP, Kind.SECRET, Kind.POD
+        Kind.DEPLOYMENT,
+        Kind.STATEFULSET,
+        Kind.WORKFLOWTEMPLATE,
+        Kind.CONFIGMAP,
+        Kind.SECRET,
+        Kind.POD,
     ]
     | None
 ):
@@ -21,6 +26,16 @@ def ask_for_kind() -> (
                 title="Deployment",
                 value=Kind.DEPLOYMENT,
                 description="(Kubernetes Deployment)",
+            ),
+            questionary.Choice(
+                title="StatefulSet",
+                value=Kind.STATEFULSET,
+                description="(Kubernetes StatefulSet)",
+            ),
+            questionary.Choice(
+                title="WorkflowTemplate",
+                value=Kind.WORKFLOWTEMPLATE,
+                description="(Argo WorkflowTemplate)",
             ),
             questionary.Choice(
                 title="ConfigMap",
@@ -36,11 +51,6 @@ def ask_for_kind() -> (
                 title="Secret",
                 value=Kind.SECRET,
                 description="(Kubernetes Secret)",
-            ),
-            questionary.Choice(
-                title="WorkflowTemplate",
-                value=Kind.WORKFLOWTEMPLATE,
-                description="(Argo WorkflowTemplate)",
             ),
         ],
         use_jk_keys=False,

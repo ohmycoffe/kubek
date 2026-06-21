@@ -6,6 +6,7 @@ from .repositories import (
     KubernetesPodRepository,
     KubernetesSecretRepository,
     KubernetesServiceRepository,
+    KubernetesStatefulSetRepository,
     KubernetesWorkflowTemplateRepository,
 )
 
@@ -16,6 +17,7 @@ __all__ = [
     "KubernetesPodRepository",
     "KubernetesSecretRepository",
     "KubernetesServiceRepository",
+    "KubernetesStatefulSetRepository",
     "KubernetesWorkflowTemplateRepository",
     "KubernetesClient",
 ]

@@ -19,6 +19,7 @@ from kubek.kube.contracts.repositories import (
     NamespaceRepository,
     PodRepository,
     SecretRepository,
+    StatefulSetRepository,
     WorkflowTemplateRepository,
 )
 
@@ -37,6 +38,9 @@ class KubeGateway(Protocol):
 
     @property
     def deployment(self) -> DeploymentRepository: ...
+
+    @property
+    def statefulset(self) -> StatefulSetRepository: ...
 
     @property
     def workflowtemplate(self) -> WorkflowTemplateRepository: ...
@@ -93,6 +97,21 @@ def get_pod_envs(name: str, api: KubeGateway) -> dict[str, str]:
         raise AmbiguousResourceError(
             f"Pod {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
             "This tool only supports exporting env vars for pods with a single container."
+        )
+    container = containers[0]
+    return extract_envs_from_container(api=api, container=container)
+
+
+def get_statefulset_envs(name: str, api: KubeGateway) -> dict[str, str]:
+    ns = api.current_config.namespace
+    statefulset = api.statefulset.get(name=name, namespace=ns)
+    if not statefulset:
+        raise ResourceNotFoundError(f"StatefulSet {name} not found in namespace {ns}")
+    containers = statefulset.spec.template.spec.containers
+    if len(containers) != 1:
+        raise AmbiguousResourceError(
+            f"StatefulSet {name} in namespace {ns} has {len(containers)} containers, expected exactly 1. "
+            "This tool only supports exporting env vars for statefulsets with a single container."
         )
     container = containers[0]
     return extract_envs_from_container(api=api, container=container)

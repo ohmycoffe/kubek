@@ -14,6 +14,17 @@ from kubek.kube.dto.deployment import (
     Template,
     TemplateSpec,
 )
+from kubek.kube.dto.statefulset import (
+    StatefulSet,
+    StatefulSetMetadata,
+    StatefulSetSpec,
+)
+from kubek.kube.dto.statefulset import (
+    Template as StatefulSetTemplate,
+)
+from kubek.kube.dto.statefulset import (
+    TemplateSpec as StatefulSetTemplateSpec,
+)
 from kubek.kube.dto.workflowtemplate.template import ContainerTemplate
 from kubek.kube.dto.workflowtemplate.workflowtemplate import (
     Metadata as WorkflowMetadata,
@@ -44,11 +55,25 @@ def _build_deployment() -> Deployment:
     )
 
 
-def _create_api(*, deployments: list[Deployment] | None = None):
+def _build_statefulset() -> StatefulSet:
+    return StatefulSet(
+        metadata=StatefulSetMetadata(name="cache-service", namespace=NS),
+        spec=StatefulSetSpec(
+            template=StatefulSetTemplate(spec=StatefulSetTemplateSpec(containers=[]))
+        ),
+    )
+
+
+def _create_api(
+    *,
+    deployments: list[Deployment] | None = None,
+    statefulsets: list[StatefulSet] | None = None,
+):
     if deployments is None:
         deployments = [_build_deployment()]
     return SimpleNamespace(
         deployment=_InMemoryRepository(deployments),
+        statefulset=_InMemoryRepository(statefulsets or []),
         workflowtemplate=_InMemoryRepository([]),
         current_config=ResolvedKubeConfig(context="test", namespace=NS),
     )
@@ -140,6 +165,27 @@ def test_select_resource_name_lists_workflowtemplates():
     ask.assert_called_once_with(
         resources=["data-processor"],
         kind=Kind.WORKFLOWTEMPLATE,
+    )
+
+
+def test_select_resource_name_lists_statefulsets():
+    """_select_resource_name lists StatefulSets from the statefulset repo for the StatefulSet kind."""
+    api = _create_api(deployments=[], statefulsets=[_build_statefulset()])
+
+    with patch(
+        "export_dotenv.cli.ask_for_resource",
+        return_value="cache-service",
+    ) as ask:
+        name = _select_resource_name(
+            out=create_output(),
+            kind=Kind.STATEFULSET,
+            api=api,
+        )
+
+    assert name == "cache-service"
+    ask.assert_called_once_with(
+        resources=["cache-service"],
+        kind=Kind.STATEFULSET,
     )
 
 

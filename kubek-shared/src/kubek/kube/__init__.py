@@ -5,6 +5,7 @@ from kubek.kube._infrastructure import (
     KubernetesPodRepository,
     KubernetesSecretRepository,
     KubernetesServiceRepository,
+    KubernetesStatefulSetRepository,
     KubernetesWorkflowTemplateRepository,
 )
 from kubek.kube.api import KubeFacade
@@ -18,6 +19,7 @@ from kubek.kube.dto import (
     Pod,
     Secret,
     Service,
+    StatefulSet,
     WorkflowTemplate,
     WorkflowTemplateType,
 )
@@ -36,6 +38,7 @@ __all__ = [
     "WorkflowTemplate",
     "Namespace",
     "Deployment",
+    "StatefulSet",
     "Secret",
     "ConfigMap",
     "Container",
@@ -48,5 +51,6 @@ __all__ = [
     "KubernetesPodRepository",
     "KubernetesSecretRepository",
     "KubernetesServiceRepository",
+    "KubernetesStatefulSetRepository",
     "KubernetesWorkflowTemplateRepository",
 ]

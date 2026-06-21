@@ -8,6 +8,7 @@ from kubek.kube._infrastructure import (
     KubernetesPodRepository,
     KubernetesSecretRepository,
     KubernetesServiceRepository,
+    KubernetesStatefulSetRepository,
     KubernetesWorkflowTemplateRepository,
 )
 from kubek.kube.config import KubeConfig, ResolvedKubeConfig
@@ -22,6 +23,7 @@ class KubeFacade:
         current_config: ResolvedKubeConfig,
         namespace: KubernetesNamespaceRepository,
         deployment: KubernetesDeploymentRepository,
+        statefulset: KubernetesStatefulSetRepository,
         service: KubernetesServiceRepository,
         pod: KubernetesPodRepository,
         workflowtemplate: KubernetesWorkflowTemplateRepository,
@@ -30,6 +32,7 @@ class KubeFacade:
     ):
         self.namespace = namespace
         self.deployment = deployment
+        self.statefulset = statefulset
         self.service = service
         self.pod = pod
         self.workflowtemplate = workflowtemplate
@@ -49,6 +52,7 @@ class KubeFacade:
             current_config=client.current_config,
             namespace=KubernetesNamespaceRepository(client),
             deployment=KubernetesDeploymentRepository(client),
+            statefulset=KubernetesStatefulSetRepository(client),
             service=KubernetesServiceRepository(client),
             pod=KubernetesPodRepository(client),
             workflowtemplate=KubernetesWorkflowTemplateRepository(client),

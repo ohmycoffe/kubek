@@ -75,6 +75,22 @@ def _api_response(payload: dict) -> MagicMock:
             ("web", "default"),
         ),
         (
+            "get_statefulsets",
+            "apps_v1",
+            "list_namespaced_stateful_set",
+            (),
+            {},
+            ("default",),
+        ),
+        (
+            "get_statefulset",
+            "apps_v1",
+            "read_namespaced_stateful_set",
+            ("db",),
+            {},
+            ("db", "default"),
+        ),
+        (
             "get_secrets",
             "core_v1",
             "list_namespaced_secret",

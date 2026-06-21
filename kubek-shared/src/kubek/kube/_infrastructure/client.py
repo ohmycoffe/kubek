@@ -226,6 +226,22 @@ class KubernetesClient:
 
     @as_dict
     @safe
+    def get_statefulsets(self, namespace: str | None = None):
+        """List statefulsets in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.apps_v1.list_namespaced_stateful_set(ns)
+        return res
+
+    @as_dict
+    @safe
+    def get_statefulset(self, name: str, namespace: str | None = None):
+        """Get statefulset by name in the specified namespace."""
+        ns = namespace or self.session.current_config.namespace
+        res = self.session.apps_v1.read_namespaced_stateful_set(name, ns)
+        return res
+
+    @as_dict
+    @safe
     def get_secret(self, name: str, namespace: str | None = None):
         ns = namespace or self.session.current_config.namespace
         res = self.session.core_v1.read_namespaced_secret(name, ns)

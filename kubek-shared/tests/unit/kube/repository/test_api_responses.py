@@ -12,6 +12,9 @@ from kubek.kube._infrastructure.repositories.namespace import (
     KubernetesNamespaceRepository,
 )
 from kubek.kube._infrastructure.repositories.secret import KubernetesSecretRepository
+from kubek.kube._infrastructure.repositories.statefulset import (
+    KubernetesStatefulSetRepository,
+)
 from kubek.kube._infrastructure.repositories.workflowtemplate import (
     KubernetesWorkflowTemplateRepository,
 )
@@ -64,6 +67,12 @@ def real_data_client():
         name = item["metadata"]["name"]
         client.add_namespaced_resource(Kind.DEPLOYMENT, name, item, namespace=ns)
 
+    # Add statefulsets
+    for item in _load_json("StatefulSet.json"):
+        ns = item["metadata"]["namespace"]
+        name = item["metadata"]["name"]
+        client.add_namespaced_resource(Kind.STATEFULSET, name, item, namespace=ns)
+
     # Add services
     for item in _load_json("Service.json"):
         ns = item["metadata"]["namespace"]
@@ -114,6 +123,30 @@ class TestRepositoriesWithRealData:
 
         api = next(d for d in result if d.metadata.name == "api-service")
         container = api.spec.template.spec.containers[0]
+
+        assert container.env_from
+        assert any(e.config_map_ref for e in container.env_from)
+        assert any(e.secret_ref for e in container.env_from)
+
+        assert container.env
+        assert any(e.name == "DB_PASSWORD" for e in container.env)
+        assert any(e.name == "DIRECT_VALUE" for e in container.env)
+
+    def test_statefulset_names(self, real_data_client):
+        repo = KubernetesStatefulSetRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        assert {s.metadata.name for s in result} == {
+            "cache-service",
+            "dummy-statefulset",
+        }
+
+    def test_statefulset_env_parsing(self, real_data_client):
+        repo = KubernetesStatefulSetRepository(real_data_client)
+        result = repo.list(namespace=self.NS)
+
+        cache = next(s for s in result if s.metadata.name == "cache-service")
+        container = cache.spec.template.spec.containers[0]
 
         assert container.env_from
         assert any(e.config_map_ref for e in container.env_from)
