@@ -3,6 +3,9 @@ from __future__ import annotations
 import datetime
 import enum
 import json
+from dataclasses import asdict
+
+from export_dotenv.kube.env_fetchers import EnvironmentValues
 
 
 class ExportFormat(enum.StrEnum):
@@ -10,19 +13,22 @@ class ExportFormat(enum.StrEnum):
     JSON = "json"
 
 
-def export_as_dotenv(vals: dict[str, str], name: str | None) -> str:
-    sorted_list = sorted(vals.items(), key=lambda x: x[0])
+def export_as_dotenv(vals: list[EnvironmentValues], name: str | None) -> str:
     res = []
     if name:
         now = datetime.datetime.now().isoformat(timespec="seconds")
         res.append(f"# {name} @ {now}")
-    for key, value in sorted_list:
-        res.append(f"{key}={value}")
+    for container_envs in vals:
+        if len(vals) > 1:
+            res.append(f"# container: {container_envs.name}")
+        sorted_list = sorted(container_envs.values.items(), key=lambda x: x[0])
+        for key, value in sorted_list:
+            res.append(f"{key}={value}")
     return "\n".join(res)
 
 
 def format_environment_values(
-    values: dict[str, str],
+    values: list[EnvironmentValues],
     output: ExportFormat,
     name: str | None = None,
 ) -> str:
@@ -36,9 +42,10 @@ def format_environment_values(
 
     if output == ExportFormat.JSON:
         return json.dumps(
-            obj=values,
+            obj=[asdict(val) for val in values],
             sort_keys=True,
             indent=2,
+            default=str,
         )
 
     if output == ExportFormat.ENV:

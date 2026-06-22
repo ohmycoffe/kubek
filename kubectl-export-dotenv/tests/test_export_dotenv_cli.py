@@ -240,7 +240,7 @@ def test_select_resource_name_lists_workflowtemplates():
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
         spec=WorkflowSpec(
             templates=[
-                ContainerTemplate(name="main", container=Container()),
+                ContainerTemplate(name="main", container=Container(name="main")),
             ]
         ),
     )

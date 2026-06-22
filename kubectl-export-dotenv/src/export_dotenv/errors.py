@@ -10,10 +10,6 @@ class NoResourcesFoundError(ExportDotenvError):
     """No Kubernetes resources found."""
 
 
-class AmbiguousResourceError(ExportDotenvError):
-    """Multiple resources matched when one was expected."""
-
-
 class UnsupportedKindError(ExportDotenvError):
     """Resource kind is not supported."""
 

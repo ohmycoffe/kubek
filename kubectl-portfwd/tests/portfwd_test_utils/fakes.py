@@ -296,8 +296,11 @@ def make_pod(
         metadata=PodMetadata(name=name, namespace=namespace),
         spec=PodSpec(
             containers=[
-                Container(ports=[ContainerPort(container_port=p) for p in ports])
-                for ports in containers
+                Container(
+                    name=f"container-{idx}",
+                    ports=[ContainerPort(container_port=p) for p in ports],
+                )
+                for idx, ports in enumerate(containers)
             ]
         ),
     )
@@ -325,9 +328,10 @@ def make_deployment(
                 spec=TemplateSpec(
                     containers=[
                         Container(
-                            ports=[ContainerPort(container_port=p) for p in ports]
+                            name=f"container-{idx}",
+                            ports=[ContainerPort(container_port=p) for p in ports],
                         )
-                        for ports in containers
+                        for idx, ports in enumerate(containers)
                     ]
                 )
             )
@@ -357,9 +361,10 @@ def make_statefulset(
                 spec=StatefulSetTemplateSpec(
                     containers=[
                         Container(
-                            ports=[ContainerPort(container_port=p) for p in ports]
+                            name=f"container-{idx}",
+                            ports=[ContainerPort(container_port=p) for p in ports],
                         )
-                        for ports in containers
+                        for idx, ports in enumerate(containers)
                     ]
                 )
             )
@@ -389,9 +394,10 @@ def make_daemonset(
                 spec=DaemonSetTemplateSpec(
                     containers=[
                         Container(
-                            ports=[ContainerPort(container_port=p) for p in ports]
+                            name=f"container-{idx}",
+                            ports=[ContainerPort(container_port=p) for p in ports],
                         )
-                        for ports in containers
+                        for idx, ports in enumerate(containers)
                     ]
                 )
             )
@@ -421,9 +427,10 @@ def make_replicaset(
                 spec=ReplicaSetTemplateSpec(
                     containers=[
                         Container(
-                            ports=[ContainerPort(container_port=p) for p in ports]
+                            name=f"container-{idx}",
+                            ports=[ContainerPort(container_port=p) for p in ports],
                         )
-                        for ports in containers
+                        for idx, ports in enumerate(containers)
                     ]
                 )
             )
