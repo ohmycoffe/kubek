@@ -32,7 +32,7 @@ kubectl portfwd -t ns1/svc/auth-service -t ns2/pod/worker-xyz # via CLI options 
 kubectl portfwd -f .portfwd-plan # via spec file (no prompts)
 ```
 
-![portfwd demo](https://github.com/user-attachments/assets/a4686a82-b1d6-46ef-99bc-88fbbfe31c79)
+![portfwd demo](https://github.com/user-attachments/assets/08a1decc-d957-451e-856f-560a9ff062f5)
 | Resource | Status |
 |---|:---|
 | CronJob | ✅ |
@@ -63,7 +63,7 @@ kubectl export-dotenv --kind deployment --name my-service --namespace prod > .en
 kubectl export-dotenv --kind workflowtemplate --name my-workflow --output json
 ```
 
-![export-dotenv demo](https://github.com/user-attachments/assets/420e1004-71f0-457e-aa83-44dbf828011e)
+![export-dotenv demo](https://github.com/user-attachments/assets/4317e7dd-a8ec-42cd-b6d8-b1ee34b942d6)
 
 #### Supported Resources
 
