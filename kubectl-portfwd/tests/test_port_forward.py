@@ -7,10 +7,8 @@ from kubek.kube.dto.service import Service
 from kubek.net import get_deterministic_port
 from portfwd.application.port_forwarding.planner import (
     build_port_forward_plan,
-    resolve_cronjob_remote_port,
     resolve_daemonset_remote_port,
     resolve_deployment_remote_port,
-    resolve_job_remote_port,
     resolve_local_port,
     resolve_pod_remote_port,
     resolve_replicaset_remote_port,
@@ -19,23 +17,17 @@ from portfwd.application.port_forwarding.planner import (
 )
 from portfwd.application.ports import KubeGateway
 from portfwd.domain.errors import (
-    AmbiguousCronJobPortError,
     AmbiguousDaemonSetPortError,
     AmbiguousDeploymentPortError,
-    AmbiguousJobPortError,
     AmbiguousPodPortError,
     AmbiguousReplicaSetPortError,
     AmbiguousServicePortError,
     AmbiguousStatefulSetPortError,
-    CronJobNotFoundError,
     DaemonSetNotFoundError,
     DeploymentNotFoundError,
-    JobNotFoundError,
     MissingNamespaceError,
-    NoCronJobPortsError,
     NoDaemonSetPortsError,
     NoDeploymentPortsError,
-    NoJobPortsError,
     NoPodPortsError,
     NoReplicaSetPortsError,
     NoServicePortsError,
@@ -51,10 +43,8 @@ from portfwd.domain.models import (
     TargetRef,
 )
 from portfwd_test_utils.fakes import (
-    make_cronjob,
     make_daemonset,
     make_deployment,
-    make_job,
     make_pod,
     make_replicaset,
     make_statefulset,
@@ -98,8 +88,6 @@ def _make_api(
     deployments=None,
     statefulsets=None,
     daemonsets=None,
-    jobs=None,
-    cronjobs=None,
     replicasets=None,
 ) -> KubeGateway:
     """Minimal fake KubeFacade: only the attributes used by build_port_forward_plan."""
@@ -112,8 +100,6 @@ def _make_api(
         (ns, name): sts for (ns, name), sts in (statefulsets or {}).items()
     }
     daemonsets_map = {(ns, name): ds for (ns, name), ds in (daemonsets or {}).items()}
-    jobs_map = {(ns, name): job for (ns, name), job in (jobs or {}).items()}
-    cronjobs_map = {(ns, name): cj for (ns, name), cj in (cronjobs or {}).items()}
     replicasets_map = {(ns, name): rs for (ns, name), rs in (replicasets or {}).items()}
 
     class FakeServiceRepo:
@@ -136,14 +122,6 @@ def _make_api(
         def get(self, name, namespace=None):
             return daemonsets_map.get((namespace, name))
 
-    class FakeJobRepo:
-        def get(self, name, namespace=None):
-            return jobs_map.get((namespace, name))
-
-    class FakeCronJobRepo:
-        def get(self, name, namespace=None):
-            return cronjobs_map.get((namespace, name))
-
     class FakeReplicaSetRepo:
         def get(self, name, namespace=None):
             return replicasets_map.get((namespace, name))
@@ -157,8 +135,6 @@ def _make_api(
             deployment=FakeDeploymentRepo(),
             statefulset=FakeStatefulSetRepo(),
             daemonset=FakeDaemonSetRepo(),
-            job=FakeJobRepo(),
-            cronjob=FakeCronJobRepo(),
             replicaset=FakeReplicaSetRepo(),
         ),
     )
@@ -487,76 +463,6 @@ class TestBuildPortForwardPlan:
         with pytest.raises(ReplicaSetNotFoundError):
             build_port_forward_plan(spec, api)
 
-    def test_resolves_remote_port_from_job(self):
-        """A job spec without a remote_port reads the single declared container port."""
-        job = make_job("migration", "ns", [[5432]])
-        api = _make_api(namespace="ns", jobs={("ns", "migration"): job})
-        spec = PortForwardSpec(
-            target=TargetRef(kind=TargetKind.JOB, name="migration", namespace="ns"),
-            local_port=9000,
-        )
-        plan = build_port_forward_plan(spec, api)
-        assert plan.target.kind == TargetKind.JOB
-        assert plan.remote_port == 5432
-
-    def test_job_spec_explicit_port_used_directly(self):
-        """An explicit remote_port in the spec is forwarded unchanged for jobs."""
-        job = make_job("migration", "ns", [[5432]])
-        api = _make_api(namespace="ns", jobs={("ns", "migration"): job})
-        spec = PortForwardSpec(
-            target=TargetRef(kind=TargetKind.JOB, name="migration", namespace="ns"),
-            remote_port=8080,
-            local_port=9000,
-        )
-        plan = build_port_forward_plan(spec, api)
-        assert plan.remote_port == 8080
-
-    def test_raises_when_job_not_found(self):
-        """JobNotFoundError is raised when the Job does not exist."""
-        api = _make_api(namespace="ns")
-        spec = PortForwardSpec(
-            target=TargetRef(kind=TargetKind.JOB, name="missing", namespace="ns"),
-            remote_port=80,
-            local_port=9000,
-        )
-        with pytest.raises(JobNotFoundError):
-            build_port_forward_plan(spec, api)
-
-    def test_resolves_remote_port_from_cronjob(self):
-        """A cronjob spec without a remote_port reads the single declared container port."""
-        cronjob = make_cronjob("backup", "ns", [[1700]])
-        api = _make_api(namespace="ns", cronjobs={("ns", "backup"): cronjob})
-        spec = PortForwardSpec(
-            target=TargetRef(kind=TargetKind.CRONJOB, name="backup", namespace="ns"),
-            local_port=9000,
-        )
-        plan = build_port_forward_plan(spec, api)
-        assert plan.target.kind == TargetKind.CRONJOB
-        assert plan.remote_port == 1700
-
-    def test_cronjob_spec_explicit_port_used_directly(self):
-        """An explicit remote_port in the spec is forwarded unchanged for cronjobs."""
-        cronjob = make_cronjob("backup", "ns", [[1700]])
-        api = _make_api(namespace="ns", cronjobs={("ns", "backup"): cronjob})
-        spec = PortForwardSpec(
-            target=TargetRef(kind=TargetKind.CRONJOB, name="backup", namespace="ns"),
-            remote_port=8080,
-            local_port=9000,
-        )
-        plan = build_port_forward_plan(spec, api)
-        assert plan.remote_port == 8080
-
-    def test_raises_when_cronjob_not_found(self):
-        """CronJobNotFoundError is raised when the CronJob does not exist."""
-        api = _make_api(namespace="ns")
-        spec = PortForwardSpec(
-            target=TargetRef(kind=TargetKind.CRONJOB, name="missing", namespace="ns"),
-            remote_port=80,
-            local_port=9000,
-        )
-        with pytest.raises(CronJobNotFoundError):
-            build_port_forward_plan(spec, api)
-
 
 class TestResolveDeploymentRemotePort:
     def test_returns_single_port(self):
@@ -652,51 +558,3 @@ class TestResolveReplicaSetRemotePort:
         replicaset = make_replicaset("web", "ns", [[80, 8080]])
         with pytest.raises(AmbiguousReplicaSetPortError):
             resolve_replicaset_remote_port(replicaset)
-
-
-class TestResolveJobRemotePort:
-    def test_returns_single_port(self):
-        """Returns the container port when the job declares exactly one."""
-        job = make_job("migration", "ns", [[5432]])
-        assert resolve_job_remote_port(job) == 5432
-
-    def test_returns_single_unique_port_across_containers(self):
-        """Duplicate container ports across containers collapse to one unique port."""
-        job = make_job("migration", "ns", [[5432], [5432]])
-        assert resolve_job_remote_port(job) == 5432
-
-    def test_raises_when_no_ports(self):
-        """NoJobPortsError is raised when no container ports are declared."""
-        job = make_job("migration", "ns", [[]])
-        with pytest.raises(NoJobPortsError):
-            resolve_job_remote_port(job)
-
-    def test_raises_when_multiple_ports(self):
-        """AmbiguousJobPortError is raised when more than one port is declared."""
-        job = make_job("migration", "ns", [[80, 5432]])
-        with pytest.raises(AmbiguousJobPortError):
-            resolve_job_remote_port(job)
-
-
-class TestResolveCronJobRemotePort:
-    def test_returns_single_port(self):
-        """Returns the container port when the cronjob declares exactly one."""
-        cronjob = make_cronjob("backup", "ns", [[1700]])
-        assert resolve_cronjob_remote_port(cronjob) == 1700
-
-    def test_returns_single_unique_port_across_containers(self):
-        """Duplicate container ports across containers collapse to one unique port."""
-        cronjob = make_cronjob("backup", "ns", [[1700], [1700]])
-        assert resolve_cronjob_remote_port(cronjob) == 1700
-
-    def test_raises_when_no_ports(self):
-        """NoCronJobPortsError is raised when no container ports are declared."""
-        cronjob = make_cronjob("backup", "ns", [[]])
-        with pytest.raises(NoCronJobPortsError):
-            resolve_cronjob_remote_port(cronjob)
-
-    def test_raises_when_multiple_ports(self):
-        """AmbiguousCronJobPortError is raised when more than one port is declared."""
-        cronjob = make_cronjob("backup", "ns", [[80, 1700]])
-        with pytest.raises(AmbiguousCronJobPortError):
-            resolve_cronjob_remote_port(cronjob)

@@ -36,14 +36,6 @@ def ask_for_kinds() -> list[TargetKind]:
             title="ReplicaSets",
             value=TargetKind.REPLICASET,
         ),
-        questionary.Choice(
-            title="Jobs",
-            value=TargetKind.JOB,
-        ),
-        questionary.Choice(
-            title="CronJobs",
-            value=TargetKind.CRONJOB,
-        ),
     ]
     return questionary.checkbox(
         "Select resource types to forward:",
@@ -81,16 +73,20 @@ def ask_for_namespace(
     ).ask()
 
 
+def _target_choice_title(spec: PortForwardSpec) -> str:
+    base = f"{spec.target.kind}/{spec.target.namespace}/{spec.target.name}"
+    if spec.remote_port is None:
+        return f"{base}  (specify :port)"
+    return f"{base}  :{spec.remote_port}"
+
+
 def ask_for_targets(
     available_targets: list[PortForwardSpec],
 ) -> list[PortForwardSpec]:
     """Prompt the user to pick services and pods to forward from a sorted list."""
     choices = [
         questionary.Choice(
-            title=(
-                f"{t.target.kind}/{t.target.namespace}/{t.target.name}"
-                f"  :{t.remote_port}"
-            ),
+            title=_target_choice_title(t),
             value=t,
         )
         for t in sorted(
@@ -99,7 +95,7 @@ def ask_for_targets(
                 t.target.kind,
                 t.target.namespace,
                 t.target.name,
-                t.remote_port,
+                t.remote_port if t.remote_port is not None else -1,
             ),
         )
     ]
