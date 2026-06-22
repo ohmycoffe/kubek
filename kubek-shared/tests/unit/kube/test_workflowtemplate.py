@@ -21,7 +21,10 @@ def test_parse_template_returns_existing_instance():
         ({"steps": [], "name": "steps-step"}, StepsTemplate),
         ({"script": {}, "name": "script-step"}, ScriptTemplate),
         (
-            {"container": {"image": "busybox"}, "name": "container-step"},
+            {
+                "container": {"name": "busybox", "image": "busybox"},
+                "name": "container-step",
+            },
             ContainerTemplate,
         ),
     ],

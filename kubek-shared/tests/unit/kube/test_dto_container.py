@@ -3,7 +3,7 @@ from kubek.kube.dto.container import Container
 
 def test_container_parses_container_port_from_camel_case():
     """ContainerPort.container_port is populated from the camelCase 'containerPort' field."""
-    raw = {"ports": [{"containerPort": 8080}]}
+    raw = {"name": "app", "ports": [{"containerPort": 8080}]}
     container = Container.model_validate(raw)
 
     assert len(container.ports) == 1
@@ -12,21 +12,21 @@ def test_container_parses_container_port_from_camel_case():
 
 def test_container_defaults_to_empty_ports():
     """Container.ports defaults to an empty list when no ports are declared."""
-    container = Container.model_validate({})
+    container = Container.model_validate({"name": "app"})
 
     assert container.ports == []
 
 
 def test_container_ports_null_parses_as_none():
     """Container.ports accepts null from the Kubernetes API (omitted ports)."""
-    container = Container.model_validate({"ports": None})
+    container = Container.model_validate({"name": "app", "ports": None})
 
     assert container.ports is None
 
 
 def test_container_port_protocol_is_optional():
     """ContainerPort.protocol is None when not present in the raw data."""
-    raw = {"ports": [{"containerPort": 80}]}
+    raw = {"name": "app", "ports": [{"containerPort": 80}]}
     container = Container.model_validate(raw)
 
     assert container.ports[0].protocol is None
@@ -35,12 +35,13 @@ def test_container_port_protocol_is_optional():
 def test_env_value_from_parses_field_ref_camel_case():
     """EnvValueFrom.field_ref is populated from the camelCase 'fieldRef' field."""
     raw = {
+        "name": "app",
         "env": [
             {
                 "name": "MY_POD_NAME",
                 "valueFrom": {"fieldRef": {"fieldPath": "metadata.name"}},
             }
-        ]
+        ],
     }
     container = Container.model_validate(raw)
 
@@ -55,12 +56,13 @@ def test_env_value_from_parses_field_ref_camel_case():
 def test_env_value_from_parses_field_ref_snake_case():
     """EnvValueFrom.field_ref is populated from the snake_case 'field_ref' field (k8s client dicts)."""
     raw = {
+        "name": "app",
         "env": [
             {
                 "name": "MY_POD_NAMESPACE",
                 "value_from": {"field_ref": {"field_path": "metadata.namespace"}},
             }
-        ]
+        ],
     }
     container = Container.model_validate(raw)
 
@@ -73,6 +75,7 @@ def test_env_value_from_parses_field_ref_snake_case():
 def test_env_value_from_parses_resource_field_ref():
     """EnvValueFrom.resource_field_ref is populated from 'resourceFieldRef'."""
     raw = {
+        "name": "app",
         "env": [
             {
                 "name": "CPU_LIMIT",
@@ -83,7 +86,7 @@ def test_env_value_from_parses_resource_field_ref():
                     }
                 },
             }
-        ]
+        ],
     }
     container = Container.model_validate(raw)
 

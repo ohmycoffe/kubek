@@ -44,10 +44,15 @@ kubectl export-dotenv --kubeconfig ~/.kube/staging-config --context staging
 | `--output` | `env` | Output format: `env` or `json`. |
 | `-v` / `-vv` | — | Verbosity: info / debug. |
 
+### Output format
+
+- **env**: variables are grouped by container. Multi-container resources include `# container: <name>` section headers.
+- **json**: a list of objects, each with `name` (container or template name) and `values` (resolved env vars).
+
 ### Limitations
 
-- Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs, and Pods must have exactly one container.
-- WorkflowTemplates: env vars are merged from all container templates.
+- Init containers are not exported.
+- WorkflowTemplates: only container templates are included; each template is a separate entry.
 
 ## Examples
 

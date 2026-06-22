@@ -3,22 +3,22 @@ from types import SimpleNamespace
 
 import pytest
 from export_dotenv.errors import (
-    AmbiguousResourceError,
     ResourceNotFoundError,
     UnsupportedFormatError,
     UnsupportedKindError,
 )
 from export_dotenv.kube import (
+    CronJobEnvFetcher,
+    DaemonSetEnvFetcher,
+    DeploymentEnvFetcher,
+    JobEnvFetcher,
+    PodEnvFetcher,
+    ReplicaSetEnvFetcher,
+    StatefulSetEnvFetcher,
+    WorkflowTemplateEnvFetcher,
     extract_envs_from_container,
-    get_cronjob_envs,
-    get_daemonset_envs,
-    get_deployment_envs,
-    get_job_envs,
-    get_pod_envs,
-    get_replicaset_envs,
-    get_statefulset_envs,
-    get_workflowtemplate_envs,
 )
+from export_dotenv.kube.env_fetchers import EnvironmentValues
 from export_dotenv.use_case import fetch_environment_values
 from kubek.kube import ResolvedKubeConfig
 from kubek.kube.dto.configmap import ConfigMap, ConfigMapMetadata
@@ -194,6 +194,7 @@ def build_deployment():
                 spec=TemplateSpec(
                     containers=[
                         Container(
+                            name="api",
                             env=[
                                 EnvVar(
                                     name="DB_PASSWORD",
@@ -237,6 +238,7 @@ def build_pod():
         spec=PodSpec(
             containers=[
                 Container(
+                    name="api",
                     env=[
                         EnvVar(
                             name="DB_PASSWORD",
@@ -278,6 +280,7 @@ def build_statefulset():
                 spec=StatefulSetTemplateSpec(
                     containers=[
                         Container(
+                            name="cache",
                             env=[
                                 EnvVar(
                                     name="DB_PASSWORD",
@@ -312,6 +315,7 @@ def build_daemonset():
                 spec=DaemonSetTemplateSpec(
                     containers=[
                         Container(
+                            name="agent",
                             env=[
                                 EnvVar(
                                     name="DB_PASSWORD",
@@ -346,6 +350,7 @@ def build_replicaset():
                 spec=ReplicaSetTemplateSpec(
                     containers=[
                         Container(
+                            name="agent",
                             env=[
                                 EnvVar(
                                     name="DB_PASSWORD",
@@ -383,6 +388,7 @@ def build_job():
                 spec=JobTemplateSpec(
                     containers=[
                         Container(
+                            name="migration",
                             env=[
                                 EnvVar(
                                     name="DB_PASSWORD",
@@ -419,6 +425,7 @@ def build_cronjob():
                         spec=CronJobPodTemplateSpec(
                             containers=[
                                 Container(
+                                    name="backup",
                                     env=[
                                         EnvVar(
                                             name="DB_PASSWORD",
@@ -462,6 +469,7 @@ def build_workflow():
                 ContainerTemplate(
                     name="main",
                     container=Container(
+                        name="main",
                         env=[
                             EnvVar(
                                 name="BATCH_SIZE",
@@ -527,23 +535,28 @@ def test_workflowtemplate_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "BATCH_SIZE": "{{inputs.parameters.batch_size}}",
-        "SOURCE_BUCKET": "{{inputs.parameters.source_bucket}}",
-        "DB_HOST": "postgres.demo.svc.cluster.local",
-    }
+    assert result == [
+        EnvironmentValues(
+            name="main",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "BATCH_SIZE": "{{inputs.parameters.batch_size}}",
+                "SOURCE_BUCKET": "{{inputs.parameters.source_bucket}}",
+                "DB_HOST": "postgres.demo.svc.cluster.local",
+            },
+        )
+    ]
 
 
 def test_deployment_env_vars(api):
@@ -553,25 +566,30 @@ def test_deployment_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "LOG_LEVEL_OVERRIDE": "debug",
-        "DIRECT_VALUE": "hello-from-api",
-        "API_VERSION": "v2",
-        "ENABLE_TRACING": "true",
-    }
+    assert result == [
+        EnvironmentValues(
+            name="api",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "LOG_LEVEL_OVERRIDE": "debug",
+                "DIRECT_VALUE": "hello-from-api",
+                "API_VERSION": "v2",
+                "ENABLE_TRACING": "true",
+            },
+        )
+    ]
 
 
 def test_statefulset_env_vars(api):
@@ -582,49 +600,27 @@ def test_statefulset_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "DIRECT_VALUE": "hello-from-cache",
-    }
-
-
-def test_statefulset_not_found_raises(api):
-    """A missing StatefulSet name raises ResourceNotFoundError."""
-    with pytest.raises(ResourceNotFoundError, match="StatefulSet missing"):
-        get_statefulset_envs(name="missing", api=api)
-
-
-def test_statefulset_with_multiple_containers_raises(api):
-    """A StatefulSet with more than one container is rejected as ambiguous."""
-    api.statefulset = InMemoryRepository(
-        [
-            StatefulSetDTO(
-                metadata=StatefulSetMetadata(name="cache-service", namespace=NS),
-                spec=StatefulSetSpec(
-                    template=StatefulSetTemplate(
-                        spec=StatefulSetTemplateSpec(
-                            containers=[Container(), Container()]
-                        )
-                    )
-                ),
-            )
-        ]
-    )
-
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_statefulset_envs(name="cache-service", api=api)
+    assert result == [
+        EnvironmentValues(
+            name="cache",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "DIRECT_VALUE": "hello-from-cache",
+            },
+        )
+    ]
 
 
 def test_daemonset_env_vars(api):
@@ -635,49 +631,27 @@ def test_daemonset_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "DIRECT_VALUE": "hello-from-agent",
-    }
-
-
-def test_daemonset_not_found_raises(api):
-    """A missing DaemonSet name raises ResourceNotFoundError."""
-    with pytest.raises(ResourceNotFoundError, match="DaemonSet missing"):
-        get_daemonset_envs(name="missing", api=api)
-
-
-def test_daemonset_with_multiple_containers_raises(api):
-    """A DaemonSet with more than one container is rejected as ambiguous."""
-    api.daemonset = InMemoryRepository(
-        [
-            DaemonSetDTO(
-                metadata=DaemonSetMetadata(name="log-agent", namespace=NS),
-                spec=DaemonSetSpec(
-                    template=DaemonSetTemplate(
-                        spec=DaemonSetTemplateSpec(
-                            containers=[Container(), Container()]
-                        )
-                    )
-                ),
-            )
-        ]
-    )
-
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_daemonset_envs(name="log-agent", api=api)
+    assert result == [
+        EnvironmentValues(
+            name="agent",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "DIRECT_VALUE": "hello-from-agent",
+            },
+        )
+    ]
 
 
 def test_replicaset_env_vars(api):
@@ -688,49 +662,27 @@ def test_replicaset_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "DIRECT_VALUE": "hello-from-replicaset",
-    }
-
-
-def test_replicaset_not_found_raises(api):
-    """A missing ReplicaSet name raises ResourceNotFoundError."""
-    with pytest.raises(ResourceNotFoundError, match="ReplicaSet missing"):
-        get_replicaset_envs(name="missing", api=api)
-
-
-def test_replicaset_with_multiple_containers_raises(api):
-    """A ReplicaSet with more than one container is rejected as ambiguous."""
-    api.replicaset = InMemoryRepository(
-        [
-            ReplicaSetDTO(
-                metadata=ReplicaSetMetadata(name="log-agent-rs", namespace=NS),
-                spec=ReplicaSetSpec(
-                    template=ReplicaSetTemplate(
-                        spec=ReplicaSetTemplateSpec(
-                            containers=[Container(), Container()]
-                        )
-                    )
-                ),
-            )
-        ]
-    )
-
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_replicaset_envs(name="log-agent-rs", api=api)
+    assert result == [
+        EnvironmentValues(
+            name="agent",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "DIRECT_VALUE": "hello-from-replicaset",
+            },
+        )
+    ]
 
 
 def test_job_env_vars(api):
@@ -741,47 +693,27 @@ def test_job_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "DIRECT_VALUE": "hello-from-job",
-    }
-
-
-def test_job_not_found_raises(api):
-    """A missing Job name raises ResourceNotFoundError."""
-    with pytest.raises(ResourceNotFoundError, match="Job missing"):
-        get_job_envs(name="missing", api=api)
-
-
-def test_job_with_multiple_containers_raises(api):
-    """A Job with more than one container is rejected as ambiguous."""
-    api.job = InMemoryRepository(
-        [
-            JobDTO(
-                metadata=JobMetadata(name="data-migration", namespace=NS),
-                spec=JobSpec(
-                    template=JobTemplate(
-                        spec=JobTemplateSpec(containers=[Container(), Container()])
-                    )
-                ),
-            )
-        ]
-    )
-
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_job_envs(name="data-migration", api=api)
+    assert result == [
+        EnvironmentValues(
+            name="migration",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "DIRECT_VALUE": "hello-from-job",
+            },
+        )
+    ]
 
 
 def test_cronjob_env_vars(api):
@@ -792,53 +724,27 @@ def test_cronjob_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "DIRECT_VALUE": "hello-from-cronjob",
-    }
-
-
-def test_cronjob_not_found_raises(api):
-    """A missing CronJob name raises ResourceNotFoundError."""
-    with pytest.raises(ResourceNotFoundError, match="CronJob missing"):
-        get_cronjob_envs(name="missing", api=api)
-
-
-def test_cronjob_with_multiple_containers_raises(api):
-    """A CronJob with more than one container is rejected as ambiguous."""
-    api.cronjob = InMemoryRepository(
-        [
-            CronJobDTO(
-                metadata=CronJobMetadata(name="nightly-backup", namespace=NS),
-                spec=CronJobSpec(
-                    job_template=CronJobJobTemplate(
-                        spec=CronJobJobSpec(
-                            template=CronJobPodTemplate(
-                                spec=CronJobPodTemplateSpec(
-                                    containers=[Container(), Container()]
-                                )
-                            )
-                        )
-                    )
-                ),
-            )
-        ]
-    )
-
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_cronjob_envs(name="nightly-backup", api=api)
+    assert result == [
+        EnvironmentValues(
+            name="backup",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "DIRECT_VALUE": "hello-from-cronjob",
+            },
+        )
+    ]
 
 
 def test_pod_env_vars(api):
@@ -848,25 +754,30 @@ def test_pod_env_vars(api):
         api=api,
     )
 
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-        "DB_PASSWORD": "secretpassword",
-        "LOG_LEVEL_OVERRIDE": "debug",
-        "DIRECT_VALUE": "hello-from-api",
-        "API_VERSION": "v2",
-        "ENABLE_TRACING": "true",
-    }
+    assert result == [
+        EnvironmentValues(
+            name="api",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+                "DB_PASSWORD": "secretpassword",
+                "LOG_LEVEL_OVERRIDE": "debug",
+                "DIRECT_VALUE": "hello-from-api",
+                "API_VERSION": "v2",
+                "ENABLE_TRACING": "true",
+            },
+        )
+    ]
 
 
 def test_configmap_env_vars(api):
@@ -875,15 +786,20 @@ def test_configmap_env_vars(api):
         name="app-config",
         api=api,
     )
-    assert result == {
-        "APP_ENV": "local",
-        "DATABASE_HOST": "postgres.demo.svc.cluster.local",
-        "DATABASE_PORT": "5432",
-        "FEATURE_FLAG_NEW_UI": "true",
-        "LOG_LEVEL": "debug",
-        "MAX_CONNECTIONS": "20",
-        "SERVICE_TIMEOUT_MS": "3000",
-    }
+    assert result == [
+        EnvironmentValues(
+            name="app-config",
+            values={
+                "APP_ENV": "local",
+                "DATABASE_HOST": "postgres.demo.svc.cluster.local",
+                "DATABASE_PORT": "5432",
+                "FEATURE_FLAG_NEW_UI": "true",
+                "LOG_LEVEL": "debug",
+                "MAX_CONNECTIONS": "20",
+                "SERVICE_TIMEOUT_MS": "3000",
+            },
+        )
+    ]
 
 
 def test_secret_env_vars(api):
@@ -892,59 +808,285 @@ def test_secret_env_vars(api):
         name="app-secrets",
         api=api,
     )
-    assert result == {
-        "API_KEY": "myapikey123",
-        "DATABASE_PASSWORD": "secretpassword",
-        "JWT_SECRET": "jwt-secret-token-xyz",
-        "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
-        "S3_ACCESS_KEY": "s3-access-key-abc",
-    }
+    assert result == [
+        EnvironmentValues(
+            name="app-secrets",
+            values={
+                "API_KEY": "myapikey123",
+                "DATABASE_PASSWORD": "secretpassword",
+                "JWT_SECRET": "jwt-secret-token-xyz",
+                "REDIS_URL": "redis://redis.demo.svc.cluster.local:6379",
+                "S3_ACCESS_KEY": "s3-access-key-abc",
+            },
+        )
+    ]
 
 
-def test_deployment_not_found_raises(api):
-    with pytest.raises(ResourceNotFoundError, match="Deployment missing"):
-        get_deployment_envs(name="missing", api=api)
+def test_statefulset_not_found_raises(api):
+    """A missing StatefulSet name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="StatefulSet missing"):
+        StatefulSetEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_deployment_with_multiple_containers_raises(api):
-    api.deployment = InMemoryRepository(
+def test_statefulset_with_multiple_containers(api):
+    """A StatefulSet with multiple containers exports env vars per container."""
+    api.statefulset = InMemoryRepository(
         [
-            DeploymentDTO(
-                metadata=DeploymentMetadata(name="api-service", namespace=NS),
-                spec=DeploymentSpec(
-                    template=Template(
-                        spec=TemplateSpec(containers=[Container(), Container()])
+            StatefulSetDTO(
+                metadata=StatefulSetMetadata(name="cache-service", namespace=NS),
+                spec=StatefulSetSpec(
+                    template=StatefulSetTemplate(
+                        spec=StatefulSetTemplateSpec(
+                            containers=[
+                                Container(
+                                    name="app", env=[EnvVar(name="APP", value="1")]
+                                ),
+                                Container(
+                                    name="sidecar",
+                                    env=[EnvVar(name="SIDECAR", value="2")],
+                                ),
+                            ]
+                        )
                     )
                 ),
             )
         ]
     )
 
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_deployment_envs(name="api-service", api=api)
+    result = StatefulSetEnvFetcher(api=api).fetch(name="cache-service")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
 
 
-def test_pod_not_found_raises(api):
-    with pytest.raises(ResourceNotFoundError, match="Pod missing"):
-        get_pod_envs(name="missing", api=api)
+def test_daemonset_not_found_raises(api):
+    """A missing DaemonSet name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="DaemonSet missing"):
+        DaemonSetEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_pod_with_multiple_containers_raises(api):
-    api.pod = InMemoryRepository(
+def test_daemonset_with_multiple_containers(api):
+    """A DaemonSet with multiple containers exports env vars per container."""
+    api.daemonset = InMemoryRepository(
         [
-            Pod(
-                metadata=PodMetadata(name="api-pod", namespace=NS),
-                spec=PodSpec(containers=[Container(), Container()]),
+            DaemonSetDTO(
+                metadata=DaemonSetMetadata(name="log-agent", namespace=NS),
+                spec=DaemonSetSpec(
+                    template=DaemonSetTemplate(
+                        spec=DaemonSetTemplateSpec(
+                            containers=[
+                                Container(
+                                    name="app", env=[EnvVar(name="APP", value="1")]
+                                ),
+                                Container(
+                                    name="sidecar",
+                                    env=[EnvVar(name="SIDECAR", value="2")],
+                                ),
+                            ]
+                        )
+                    )
+                ),
             )
         ]
     )
 
-    with pytest.raises(AmbiguousResourceError, match="2 containers"):
-        get_pod_envs(name="api-pod", api=api)
+    result = DaemonSetEnvFetcher(api=api).fetch(name="log-agent")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
+
+
+def test_replicaset_not_found_raises(api):
+    """A missing ReplicaSet name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="ReplicaSet missing"):
+        ReplicaSetEnvFetcher(api=api).fetch(name="missing")
+
+
+def test_replicaset_with_multiple_containers(api):
+    """A ReplicaSet with multiple containers exports env vars per container."""
+    api.replicaset = InMemoryRepository(
+        [
+            ReplicaSetDTO(
+                metadata=ReplicaSetMetadata(name="log-agent-rs", namespace=NS),
+                spec=ReplicaSetSpec(
+                    template=ReplicaSetTemplate(
+                        spec=ReplicaSetTemplateSpec(
+                            containers=[
+                                Container(
+                                    name="app", env=[EnvVar(name="APP", value="1")]
+                                ),
+                                Container(
+                                    name="sidecar",
+                                    env=[EnvVar(name="SIDECAR", value="2")],
+                                ),
+                            ]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = ReplicaSetEnvFetcher(api=api).fetch(name="log-agent-rs")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
+
+
+def test_job_not_found_raises(api):
+    """A missing Job name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="Job missing"):
+        JobEnvFetcher(api=api).fetch(name="missing")
+
+
+def test_job_with_multiple_containers(api):
+    """A Job with multiple containers exports env vars per container."""
+    api.job = InMemoryRepository(
+        [
+            JobDTO(
+                metadata=JobMetadata(name="data-migration", namespace=NS),
+                spec=JobSpec(
+                    template=JobTemplate(
+                        spec=JobTemplateSpec(
+                            containers=[
+                                Container(
+                                    name="app", env=[EnvVar(name="APP", value="1")]
+                                ),
+                                Container(
+                                    name="sidecar",
+                                    env=[EnvVar(name="SIDECAR", value="2")],
+                                ),
+                            ]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = JobEnvFetcher(api=api).fetch(name="data-migration")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
+
+
+def test_cronjob_not_found_raises(api):
+    """A missing CronJob name raises ResourceNotFoundError."""
+    with pytest.raises(ResourceNotFoundError, match="CronJob missing"):
+        CronJobEnvFetcher(api=api).fetch(name="missing")
+
+
+def test_cronjob_with_multiple_containers(api):
+    """A CronJob with multiple containers exports env vars per container."""
+    api.cronjob = InMemoryRepository(
+        [
+            CronJobDTO(
+                metadata=CronJobMetadata(name="nightly-backup", namespace=NS),
+                spec=CronJobSpec(
+                    job_template=CronJobJobTemplate(
+                        spec=CronJobJobSpec(
+                            template=CronJobPodTemplate(
+                                spec=CronJobPodTemplateSpec(
+                                    containers=[
+                                        Container(
+                                            name="app",
+                                            env=[EnvVar(name="APP", value="1")],
+                                        ),
+                                        Container(
+                                            name="sidecar",
+                                            env=[EnvVar(name="SIDECAR", value="2")],
+                                        ),
+                                    ]
+                                )
+                            )
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = CronJobEnvFetcher(api=api).fetch(name="nightly-backup")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
+
+
+def test_deployment_not_found_raises(api):
+    with pytest.raises(ResourceNotFoundError, match="Deployment missing"):
+        DeploymentEnvFetcher(api=api).fetch(name="missing")
+
+
+def test_deployment_with_multiple_containers(api):
+    """A Deployment with multiple containers exports env vars per container."""
+    api.deployment = InMemoryRepository(
+        [
+            DeploymentDTO(
+                metadata=DeploymentMetadata(name="api-service", namespace=NS),
+                spec=DeploymentSpec(
+                    template=Template(
+                        spec=TemplateSpec(
+                            containers=[
+                                Container(
+                                    name="app", env=[EnvVar(name="APP", value="1")]
+                                ),
+                                Container(
+                                    name="sidecar",
+                                    env=[EnvVar(name="SIDECAR", value="2")],
+                                ),
+                            ]
+                        )
+                    )
+                ),
+            )
+        ]
+    )
+
+    result = DeploymentEnvFetcher(api=api).fetch(name="api-service")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
+
+
+def test_pod_not_found_raises(api):
+    with pytest.raises(ResourceNotFoundError, match="Pod missing"):
+        PodEnvFetcher(api=api).fetch(name="missing")
+
+
+def test_pod_with_multiple_containers(api):
+    """A Pod with multiple containers exports env vars per container."""
+    api.pod = InMemoryRepository(
+        [
+            Pod(
+                metadata=PodMetadata(name="api-pod", namespace=NS),
+                spec=PodSpec(
+                    containers=[
+                        Container(name="app", env=[EnvVar(name="APP", value="1")]),
+                        Container(
+                            name="sidecar", env=[EnvVar(name="SIDECAR", value="2")]
+                        ),
+                    ]
+                ),
+            )
+        ]
+    )
+
+    result = PodEnvFetcher(api=api).fetch(name="api-pod")
+    assert result == [
+        EnvironmentValues(name="app", values={"APP": "1"}),
+        EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
+    ]
 
 
 def test_missing_configmap_in_env_from_is_skipped(api):
     container = Container(
+        name="test",
         env_from=[EnvFromSource(config_map_ref=ConfigMapRef(name="missing-config"))],
     )
 
@@ -953,6 +1095,7 @@ def test_missing_configmap_in_env_from_is_skipped(api):
 
 def test_missing_secret_in_env_from_is_skipped(api):
     container = Container(
+        name="test",
         env_from=[EnvFromSource(secret_ref=SecretRef(name="missing-secret"))],
     )
 
@@ -960,7 +1103,7 @@ def test_missing_secret_in_env_from_is_skipped(api):
 
 
 def test_unsupported_env_from_raises(api):
-    container = Container(env_from=[EnvFromSource()])
+    container = Container(name="test", env_from=[EnvFromSource()])
 
     with pytest.raises(UnsupportedFormatError, match="Unknown envFrom"):
         extract_envs_from_container(api=api, container=container)
@@ -968,6 +1111,7 @@ def test_unsupported_env_from_raises(api):
 
 def test_missing_configmap_key_sets_empty_value(api):
     container = Container(
+        name="test",
         env=[
             EnvVar(
                 name="MISSING_KEY",
@@ -978,7 +1122,7 @@ def test_missing_configmap_key_sets_empty_value(api):
                     )
                 ),
             )
-        ]
+        ],
     )
 
     result = extract_envs_from_container(api=api, container=container)
@@ -987,6 +1131,7 @@ def test_missing_configmap_key_sets_empty_value(api):
 
 def test_missing_secret_key_sets_empty_value(api):
     container = Container(
+        name="test",
         env=[
             EnvVar(
                 name="MISSING_KEY",
@@ -997,7 +1142,7 @@ def test_missing_secret_key_sets_empty_value(api):
                     )
                 ),
             )
-        ]
+        ],
     )
 
     result = extract_envs_from_container(api=api, container=container)
@@ -1006,6 +1151,7 @@ def test_missing_secret_key_sets_empty_value(api):
 
 def test_env_with_unknown_value_from_is_skipped(api):
     container = Container(
+        name="test",
         env=[EnvVar(name="UNKNOWN", value_from=EnvValueFrom())],
     )
 
@@ -1013,7 +1159,7 @@ def test_env_with_unknown_value_from_is_skipped(api):
 
 
 def test_env_with_no_value_or_value_from_is_skipped(api):
-    container = Container(env=[EnvVar(name="EMPTY")])
+    container = Container(name="test", env=[EnvVar(name="EMPTY")])
 
     assert extract_envs_from_container(api=api, container=container) == {}
 
@@ -1021,6 +1167,7 @@ def test_env_with_no_value_or_value_from_is_skipped(api):
 def test_field_ref_is_skipped_silently(api, caplog):
     """Downward API fieldRef env vars resolve at pod runtime, so they are skipped without a warning."""
     container = Container(
+        name="test",
         env=[
             EnvVar(
                 name="MY_POD_NAME",
@@ -1032,7 +1179,7 @@ def test_field_ref_is_skipped_silently(api, caplog):
                     field_ref=FieldRef(field_path="metadata.namespace")
                 ),
             ),
-        ]
+        ],
     )
 
     with caplog.at_level("WARNING"):
@@ -1045,6 +1192,7 @@ def test_field_ref_is_skipped_silently(api, caplog):
 def test_resource_field_ref_is_skipped_silently(api, caplog):
     """Downward API resourceFieldRef env vars are skipped without a warning."""
     container = Container(
+        name="test",
         env=[
             EnvVar(
                 name="CPU_LIMIT",
@@ -1054,7 +1202,7 @@ def test_resource_field_ref_is_skipped_silently(api, caplog):
                     )
                 ),
             )
-        ]
+        ],
     )
 
     with caplog.at_level("WARNING"):
@@ -1065,7 +1213,7 @@ def test_resource_field_ref_is_skipped_silently(api, caplog):
 
 
 def test_statefulset_skips_field_ref_env(api):
-    """get_statefulset_envs skips fieldRef env vars while still emitting resolvable ones."""
+    """StatefulSetEnvFetcher skips fieldRef env vars while still emitting resolvable ones."""
     api.statefulset = InMemoryRepository(
         [
             StatefulSetDTO(
@@ -1075,6 +1223,7 @@ def test_statefulset_skips_field_ref_env(api):
                         spec=StatefulSetTemplateSpec(
                             containers=[
                                 Container(
+                                    name="cache",
                                     env=[
                                         EnvVar(
                                             name="MY_POD_NAME",
@@ -1088,7 +1237,7 @@ def test_statefulset_skips_field_ref_env(api):
                                             name="DIRECT_VALUE",
                                             value="hello",
                                         ),
-                                    ]
+                                    ],
                                 )
                             ]
                         )
@@ -1098,13 +1247,13 @@ def test_statefulset_skips_field_ref_env(api):
         ]
     )
 
-    result = get_statefulset_envs(name="cache-service", api=api)
-    assert result == {"DIRECT_VALUE": "hello"}
+    result = StatefulSetEnvFetcher(api=api).fetch(name="cache-service")
+    assert result == [EnvironmentValues(name="cache", values={"DIRECT_VALUE": "hello"})]
 
 
 def test_workflowtemplate_not_found_raises(api):
     with pytest.raises(ResourceNotFoundError, match="WorkflowTemplate missing"):
-        get_workflowtemplate_envs(name="missing", api=api)
+        WorkflowTemplateEnvFetcher(api=api).fetch(name="missing")
 
 
 def test_workflowtemplate_skips_non_container_templates(api):
@@ -1116,6 +1265,7 @@ def test_workflowtemplate_skips_non_container_templates(api):
                 ContainerTemplate(
                     name="main",
                     container=Container(
+                        name="main",
                         env=[EnvVar(name="ONLY", value="from-container")],
                     ),
                 ),
@@ -1124,8 +1274,8 @@ def test_workflowtemplate_skips_non_container_templates(api):
     )
     api.workflowtemplate = InMemoryRepository([workflow])
 
-    result = get_workflowtemplate_envs(name="mixed", api=api)
-    assert result == {"ONLY": "from-container"}
+    result = WorkflowTemplateEnvFetcher(api=api).fetch(name="mixed")
+    assert result == [EnvironmentValues(name="main", values={"ONLY": "from-container"})]
 
 
 def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
@@ -1139,6 +1289,7 @@ def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
                         parameters=[Parameters(name="batch_size", default="100")]
                     ),
                     container=Container(
+                        name="main",
                         env=[
                             EnvVar(
                                 name="BATCH",
@@ -1157,12 +1308,13 @@ def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
     )
     api.workflowtemplate = InMemoryRepository([workflow])
 
-    result = get_workflowtemplate_envs(name="with-defaults", api=api)
-    assert result == {"BATCH": ""}
+    result = WorkflowTemplateEnvFetcher(api=api).fetch(name="with-defaults")
+    assert result == [EnvironmentValues(name="main", values={"BATCH": ""})]
 
 
 def test_missing_configmap_for_value_from_is_skipped(api):
     container = Container(
+        name="test",
         env=[
             EnvVar(
                 name="MISSING_CM",
@@ -1173,7 +1325,7 @@ def test_missing_configmap_for_value_from_is_skipped(api):
                     )
                 ),
             )
-        ]
+        ],
     )
 
     assert extract_envs_from_container(api=api, container=container) == {}
@@ -1181,6 +1333,7 @@ def test_missing_configmap_for_value_from_is_skipped(api):
 
 def test_missing_secret_for_value_from_is_skipped(api):
     container = Container(
+        name="test",
         env=[
             EnvVar(
                 name="MISSING_SECRET",
@@ -1191,7 +1344,7 @@ def test_missing_secret_for_value_from_is_skipped(api):
                     )
                 ),
             )
-        ]
+        ],
     )
 
     assert extract_envs_from_container(api=api, container=container) == {}

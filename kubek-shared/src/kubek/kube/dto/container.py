@@ -110,7 +110,7 @@ class Container(BaseModel):
         populate_by_name=True,
         frozen=True,
     )
-
+    name: str
     env: list[EnvVar] | None = Field(default_factory=list)
     env_from: list[EnvFromSource] | None = Field(default_factory=list)
     ports: list[ContainerPort] | None = Field(default_factory=list)
