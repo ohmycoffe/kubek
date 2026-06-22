@@ -12,8 +12,6 @@ class TargetKind(StrEnum):
     STATEFULSET = "statefulset"
     DAEMONSET = "daemonset"
     REPLICASET = "replicaset"
-    JOB = "job"
-    CRONJOB = "cronjob"
 
 
 class TargetRef(BaseModel):

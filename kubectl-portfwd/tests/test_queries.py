@@ -2,10 +2,8 @@ from types import SimpleNamespace
 from typing import cast
 
 from kubek.kube.dto import (
-    CronJob,
     DaemonSet,
     Deployment,
-    Job,
     Pod,
     ReplicaSet,
     Service,
@@ -13,10 +11,8 @@ from kubek.kube.dto import (
 )
 from portfwd.application.ports import KubeGateway
 from portfwd.application.queries import (
-    fetch_cronjobs_for_namespaces,
     fetch_daemonsets_for_namespaces,
     fetch_deployments_for_namespaces,
-    fetch_jobs_for_namespaces,
     fetch_pods_for_namespaces,
     fetch_replicasets_for_namespaces,
     fetch_services_for_namespaces,
@@ -25,10 +21,8 @@ from portfwd.application.queries import (
 )
 from portfwd.domain.models import TargetKind
 from portfwd_test_utils.fakes import (
-    make_cronjob,
     make_daemonset,
     make_deployment,
-    make_job,
     make_pod,
     make_replicaset,
     make_statefulset,
@@ -68,16 +62,6 @@ def _replicaset(name: str, namespace: str, container_ports: list[int]) -> Replic
     return make_replicaset(name, namespace, [container_ports])
 
 
-def _job(name: str, namespace: str, container_ports: list[int]) -> Job:
-    """One single-container job expressed in terms of make_job."""
-    return make_job(name, namespace, [container_ports])
-
-
-def _cronjob(name: str, namespace: str, container_ports: list[int]) -> CronJob:
-    """One single-container cronjob expressed in terms of make_cronjob."""
-    return make_cronjob(name, namespace, [container_ports])
-
-
 def _make_api(
     service=None,
     pod=None,
@@ -85,8 +69,6 @@ def _make_api(
     statefulset=None,
     daemonset=None,
     replicaset=None,
-    job=None,
-    cronjob=None,
 ) -> KubeGateway:
     """Minimal fake KubeGateway with optional repo attributes."""
     return cast(
@@ -98,8 +80,6 @@ def _make_api(
             statefulset=statefulset,
             daemonset=daemonset,
             replicaset=replicaset,
-            job=job,
-            cronjob=cronjob,
         ),
     )
 
@@ -524,148 +504,4 @@ def test_fetch_targets_honors_replicaset_kind_filter():
 
     assert {(s.target.kind, s.target.name) for s in specs} == {
         (TargetKind.REPLICASET, "web")
-    }
-
-
-def test_fetch_jobs_for_namespaces_flattens_declared_container_ports():
-    """Jobs with declared container ports produce one spec per unique port; portless jobs are omitted."""
-    job_a = _job("worker", "ns-1", [9090])
-    job_b = _job("api", "ns-2", [8080, 8443])
-    job_no_ports = _job("sidecar", "ns-1", [])
-
-    class FakeJobRepo:
-        def list(self, namespace: str) -> list[Job]:
-            return {
-                "ns-1": [job_a, job_no_ports],
-                "ns-2": [job_b],
-            }.get(namespace, [])
-
-    api = _make_api(job=FakeJobRepo())
-    specs = fetch_jobs_for_namespaces(["ns-1", "ns-2"], api)
-
-    keys = [
-        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
-    ]
-    assert keys == [
-        (TargetKind.JOB, "ns-1", "worker", 9090),
-        (TargetKind.JOB, "ns-2", "api", 8080),
-        (TargetKind.JOB, "ns-2", "api", 8443),
-    ]
-
-
-def test_fetch_targets_includes_jobs():
-    """The combined picker returns jobs when that kind is selected."""
-    svc = _service("alpha", "ns-1", [80])
-    job = _job("migration", "ns-1", [5432])
-
-    class FakeServiceRepo:
-        def list(self, namespace: str) -> list[Service]:
-            return {"ns-1": [svc]}.get(namespace, [])
-
-    class FakeJobRepo:
-        def list(self, namespace: str) -> list[Job]:
-            return {"ns-1": [job]}.get(namespace, [])
-
-    api = _make_api(service=FakeServiceRepo(), job=FakeJobRepo())
-    specs = fetch_targets_for_namespaces(
-        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.JOB]
-    )
-
-    kinds = {(s.target.kind, s.target.name) for s in specs}
-    assert kinds == {
-        (TargetKind.SERVICE, "alpha"),
-        (TargetKind.JOB, "migration"),
-    }
-
-
-def test_fetch_targets_honors_job_kind_filter():
-    """Only job specs are returned when kinds=[TargetKind.JOB]."""
-    svc = _service("alpha", "ns-1", [80])
-    job = _job("migration", "ns-1", [5432])
-
-    class FakeServiceRepo:
-        def list(self, namespace: str) -> list[Service]:
-            return {"ns-1": [svc]}.get(namespace, [])
-
-    class FakeJobRepo:
-        def list(self, namespace: str) -> list[Job]:
-            return {"ns-1": [job]}.get(namespace, [])
-
-    api = _make_api(service=FakeServiceRepo(), job=FakeJobRepo())
-    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.JOB])
-
-    assert {(s.target.kind, s.target.name) for s in specs} == {
-        (TargetKind.JOB, "migration")
-    }
-
-
-def test_fetch_cronjobs_for_namespaces_flattens_declared_container_ports():
-    """CronJobs with declared container ports produce one spec per unique port; portless cronjobs are omitted."""
-    cj_a = _cronjob("backup", "ns-1", [1700])
-    cj_b = _cronjob("sync", "ns-2", [1800, 1900])
-    cj_no_ports = _cronjob("sidecar", "ns-1", [])
-
-    class FakeCronJobRepo:
-        def list(self, namespace: str) -> list[CronJob]:
-            return {
-                "ns-1": [cj_a, cj_no_ports],
-                "ns-2": [cj_b],
-            }.get(namespace, [])
-
-    api = _make_api(cronjob=FakeCronJobRepo())
-    specs = fetch_cronjobs_for_namespaces(["ns-1", "ns-2"], api)
-
-    keys = [
-        (s.target.kind, s.target.namespace, s.target.name, s.remote_port) for s in specs
-    ]
-    assert keys == [
-        (TargetKind.CRONJOB, "ns-1", "backup", 1700),
-        (TargetKind.CRONJOB, "ns-2", "sync", 1800),
-        (TargetKind.CRONJOB, "ns-2", "sync", 1900),
-    ]
-
-
-def test_fetch_targets_includes_cronjobs():
-    """The combined picker returns cronjobs when that kind is selected."""
-    svc = _service("alpha", "ns-1", [80])
-    cj = _cronjob("backup", "ns-1", [1700])
-
-    class FakeServiceRepo:
-        def list(self, namespace: str) -> list[Service]:
-            return {"ns-1": [svc]}.get(namespace, [])
-
-    class FakeCronJobRepo:
-        def list(self, namespace: str) -> list[CronJob]:
-            return {"ns-1": [cj]}.get(namespace, [])
-
-    api = _make_api(service=FakeServiceRepo(), cronjob=FakeCronJobRepo())
-    specs = fetch_targets_for_namespaces(
-        ["ns-1"], api, kinds=[TargetKind.SERVICE, TargetKind.CRONJOB]
-    )
-
-    kinds = {(s.target.kind, s.target.name) for s in specs}
-    assert kinds == {
-        (TargetKind.SERVICE, "alpha"),
-        (TargetKind.CRONJOB, "backup"),
-    }
-
-
-def test_fetch_targets_honors_cronjob_kind_filter():
-    """Only cronjob specs are returned when kinds=[TargetKind.CRONJOB]."""
-    svc = _service("alpha", "ns-1", [80])
-    cj = _cronjob("backup", "ns-1", [1700])
-
-    class FakeServiceRepo:
-        def list(self, namespace: str) -> list[Service]:
-            return {"ns-1": [svc]}.get(namespace, [])
-
-    class FakeCronJobRepo:
-        def list(self, namespace: str) -> list[CronJob]:
-            return {"ns-1": [cj]}.get(namespace, [])
-
-    api = _make_api(service=FakeServiceRepo(), cronjob=FakeCronJobRepo())
-    specs = fetch_targets_for_namespaces(["ns-1"], api, kinds=[TargetKind.CRONJOB])
-
-    assert {(s.target.kind, s.target.name) for s in specs} == {
-        (TargetKind.CRONJOB, "backup")
     }

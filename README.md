@@ -18,7 +18,7 @@
 
 ### 🔌 portfwd — Interactive port forwarding
 
-**portfwd** (**port** **f**or**w**ar**d**) manages many `kubectl port-forward` sessions as one. You choose what to forward — Services, Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, or CronJobs — and it runs and supervises every session under a single live dashboard.
+**portfwd** (**port** **f**or**w**ar**d**) manages many `kubectl port-forward` sessions as one. You choose what to forward — Services, Pods, Deployments, StatefulSets, DaemonSets, or ReplicaSets — and it runs and supervises every session under a single live dashboard.
 
 At its core it does three things:
 
@@ -35,10 +35,10 @@ kubectl portfwd -f .portfwd-plan # via spec file (no prompts)
 ![portfwd demo](https://github.com/user-attachments/assets/08a1decc-d957-451e-856f-560a9ff062f5)
 | Resource | Status |
 |---|:---|
-| CronJob | ✅ |
+| CronJob | ❌ |
 | DaemonSet | ✅ |
 | Deployment | ✅ |
-| Job | ✅ |
+| Job | ❌ |
 | Pod | ✅ |
 | ReplicaSet | ✅ |
 | StatefulSet | ✅ |

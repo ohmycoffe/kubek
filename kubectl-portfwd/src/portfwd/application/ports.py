@@ -4,10 +4,8 @@ from typing import Protocol
 
 from kubek.kube.config import ResolvedKubeConfig
 from kubek.kube.contracts.repositories import (
-    CronJobRepository,
     DaemonSetRepository,
     DeploymentRepository,
-    JobRepository,
     NamespaceRepository,
     PodRepository,
     ReplicaSetRepository,
@@ -50,12 +48,6 @@ class KubeGateway(Protocol):
 
     @property
     def daemonset(self) -> DaemonSetRepository: ...
-
-    @property
-    def job(self) -> JobRepository: ...
-
-    @property
-    def cronjob(self) -> CronJobRepository: ...
 
     @property
     def replicaset(self) -> ReplicaSetRepository: ...
