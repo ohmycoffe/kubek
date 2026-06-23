@@ -1158,10 +1158,10 @@ def test_env_with_unknown_value_from_is_skipped(api):
     assert extract_envs_from_container(api=api, container=container) == {}
 
 
-def test_env_with_no_value_or_value_from_is_skipped(api):
+def test_env_with_no_value_or_value_from_exports_empty_string(api):
     container = Container(name="test", env=[EnvVar(name="EMPTY")])
 
-    assert extract_envs_from_container(api=api, container=container) == {}
+    assert extract_envs_from_container(api=api, container=container) == {"EMPTY": ""}
 
 
 def test_field_ref_is_skipped_silently(api, caplog):
