@@ -125,6 +125,9 @@ def extract_envs_from_container(
                         name,
                         env,
                     )
+            elif env.name:
+                # If the env var has a name but no value or valueFrom, it is considered to have an empty value.
+                result[name] = ""
             else:
                 logger.warning("Unknown env format: %s", env)
     return result
