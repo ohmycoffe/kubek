@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from portfwd.application.port_forwarding.events import (
     PortForwardDied,
     PortForwardEvent,
+    PortForwardLaunchAbandoned,
     PortForwardLaunchFailed,
+    PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
     PortForwardStarted,
@@ -24,10 +26,17 @@ from portfwd.domain.models import PortForwardPlan
 
 @dataclass(frozen=True)
 class Backoff:
-    """Retry sleeps for launch failures and port-busy polls (exponential backoff in seconds)."""
+    """Exponential backoff delays in seconds for retries and port-busy polls.
+
+    Launch retries share one delay sequence for a forward's whole lifetime, so a
+    rapidly crash-looping forward keeps backing off instead of resetting to
+    ``min_s`` on every restart. Port-busy polls use a fresh sequence on each
+    wait. ``max_retries`` applies to launch retries only.
+    """
 
     min_s: float = 0.5
     max_s: float = 30.0
+    max_retries: int = 10
 
     def retry_delays(self) -> Iterator[float]:
         """Yield sleep durations (in seconds)"""
@@ -50,6 +59,20 @@ class _SupervisorExited:
 _SUPERVISOR_EXITED = _SupervisorExited()
 
 _Queued = PortForwardEvent | _SupervisorExited
+
+
+@dataclass
+class _RetryCounter:
+    """Counts failed launch attempts; stops once ``attempt`` reaches ``max_retries``."""
+
+    max_retries: int
+    attempt: int = 0
+
+    def record(self) -> None:
+        self.attempt += 1
+
+    def exceeded(self) -> bool:
+        return self.attempt >= self.max_retries
 
 
 class PortForwardEventStreamer(PortForwardEventStream):
@@ -121,15 +144,30 @@ class PortForwardEventStreamer(PortForwardEventStream):
         expected_shutdown: asyncio.Event,
         active_processes: list[PortForwardSession],
     ) -> None:
-        """Keep one port-forward alive, restarting it on the same local port until shutdown."""
+        """Keep one port-forward alive, restarting it on the same local port until shutdown.
+
+        A single backoff sequence is shared across restarts so a crash-looping
+        forward keeps backing off instead of resetting to ``min_s`` each time.
+        Restarts stop once ``Backoff.max_retries`` is exhausted.
+        """
+        retry_delays = self._backoff.retry_delays()
+        retry_counter = _RetryCounter(max_retries=self._backoff.max_retries)
         try:
             while not expected_shutdown.is_set():
                 process = await self._launch_with_retry(
                     plan=plan,
                     events=events,
                     expected_shutdown=expected_shutdown,
+                    retry_delays=retry_delays,
+                    retry_counter=retry_counter,
                 )
                 if process is None:
+                    if retry_counter.exceeded() and not expected_shutdown.is_set():
+                        self._emit_launch_abandoned(
+                            plan=plan,
+                            events=events,
+                            retry_counter=retry_counter,
+                        )
                     return
 
                 active_processes.append(process)
@@ -150,6 +188,14 @@ class PortForwardEventStreamer(PortForwardEventStream):
                     return
 
                 events.put_nowait(PortForwardDied(snapshot=process.snapshot()))
+                retry_counter.record()
+                if retry_counter.exceeded():
+                    self._emit_launch_abandoned(
+                        plan=plan,
+                        events=events,
+                        retry_counter=retry_counter,
+                    )
+                    return
         finally:
             events.put_nowait(_SUPERVISOR_EXITED)
 
@@ -159,17 +205,30 @@ class PortForwardEventStreamer(PortForwardEventStream):
         plan: PortForwardPlan,
         events: asyncio.Queue[_Queued],
         expected_shutdown: asyncio.Event,
+        retry_delays: Iterator[float],
+        retry_counter: _RetryCounter,
     ) -> PortForwardSession | None:
         """Wait for the local port, then launch; retry with backoff until shutdown.
 
-        Returns the running session, or ``None`` if shutdown was requested first.
-        Each failed attempt emits a ``LAUNCH_FAILED`` event so the UI can show it.
+        Advances the shared ``retry_delays`` sequence so delays keep growing
+        across restarts. Returns the running session, or ``None`` if shutdown
+        was requested first or ``Backoff.max_retries`` is exhausted. Each failed
+        attempt emits a ``LAUNCH_FAILED`` event so the UI can show it.
         """
-        backoff = self._backoff.retry_delays()
-
         while not expected_shutdown.is_set():
-            # Minimal delay before each launch attempt (including the first)
-            await self._sleep_for(next(backoff))
+            if retry_counter.attempt > 0:
+                events.put_nowait(
+                    PortForwardReconnecting(
+                        kind=plan.target.kind,
+                        namespace=plan.target.namespace,
+                        name=plan.target.name,
+                        remote_port=plan.remote_port,
+                        local_port=plan.local_port,
+                        attempt=retry_counter.attempt + 1,
+                    )
+                )
+
+            await self._sleep_for(next(retry_delays))
 
             if not await self._wait_for_local_port(
                 plan=plan,
@@ -183,6 +242,7 @@ class PortForwardEventStreamer(PortForwardEventStream):
             except Exception as exc:
                 if expected_shutdown.is_set():
                     return None
+                retry_counter.record()
                 events.put_nowait(
                     PortForwardLaunchFailed(
                         kind=plan.target.kind,
@@ -191,8 +251,11 @@ class PortForwardEventStreamer(PortForwardEventStream):
                         remote_port=plan.remote_port,
                         local_port=plan.local_port,
                         reason=str(exc),
+                        attempt=retry_counter.attempt,
                     )
                 )
+                if retry_counter.exceeded():
+                    return None
 
         return None
 
@@ -205,26 +268,31 @@ class PortForwardEventStreamer(PortForwardEventStream):
     ) -> bool:
         """Wait until the planned local port can be bound again before relaunching.
 
-        Emits a ``PortForwardReconnecting`` event on each poll while the port
-        stays busy so the UI logs every reconnect attempt.
+        Uses a local poll counter and a fresh backoff sequence (both reset on
+        each call) and emits a ``PortForwardLocalPortBusy`` event on each poll
+        while the port stays busy. Polls indefinitely until the port frees or
+        shutdown.
         """
-        backoff = self._backoff.retry_delays()
+        poll_delays = self._backoff.retry_delays()
+        poll = 0
 
         while not expected_shutdown.is_set():
             if self._is_local_port_free(plan.local_port):
                 return True
 
+            poll += 1
             events.put_nowait(
-                PortForwardReconnecting(
+                PortForwardLocalPortBusy(
                     kind=plan.target.kind,
                     namespace=plan.target.namespace,
                     name=plan.target.name,
                     remote_port=plan.remote_port,
                     local_port=plan.local_port,
+                    poll=poll,
                 )
             )
 
-            await self._sleep_for(next(backoff))
+            await self._sleep_for(next(poll_delays))
 
         return False
 
@@ -237,6 +305,24 @@ class PortForwardEventStreamer(PortForwardEventStream):
             events.put_nowait(
                 PortForwardOutput(snapshot=process.snapshot(), output=output)
             )
+
+    def _emit_launch_abandoned(
+        self,
+        *,
+        plan: PortForwardPlan,
+        events: asyncio.Queue[_Queued],
+        retry_counter: _RetryCounter,
+    ) -> None:
+        events.put_nowait(
+            PortForwardLaunchAbandoned(
+                kind=plan.target.kind,
+                namespace=plan.target.namespace,
+                name=plan.target.name,
+                remote_port=plan.remote_port,
+                local_port=plan.local_port,
+                max_retries=retry_counter.max_retries,
+            )
+        )
 
     def _terminate_all(self, processes: list[PortForwardSession]) -> None:
         for proc in processes:
