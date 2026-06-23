@@ -211,7 +211,7 @@ class _PortForwardStatusTable:
             return f"[{Color.WARNING}]⟳ reconnecting…[/{Color.WARNING}]"
 
         if row.status == _Status.WAITING_FOR_PORT:
-            return f"[{Color.WARNING}]⏳ port in use[/{Color.WARNING}]"
+            return f"[{Color.WARNING}]⟳ reconnecting (port in use)…[/{Color.WARNING}]"
 
         return f"[{Color.ERROR}]✗ died (exit {row.returncode})[/{Color.ERROR}]"
 
