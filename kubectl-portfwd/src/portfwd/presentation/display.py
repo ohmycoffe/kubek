@@ -19,7 +19,9 @@ from portfwd.application.port_forwarding.events import (
     OutputStream,
     PortForwardDied,
     PortForwardEvent,
+    PortForwardLaunchAbandoned,
     PortForwardLaunchFailed,
+    PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
     PortForwardStarted,
@@ -42,6 +44,7 @@ class _Status(StrEnum):
     STOPPED = "stopped"
     DIED = "died"
     RECONNECTING = "reconnecting"
+    WAITING_FOR_PORT = "waiting_for_port"
 
 
 @dataclass(frozen=True)
@@ -122,6 +125,30 @@ class _PortForwardStatusTable:
         row.status = _Status.RECONNECTING
         row.returncode = None
 
+    def mark_waiting_for_port(
+        self,
+        *,
+        kind: TargetKind,
+        namespace: str,
+        name: str,
+        remote_port: int,
+        local_port: int,
+    ) -> None:
+        """Flag an existing row as waiting for the local port to free up."""
+        key = _RowKey(
+            kind=kind,
+            namespace=namespace,
+            name=name,
+            remote_port=remote_port,
+            local_port=local_port,
+        )
+        row = self.__rows.get(key)
+        if row is None:
+            return
+
+        row.status = _Status.WAITING_FOR_PORT
+        row.returncode = None
+
     def __finish(
         self,
         snapshot: PortForwardProcessSnapshot,
@@ -182,6 +209,9 @@ class _PortForwardStatusTable:
 
         if row.status == _Status.RECONNECTING:
             return f"[{Color.WARNING}]⟳ reconnecting…[/{Color.WARNING}]"
+
+        if row.status == _Status.WAITING_FOR_PORT:
+            return f"[{Color.WARNING}]⏳ port in use[/{Color.WARNING}]"
 
         return f"[{Color.ERROR}]✗ died (exit {row.returncode})[/{Color.ERROR}]"
 
@@ -290,7 +320,16 @@ class PortForwardLiveDisplay:
             case PortForwardLaunchFailed():
                 self._logs.add_line(
                     source=f"{event.kind}/{event.name}:{event.local_port}",
-                    text=f"failed to start: {event.reason}",
+                    text=f"attempt {event.attempt} failed to start: {event.reason}",
+                    style=Color.ERROR,
+                )
+            case PortForwardLaunchAbandoned():
+                self._logs.add_line(
+                    source=f"{event.kind}/{event.name}:{event.local_port}",
+                    text=(
+                        "launching failed: gave up after exhausting "
+                        f"{event.max_retries} retries"
+                    ),
                     style=Color.ERROR,
                 )
             case PortForwardReconnecting():
@@ -303,7 +342,23 @@ class PortForwardLiveDisplay:
                 )
                 self._logs.add_line(
                     source=f"{event.kind}/{event.name}:{event.local_port}",
-                    text=f"local port {event.local_port} in use; waiting to reconnect…",
+                    text=f"attempt {event.attempt}: reconnecting…",
+                    style=Color.WARNING,
+                )
+            case PortForwardLocalPortBusy():
+                self._table.mark_waiting_for_port(
+                    kind=event.kind,
+                    namespace=event.namespace,
+                    name=event.name,
+                    remote_port=event.remote_port,
+                    local_port=event.local_port,
+                )
+                self._logs.add_line(
+                    source=f"{event.kind}/{event.name}:{event.local_port}",
+                    text=(
+                        f"poll {event.poll}: local port {event.local_port} "
+                        "in use; waiting to reconnect…"
+                    ),
                     style=Color.WARNING,
                 )
             case _:

@@ -49,13 +49,26 @@ class PortForwardOutput:
 
 @dataclass(frozen=True)
 class PortForwardReconnecting:
-    """A restart is blocked because the local port is still in use."""
+    """Waiting to relaunch after an unexpected exit or launch failure."""
 
     kind: TargetKind
     namespace: str
     name: str
     remote_port: int
     local_port: int
+    attempt: int
+
+
+@dataclass(frozen=True)
+class PortForwardLocalPortBusy:
+    """Waiting for the local port to become available before relaunching."""
+
+    kind: TargetKind
+    namespace: str
+    name: str
+    remote_port: int
+    local_port: int
+    poll: int
 
 
 @dataclass(frozen=True)
@@ -68,6 +81,19 @@ class PortForwardLaunchFailed:
     remote_port: int
     local_port: int
     reason: str
+    attempt: int
+
+
+@dataclass(frozen=True)
+class PortForwardLaunchAbandoned:
+    """Launch retries are exhausted and this forward will not be restarted."""
+
+    kind: TargetKind
+    namespace: str
+    name: str
+    remote_port: int
+    local_port: int
+    max_retries: int
 
 
 PortForwardEvent = (
@@ -76,7 +102,9 @@ PortForwardEvent = (
     | PortForwardDied
     | PortForwardOutput
     | PortForwardReconnecting
+    | PortForwardLocalPortBusy
     | PortForwardLaunchFailed
+    | PortForwardLaunchAbandoned
 )
 """Everything the streamer yields to the presentation layer about a port-forward.
 

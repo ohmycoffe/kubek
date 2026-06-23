@@ -5,7 +5,9 @@ from portfwd.application.port_forwarding.events import (
     OutputLine,
     OutputStream,
     PortForwardDied,
+    PortForwardLaunchAbandoned,
     PortForwardLaunchFailed,
+    PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
     PortForwardStarted,
@@ -126,13 +128,14 @@ async def test_stream_yields_died_then_restarts_on_unexpected_exit(
     assert [type(event) for event in events] == [
         PortForwardStarted,
         PortForwardDied,
+        PortForwardReconnecting,
         PortForwardStarted,
         PortForwardStopped,
     ]
     assert events[0].snapshot.pid == 111
-    assert events[2].snapshot.pid == 222
+    assert events[3].snapshot.pid == 222
     assert events[0].snapshot.local_port == PLAN.local_port
-    assert events[2].snapshot.local_port == PLAN.local_port
+    assert events[3].snapshot.local_port == PLAN.local_port
 
 
 @pytest.mark.asyncio
@@ -183,7 +186,11 @@ async def test_stream_yields_stopped_when_shutdown_expected(captured_signal_hand
 
 @pytest.mark.asyncio
 async def test_stream_waits_for_local_port_before_restarting(captured_signal_handlers):
-    """Restart polls until the local port is released, sleeping the poll delay."""
+    """Restart polls until the local port is released, sleeping the poll delay.
+
+    Launch retries use a persistent backoff across restarts; port-busy polls
+    use a separate counter that resets on each wait.
+    """
     first = FakeSession(
         make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=111, returncode=1)
     )
@@ -211,5 +218,45 @@ async def test_stream_waits_for_local_port_before_restarting(captured_signal_han
                 captured_signal_handlers[signal.SIGINT]()
 
     assert port_checker.calls == 4
-    assert sleep.delays == [1.0, 1.0, 1.0, 2.0]
-    assert types.count(PortForwardReconnecting) == 2
+    assert sleep.delays == [1.0, 2.0, 1.0, 2.0]
+    assert types.count(PortForwardReconnecting) == 1
+    assert types.count(PortForwardLocalPortBusy) == 2
+
+
+@pytest.mark.asyncio
+async def test_stream_stops_after_max_retries_on_crash_loop():
+    """Unexpected exits stop restarting once ``Backoff.max_retries`` is exhausted."""
+    dying = FakeSession(make_snapshot(returncode=1))
+    streamer = _make_streamer(
+        StaticLauncher(dying),
+        backoff=Backoff(min_s=0, max_s=0, max_retries=2),
+    )
+
+    events = [event async for event in streamer.stream([PLAN])]
+
+    assert [type(event) for event in events] == [
+        PortForwardStarted,
+        PortForwardDied,
+        PortForwardReconnecting,
+        PortForwardStarted,
+        PortForwardDied,
+        PortForwardLaunchAbandoned,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_stream_stops_after_max_launch_failures():
+    """Launch failures stop retrying once ``Backoff.max_retries`` is exhausted."""
+    streamer = _make_streamer(
+        FailingLauncher(fail_count=10),
+        backoff=Backoff(min_s=0, max_s=0, max_retries=2),
+    )
+
+    events = [event async for event in streamer.stream([PLAN])]
+
+    assert [type(event) for event in events] == [
+        PortForwardLaunchFailed,
+        PortForwardReconnecting,
+        PortForwardLaunchFailed,
+        PortForwardLaunchAbandoned,
+    ]

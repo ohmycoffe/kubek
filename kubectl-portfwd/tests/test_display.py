@@ -4,7 +4,9 @@ from portfwd.application.port_forwarding.events import (
     OutputLine,
     OutputStream,
     PortForwardDied,
+    PortForwardLaunchAbandoned,
     PortForwardLaunchFailed,
+    PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
     PortForwardStarted,
@@ -218,12 +220,34 @@ def test_apply_launch_failed_shows_reason_in_log_panel():
             remote_port=80,
             local_port=5000,
             reason="kubectl exited with code 1",
+            attempt=2,
         )
     )
 
     rendered = str(display._logs.render(height=5).renderable)
     assert "svc-a:5000" in rendered
+    assert "attempt 2 failed to start" in rendered
     assert "kubectl exited with code 1" in rendered
+
+
+def test_apply_launch_abandoned_shows_final_failure_message():
+    """apply(LAUNCH_ABANDONED) appends a final launching-failed line to the logs."""
+    display = PortForwardLiveDisplay(context=None, console=_CONSOLE)
+
+    display.apply(
+        PortForwardLaunchAbandoned(
+            kind=TargetKind.SERVICE,
+            namespace="ns",
+            name="svc-a",
+            remote_port=80,
+            local_port=5000,
+            max_retries=5,
+        )
+    )
+
+    rendered = str(display._logs.render(height=5).renderable)
+    assert "launching failed" in rendered
+    assert "exhausting 5 retries" in rendered
 
 
 def test_apply_lifecycle_events_are_logged_to_panel():
@@ -241,8 +265,8 @@ def test_apply_lifecycle_events_are_logged_to_panel():
     assert "port-forward stopped" in rendered
 
 
-def test_apply_reconnecting_marks_row_and_logs_wait():
-    """apply(RECONNECTING) flips the row to reconnecting and logs the busy port."""
+def test_apply_reconnecting_marks_row_and_logs_retry():
+    """apply(RECONNECTING) flips the row to reconnecting and logs the retry."""
     display = PortForwardLiveDisplay(context=None, console=_CONSOLE)
     display.apply(_make_event(PortForwardStarted, "svc", pid=7))
     display.apply(_make_event(PortForwardDied, "svc", pid=7, returncode=1))
@@ -254,29 +278,85 @@ def test_apply_reconnecting_marks_row_and_logs_wait():
             name="svc",
             remote_port=80,
             local_port=9000,
+            attempt=2,
         )
     )
 
     status_cells = list(display._table.render().columns[COL_STATUS].cells)
     assert "reconnecting" in str(status_cells[0])
-    assert "local port 9000 in use" in str(display._logs.render(height=5).renderable)
+    assert "attempt 2: reconnecting" in str(display._logs.render(height=5).renderable)
 
 
-def test_apply_reconnecting_logs_each_attempt():
-    """Each RECONNECTING event appends another line to the logs panel."""
+def test_apply_local_port_busy_marks_row_and_logs_poll():
+    """apply(LOCAL_PORT_BUSY) flips the row to waiting and logs the poll."""
     display = PortForwardLiveDisplay(context=None, console=_CONSOLE)
     display.apply(_make_event(PortForwardStarted, "svc", pid=7))
     display.apply(_make_event(PortForwardDied, "svc", pid=7, returncode=1))
 
-    reconnect = PortForwardReconnecting(
+    display.apply(
+        PortForwardLocalPortBusy(
+            kind=TargetKind.SERVICE,
+            namespace="ns",
+            name="svc",
+            remote_port=80,
+            local_port=9000,
+            poll=1,
+        )
+    )
+
+    status_cells = list(display._table.render().columns[COL_STATUS].cells)
+    assert "port in use" in str(status_cells[0])
+    rendered = str(display._logs.render(height=5).renderable)
+    assert "poll 1" in rendered
+    assert "local port 9000 in use" in rendered
+
+
+def test_apply_reconnecting_logs_generic_retry_message():
+    """apply(RECONNECTING) logs a generic retry line when the port is already free."""
+    display = PortForwardLiveDisplay(context=None, console=_CONSOLE)
+    display.apply(_make_event(PortForwardStarted, "svc", pid=7))
+    display.apply(_make_event(PortForwardDied, "svc", pid=7, returncode=1))
+
+    display.apply(
+        PortForwardReconnecting(
+            kind=TargetKind.SERVICE,
+            namespace="ns",
+            name="svc",
+            remote_port=80,
+            local_port=9000,
+            attempt=2,
+        )
+    )
+
+    rendered = str(display._logs.render(height=5).renderable)
+    assert "attempt 2: reconnecting" in rendered
+
+
+def test_apply_local_port_busy_logs_each_poll():
+    """Each LOCAL_PORT_BUSY event appends another line to the logs panel."""
+    display = PortForwardLiveDisplay(context=None, console=_CONSOLE)
+    display.apply(_make_event(PortForwardStarted, "svc", pid=7))
+    display.apply(_make_event(PortForwardDied, "svc", pid=7, returncode=1))
+
+    busy = PortForwardLocalPortBusy(
         kind=TargetKind.SERVICE,
         namespace="ns",
         name="svc",
         remote_port=80,
         local_port=9000,
+        poll=1,
     )
-    display.apply(reconnect)
-    display.apply(reconnect)
+    display.apply(busy)
+    display.apply(
+        PortForwardLocalPortBusy(
+            kind=TargetKind.SERVICE,
+            namespace="ns",
+            name="svc",
+            remote_port=80,
+            local_port=9000,
+            poll=2,
+        )
+    )
 
     rendered = str(display._logs.render(height=10).renderable)
     assert rendered.count("local port 9000 in use") == 2
