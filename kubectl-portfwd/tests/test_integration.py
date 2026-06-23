@@ -21,7 +21,6 @@ from portfwd_test_utils.fakes import (
     NAMESPACE,
     FakeLaunch,
     PlannedLauncher,
-    RecordingSleep,
     build_services,
     rendered_rows_by_name,
 )
@@ -35,7 +34,6 @@ def _make_use_case(launcher: PlannedLauncher, api) -> PortForwardUseCase:
     streamer = PortForwardEventStreamer(
         launcher,
         backoff=_NO_BACKOFF,
-        sleep_for=RecordingSleep(),
         is_local_port_free=lambda port: True,
     )
     return PortForwardUseCase(streamer=streamer, api=api)

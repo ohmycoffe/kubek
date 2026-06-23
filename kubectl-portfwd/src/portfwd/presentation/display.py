@@ -24,6 +24,7 @@ from portfwd.application.port_forwarding.events import (
     PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
+    PortForwardShutdownWhileWaiting,
     PortForwardStarted,
     PortForwardStopped,
 )
@@ -148,6 +149,29 @@ class _PortForwardStatusTable:
 
         row.status = _Status.WAITING_FOR_PORT
         row.returncode = None
+
+    def mark_stopped_while_waiting(
+        self,
+        *,
+        kind: TargetKind,
+        namespace: str,
+        name: str,
+        remote_port: int,
+        local_port: int,
+    ) -> None:
+        """Mark an existing row stopped when shutdown happens without a live process."""
+        key = _RowKey(
+            kind=kind,
+            namespace=namespace,
+            name=name,
+            remote_port=remote_port,
+            local_port=local_port,
+        )
+        row = self.__rows.get(key)
+        if row is None:
+            return
+
+        row.status = _Status.STOPPED
 
     def __finish(
         self,
@@ -359,6 +383,19 @@ class PortForwardLiveDisplay:
                         f"poll {event.poll}: local port {event.local_port} "
                         "in use; waiting to reconnect…"
                     ),
+                    style=Color.WARNING,
+                )
+            case PortForwardShutdownWhileWaiting():
+                self._table.mark_stopped_while_waiting(
+                    kind=event.kind,
+                    namespace=event.namespace,
+                    name=event.name,
+                    remote_port=event.remote_port,
+                    local_port=event.local_port,
+                )
+                self._logs.add_line(
+                    source=f"{event.kind}/{event.name}:{event.local_port}",
+                    text="port-forward stopped",
                     style=Color.WARNING,
                 )
             case _:

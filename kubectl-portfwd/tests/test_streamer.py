@@ -1,3 +1,4 @@
+import asyncio
 import signal
 
 import pytest
@@ -10,6 +11,7 @@ from portfwd.application.port_forwarding.events import (
     PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
+    PortForwardShutdownWhileWaiting,
     PortForwardStarted,
     PortForwardStopped,
 )
@@ -25,7 +27,6 @@ from portfwd.domain.models import (
 from portfwd_test_utils.fakes import (
     FailingLauncher,
     FakeSession,
-    RecordingSleep,
     ScriptedPortChecker,
     SequentialLauncher,
     StaticLauncher,
@@ -46,13 +47,11 @@ def _make_streamer(
     launcher,
     *,
     backoff: Backoff = _NO_BACKOFF,
-    sleep_for=None,
     is_local_port_free=None,
 ) -> PortForwardEventStreamer:
     return PortForwardEventStreamer(
         launcher,
         backoff=backoff,
-        sleep_for=sleep_for or RecordingSleep(),
         is_local_port_free=is_local_port_free or (lambda port: True),
     )
 
@@ -198,13 +197,11 @@ async def test_stream_waits_for_local_port_before_restarting(captured_signal_han
         make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=222, returncode=0),
         block_exit=True,
     )
-    sleep = RecordingSleep()
     # First launch: port free. Restart: busy twice, then free.
     port_checker = ScriptedPortChecker([True, False, False, True])
     streamer = _make_streamer(
         SequentialLauncher([first, second]),
-        backoff=Backoff(min_s=1.0, max_s=30.0),
-        sleep_for=sleep,
+        backoff=Backoff(min_s=0, max_s=0),
         is_local_port_free=port_checker,
     )
 
@@ -218,9 +215,50 @@ async def test_stream_waits_for_local_port_before_restarting(captured_signal_han
                 captured_signal_handlers[signal.SIGINT]()
 
     assert port_checker.calls == 4
-    assert sleep.delays == [1.0, 2.0, 1.0, 2.0]
     assert types.count(PortForwardReconnecting) == 1
     assert types.count(PortForwardLocalPortBusy) == 2
+
+
+@pytest.mark.asyncio
+async def test_stream_yields_shutdown_when_shutdown_during_port_poll(
+    captured_signal_handlers,
+):
+    """Ctrl+C while waiting for a busy local port emits SHUTDOWN_WHILE_WAITING."""
+    first = FakeSession(
+        make_snapshot(local_port=_PLAN_LOCAL_PORT, pid=111, returncode=1)
+    )
+    port_checker = ScriptedPortChecker([True, False])
+    streamer = _make_streamer(
+        SequentialLauncher([first]),
+        backoff=Backoff(min_s=0, max_s=0),
+        is_local_port_free=port_checker,
+    )
+
+    events = []
+    async for event in streamer.stream([PLAN]):
+        events.append(event)
+        if isinstance(event, PortForwardLocalPortBusy):
+            captured_signal_handlers[signal.SIGINT]()
+
+    assert isinstance(events[-1], PortForwardShutdownWhileWaiting)
+    assert events[-1].name == PLAN.target.name
+    assert events[-1].local_port == PLAN.local_port
+
+
+@pytest.mark.asyncio
+async def test_sleep_or_shutdown_returns_before_timeout():
+    """Shutdown ends the wait before the timeout elapses."""
+    streamer = _make_streamer(
+        StaticLauncher(FakeSession(make_snapshot(), block_exit=True)),
+    )
+    expected_shutdown = asyncio.Event()
+
+    wait_task = asyncio.create_task(
+        streamer._sleep_or_shutdown(3600.0, expected_shutdown)
+    )
+    await asyncio.sleep(0)
+    expected_shutdown.set()
+    await asyncio.wait_for(wait_task, timeout=0.1)
 
 
 @pytest.mark.asyncio
