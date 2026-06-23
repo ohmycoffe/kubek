@@ -27,29 +27,9 @@ def ask_for_kind() -> (
         "Select a kind:",
         choices=[
             questionary.Choice(
-                title="Deployment",
-                value=Kind.DEPLOYMENT,
-                description="(Kubernetes Deployment)",
-            ),
-            questionary.Choice(
-                title="StatefulSet",
-                value=Kind.STATEFULSET,
-                description="(Kubernetes StatefulSet)",
-            ),
-            questionary.Choice(
-                title="DaemonSet",
-                value=Kind.DAEMONSET,
-                description="(Kubernetes DaemonSet)",
-            ),
-            questionary.Choice(
-                title="ReplicaSet",
-                value=Kind.REPLICASET,
-                description="(Kubernetes ReplicaSet)",
-            ),
-            questionary.Choice(
-                title="Job",
-                value=Kind.JOB,
-                description="(Kubernetes Job)",
+                title="ConfigMap",
+                value=Kind.CONFIGMAP,
+                description="(Kubernetes ConfigMap)",
             ),
             questionary.Choice(
                 title="CronJob",
@@ -57,14 +37,19 @@ def ask_for_kind() -> (
                 description="(Kubernetes CronJob)",
             ),
             questionary.Choice(
-                title="WorkflowTemplate",
-                value=Kind.WORKFLOWTEMPLATE,
-                description="(Argo WorkflowTemplate)",
+                title="DaemonSet",
+                value=Kind.DAEMONSET,
+                description="(Kubernetes DaemonSet)",
             ),
             questionary.Choice(
-                title="ConfigMap",
-                value=Kind.CONFIGMAP,
-                description="(Kubernetes ConfigMap)",
+                title="Deployment",
+                value=Kind.DEPLOYMENT,
+                description="(Kubernetes Deployment)",
+            ),
+            questionary.Choice(
+                title="Job",
+                value=Kind.JOB,
+                description="(Kubernetes Job)",
             ),
             questionary.Choice(
                 title="Pod",
@@ -72,9 +57,24 @@ def ask_for_kind() -> (
                 description="(Kubernetes Pod)",
             ),
             questionary.Choice(
+                title="ReplicaSet",
+                value=Kind.REPLICASET,
+                description="(Kubernetes ReplicaSet)",
+            ),
+            questionary.Choice(
                 title="Secret",
                 value=Kind.SECRET,
                 description="(Kubernetes Secret)",
+            ),
+            questionary.Choice(
+                title="StatefulSet",
+                value=Kind.STATEFULSET,
+                description="(Kubernetes StatefulSet)",
+            ),
+            questionary.Choice(
+                title="WorkflowTemplate",
+                value=Kind.WORKFLOWTEMPLATE,
+                description="(Argo WorkflowTemplate)",
             ),
         ],
         use_jk_keys=False,

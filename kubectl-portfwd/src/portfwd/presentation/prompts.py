@@ -12,25 +12,25 @@ def ask_for_kinds() -> list[TargetKind]:
     """Prompt the user to pick which resource types to forward."""
     choices = [
         questionary.Choice(
-            title="Services",
-            value=TargetKind.SERVICE,
-            checked=True,
-        ),
-        questionary.Choice(
-            title="Pods",
-            value=TargetKind.POD,
+            title="DaemonSets",
+            value=TargetKind.DAEMONSET,
         ),
         questionary.Choice(
             title="Deployments",
             value=TargetKind.DEPLOYMENT,
         ),
         questionary.Choice(
-            title="StatefulSets",
-            value=TargetKind.STATEFULSET,
+            title="Pods",
+            value=TargetKind.POD,
         ),
         questionary.Choice(
-            title="DaemonSets",
-            value=TargetKind.DAEMONSET,
+            title="Services",
+            value=TargetKind.SERVICE,
+            checked=True,
+        ),
+        questionary.Choice(
+            title="StatefulSets",
+            value=TargetKind.STATEFULSET,
         ),
         questionary.Choice(
             title="ReplicaSets",
