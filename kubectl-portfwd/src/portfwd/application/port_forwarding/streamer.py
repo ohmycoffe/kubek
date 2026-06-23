@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import signal
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 
 from portfwd.application.port_forwarding.events import (
@@ -13,6 +13,7 @@ from portfwd.application.port_forwarding.events import (
     PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
+    PortForwardShutdownWhileWaiting,
     PortForwardStarted,
     PortForwardStopped,
 )
@@ -82,12 +83,10 @@ class PortForwardEventStreamer(PortForwardEventStream):
         *,
         is_local_port_free: Callable[[int], bool],
         backoff: Backoff | None = None,
-        sleep_for: Callable[[float], Awaitable[None]] = asyncio.sleep,
     ) -> None:
         self._launcher = launcher
         self._is_local_port_free = is_local_port_free
         self._backoff = backoff or Backoff()
-        self._sleep_for = sleep_for
 
     def stream(self, plans: list[PortForwardPlan]) -> AsyncIterator[PortForwardEvent]:
         return self._stream_port_forwards(plans=plans)
@@ -162,7 +161,17 @@ class PortForwardEventStreamer(PortForwardEventStream):
                     retry_counter=retry_counter,
                 )
                 if process is None:
-                    if retry_counter.exceeded() and not expected_shutdown.is_set():
+                    if expected_shutdown.is_set():
+                        events.put_nowait(
+                            PortForwardShutdownWhileWaiting(
+                                kind=plan.target.kind,
+                                namespace=plan.target.namespace,
+                                name=plan.target.name,
+                                remote_port=plan.remote_port,
+                                local_port=plan.local_port,
+                            )
+                        )
+                    elif retry_counter.exceeded():
                         self._emit_launch_abandoned(
                             plan=plan,
                             events=events,
@@ -228,7 +237,10 @@ class PortForwardEventStreamer(PortForwardEventStream):
                     )
                 )
 
-            await self._sleep_for(next(retry_delays))
+            await self._sleep_or_shutdown(
+                next(retry_delays),
+                expected_shutdown,
+            )
 
             if not await self._wait_for_local_port(
                 plan=plan,
@@ -292,9 +304,26 @@ class PortForwardEventStreamer(PortForwardEventStream):
                 )
             )
 
-            await self._sleep_for(next(poll_delays))
+            await self._sleep_or_shutdown(
+                next(poll_delays),
+                expected_shutdown,
+            )
 
         return False
+
+    async def _sleep_or_shutdown(
+        self,
+        delay: float,
+        expected_shutdown: asyncio.Event,
+    ) -> None:
+        """Sleep for ``delay`` seconds unless shutdown is requested first."""
+        if expected_shutdown.is_set():
+            return
+
+        try:
+            await asyncio.wait_for(expected_shutdown.wait(), timeout=delay)
+        except TimeoutError:
+            return
 
     async def emit_output(
         self,

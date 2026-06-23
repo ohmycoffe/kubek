@@ -96,6 +96,17 @@ class PortForwardLaunchAbandoned:
     max_retries: int
 
 
+@dataclass(frozen=True)
+class PortForwardShutdownWhileWaiting:
+    """Shutdown was requested while no subprocess was running for this forward."""
+
+    kind: TargetKind
+    namespace: str
+    name: str
+    remote_port: int
+    local_port: int
+
+
 PortForwardEvent = (
     PortForwardStarted
     | PortForwardStopped
@@ -105,6 +116,7 @@ PortForwardEvent = (
     | PortForwardLocalPortBusy
     | PortForwardLaunchFailed
     | PortForwardLaunchAbandoned
+    | PortForwardShutdownWhileWaiting
 )
 """Everything the streamer yields to the presentation layer about a port-forward.
 

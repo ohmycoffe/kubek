@@ -9,6 +9,7 @@ from portfwd.application.port_forwarding.events import (
     PortForwardLocalPortBusy,
     PortForwardOutput,
     PortForwardReconnecting,
+    PortForwardShutdownWhileWaiting,
     PortForwardStarted,
     PortForwardStopped,
 )
@@ -309,6 +310,37 @@ def test_apply_local_port_busy_marks_row_and_logs_poll():
     rendered = str(display._logs.render(height=5).renderable)
     assert "poll 1" in rendered
     assert "local port 9000 in use" in rendered
+
+
+def test_apply_shutdown_while_waiting_marks_row_stopped():
+    """apply(SHUTDOWN_WHILE_WAITING) flips a reconnecting row to stopped."""
+    display = PortForwardLiveDisplay(context=None, console=_CONSOLE)
+    display.apply(_make_event(PortForwardStarted, "svc", pid=7))
+    display.apply(_make_event(PortForwardDied, "svc", pid=7, returncode=1))
+    display.apply(
+        PortForwardLocalPortBusy(
+            kind=TargetKind.SERVICE,
+            namespace="ns",
+            name="svc",
+            remote_port=80,
+            local_port=9000,
+            poll=1,
+        )
+    )
+
+    display.apply(
+        PortForwardShutdownWhileWaiting(
+            kind=TargetKind.SERVICE,
+            namespace="ns",
+            name="svc",
+            remote_port=80,
+            local_port=9000,
+        )
+    )
+
+    status_cells = list(display._table.render().columns[COL_STATUS].cells)
+    assert "stopped" in str(status_cells[0])
+    assert "port-forward stopped" in str(display._logs.render(height=5).renderable)
 
 
 def test_apply_reconnecting_logs_generic_retry_message():
