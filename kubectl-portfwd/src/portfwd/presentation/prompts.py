@@ -41,6 +41,7 @@ def ask_for_kinds() -> list[TargetKind]:
         "Select resource types to forward:",
         choices=choices,
         initial_choice=TargetKind.SERVICE,
+        use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
     ).ask()

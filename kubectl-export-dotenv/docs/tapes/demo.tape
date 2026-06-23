@@ -23,6 +23,8 @@ Enter
 Sleep 2s
 
 # Select kind: Deployment
+Type "dep"
+Sleep 2s
 Enter
 Sleep 2s
 
