@@ -9,7 +9,12 @@ from typing import Annotated
 import typer
 from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConfig
 from kubek.net import is_port_free
-from kubek.term import CLIOutput, create_output, setup_logging_from_count
+from kubek.term import (
+    CLIOutput,
+    create_output,
+    set_logger_levels_from_verbosity_count,
+    suppress_logging,
+)
 
 from portfwd.application.port_forwarding.events import PortForwardEvent
 from portfwd.application.port_forwarding.streamer import PortForwardEventStreamer
@@ -115,7 +120,7 @@ def port_forward(
         kubectl portfwd -t kube-public/svc/auth-service:8080::50000
         kubectl portfwd -t kube-public/svc/auth -t kube-public/pod/worker-xyz:9000
     """
-    setup_logging_from_count(verbose, "kubek", "portfwd")
+    set_logger_levels_from_verbosity_count(verbose, "kubek", "portfwd")
     out: CLIOutput = create_output(verbosity_count=verbose)
 
     if file is not None and target is not None:
@@ -170,7 +175,7 @@ async def _run_event_stream(
     display: PortForwardLiveDisplay,
     event_stream: AsyncIterator[PortForwardEvent],
 ) -> None:
-    with display.live():
+    with suppress_logging(), display.live():
         async for event in event_stream:
             display.apply(event)
 

@@ -11,7 +11,7 @@ from kubek.kube import (
     KubeFacade,
     ResolvedKubeConfig,
 )
-from kubek.term import CLIOutput, create_output, setup_logging_from_count
+from kubek.term import CLIOutput, create_output
 
 from export_dotenv.errors import (
     ExportDotenvError,
@@ -20,6 +20,7 @@ from export_dotenv.errors import (
 )
 from export_dotenv.formatting import ExportFormat, format_environment_values
 from export_dotenv.kube import KubeGateway
+from export_dotenv.logging_setup import setup_logging
 from export_dotenv.prompts import ask_for_kind, ask_for_resource
 from export_dotenv.use_case import fetch_environment_values
 
@@ -87,8 +88,8 @@ def get(
     """
     Get environment variables for a Kubernetes Deployment, StatefulSet, DaemonSet, Job, CronJob, or Argo WorkflowTemplate.
     """
-    setup_logging_from_count(verbose, "kubek", "export-dotenv")
     out: CLIOutput = create_output(verbosity_count=verbose)
+    setup_logging(out.console, verbose)
 
     kubeconfig_str = kubeconfig if kubeconfig else None
 
