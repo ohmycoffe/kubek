@@ -1,10 +1,12 @@
+# Intentionally configured basicConfig at the top of the entrypoint
+# to capture logs emitted before setup_logging is called
 import logging
+
+logging.basicConfig()
 
 from kubek.term import create_output
 
 from export_dotenv.cli import app
-
-logging.basicConfig()
 
 out = create_output()
 
