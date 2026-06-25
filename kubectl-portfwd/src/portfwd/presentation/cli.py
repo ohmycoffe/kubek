@@ -99,6 +99,13 @@ def port_forward(
             ),
         ),
     ] = None,
+    insecure_skip_tls_verify: Annotated[
+        bool,
+        typer.Option(
+            "--insecure-skip-tls-verify",
+            help="Disable TLS certificate verification for the Kubernetes API (kubek client only).",
+        ),
+    ] = False,
     verbose: Annotated[
         int,
         typer.Option(
@@ -129,7 +136,11 @@ def port_forward(
     kubeconfig_str = str(kubeconfig) if kubeconfig else None
 
     try:
-        kube_config = KubeConfig(context=context, kubeconfig=kubeconfig_str)
+        kube_config = KubeConfig(
+            context=context,
+            kubeconfig=kubeconfig_str,
+            skip_tls_verify=insecure_skip_tls_verify,
+        )
         api = KubeFacade.from_config(config=kube_config)
         _print_kubeconfig(out, api.current_config)
 

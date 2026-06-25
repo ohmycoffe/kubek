@@ -78,6 +78,13 @@ def get(
         ),
     ] = None,
     output: ExportFormat = ExportFormat.ENV,
+    insecure_skip_tls_verify: Annotated[
+        bool,
+        typer.Option(
+            "--insecure-skip-tls-verify",
+            help="Disable TLS certificate verification for the Kubernetes API (kubek client only).",
+        ),
+    ] = False,
     verbose: Annotated[
         int,
         typer.Option(
@@ -98,6 +105,7 @@ def get(
             context=context,
             namespace=namespace,
             kubeconfig=kubeconfig_str,
+            skip_tls_verify=insecure_skip_tls_verify,
         )
 
         api = KubeFacade.from_config(config=kube_config)
