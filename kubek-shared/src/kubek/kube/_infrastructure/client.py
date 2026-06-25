@@ -6,6 +6,7 @@ from functools import wraps
 from http import HTTPStatus
 from typing import Any, NoReturn, ParamSpec, Protocol, Self, TypeVar, cast
 
+import urllib3.exceptions
 from kubernetes import client
 from kubernetes.config import (
     ConfigException,
@@ -58,6 +59,10 @@ class KubeSession:
         except ConfigException as e:
             raise KubeConfigError(f"failed to load kubeconfig: {e}") from e
 
+        if cfg.skip_tls_verify:
+            # kubek-only: does not change kubectl or kubeconfig on disk.
+            configuration.verify_ssl = False
+
         api = client.ApiClient(configuration)
         return cls(
             core_v1=client.CoreV1Api(api),
@@ -108,12 +113,23 @@ def _raise_api_exception(e: client.ApiException) -> NoReturn:
         raise KubeApiNotFoundError("resource not found", context=context) from e
 
     if e.status == HTTPStatus.UNAUTHORIZED:
-        raise KubeAuthenticationError("access unauthorized", context=context) from e
+        raise KubeAuthenticationError(
+            "access unauthorized. Hint: your cluster credentials may have expired — re-authenticate and retry.",
+            context=context,
+        ) from e
 
     if e.status == HTTPStatus.FORBIDDEN:
         raise KubeAccessDeniedError("access forbidden", context=context) from e
 
     raise KubeClientError("client error", context=context) from e
+
+
+def _raise_ssl_error(exc: urllib3.exceptions.SSLError) -> NoReturn:
+    if "CERTIFICATE_VERIFY_FAILED" in str(exc):
+        message = "Certificate verify failed. Update your kubeconfig or (not recommended) use --insecure-skip-tls-verify. For more details run with -vv."
+    else:
+        message = "SSL error. For more details run with -vv."
+    raise KubeClientError(message) from exc
 
 
 def safe(fn: Callable[P, R]) -> Callable[P, R]:
@@ -123,6 +139,12 @@ def safe(fn: Callable[P, R]) -> Callable[P, R]:
             raw = fn(*args, **kwargs)
         except client.ApiException as e:
             _raise_api_exception(e)
+        except urllib3.exceptions.MaxRetryError as e:
+            reason = e.reason
+            match reason:
+                case urllib3.exceptions.SSLError():
+                    _raise_ssl_error(reason)
+            raise
         return raw
 
     return wrapper

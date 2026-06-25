@@ -14,3 +14,4 @@ class KubeConfig:
     context: str | None = None
     namespace: str | None = None
     kubeconfig: str | os.PathLike[str] | None = None
+    skip_tls_verify: bool = False
