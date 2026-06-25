@@ -6,6 +6,7 @@ from functools import wraps
 from http import HTTPStatus
 from typing import Any, NoReturn, ParamSpec, Protocol, Self, TypeVar, cast
 
+import urllib3.exceptions
 from kubernetes import client
 from kubernetes.config import (
     ConfigException,
@@ -123,6 +124,13 @@ def safe(fn: Callable[P, R]) -> Callable[P, R]:
             raw = fn(*args, **kwargs)
         except client.ApiException as e:
             _raise_api_exception(e)
+        except urllib3.exceptions.MaxRetryError as e:
+            match e.reason:
+                case urllib3.exceptions.SSLError():
+                    raise KubeClientError(
+                        f"{e.reason}", context={"reason": str(e.reason)}
+                    ) from e
+            raise e
         return raw
 
     return wrapper
