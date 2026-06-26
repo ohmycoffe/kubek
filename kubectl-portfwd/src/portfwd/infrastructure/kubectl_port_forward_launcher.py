@@ -126,12 +126,15 @@ class KubectlPortForwardLauncher(PortForwardLauncher):
         remote_port = plan.remote_port
         context = self._config.context
         kubeconfig = self._config.kubeconfig
+        skip_tls_verify = self._config.skip_tls_verify
 
         args: list[str] = []
         if kubeconfig:
             args += ["--kubeconfig", str(kubeconfig)]
         if context:
             args += ["--context", context]
+        if skip_tls_verify:
+            args += ["--insecure-skip-tls-verify"]
         cmd = [
             "kubectl",
             *args,

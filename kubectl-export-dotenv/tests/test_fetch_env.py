@@ -524,7 +524,12 @@ def api():
         workflowtemplate=InMemoryRepository([build_workflow()]),
         secret=InMemoryRepository([build_secret()]),
         configmap=InMemoryRepository([build_configmap()]),
-        current_config=ResolvedKubeConfig(context="test", namespace=NS),
+        current_config=ResolvedKubeConfig(
+            context="test",
+            namespace=NS,
+            kubeconfig=None,
+            skip_tls_verify=False,
+        ),
     )
 
 

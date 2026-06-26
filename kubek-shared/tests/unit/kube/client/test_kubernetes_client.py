@@ -8,7 +8,12 @@ from kubek.kube.config import ResolvedKubeConfig
 @pytest.fixture
 def session():
     return MagicMock(
-        current_config=ResolvedKubeConfig(context="test", namespace="default"),
+        current_config=ResolvedKubeConfig(
+            context="test",
+            namespace="default",
+            kubeconfig=None,
+            skip_tls_verify=False,
+        ),
     )
 
 

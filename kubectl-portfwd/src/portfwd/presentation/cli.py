@@ -108,7 +108,7 @@ def port_forward(
         bool,
         typer.Option(
             "--insecure-skip-tls-verify",
-            help="Disable TLS certificate verification for the Kubernetes API (kubek client only).",
+            help="Disable TLS certificate verification for the Kubernetes connection",
         ),
     ] = False,
     verbose: Annotated[
@@ -248,7 +248,7 @@ def _display_path(path: Path) -> str:
 
 
 async def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
-    selected_kinds = ask_for_kinds()
+    selected_kinds = await ask_for_kinds()
 
     if not selected_kinds:
         raise NoSelectionError("no resource types selected")
@@ -256,7 +256,7 @@ async def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForward
     with out.progress("Fetching namespaces…"):
         namespaces = [ns.metadata.name for ns in await api.namespace.list()]
 
-    selected_namespaces = ask_for_namespace(
+    selected_namespaces = await ask_for_namespace(
         all_namespaces=namespaces,
         current_namespace=api.current_config.namespace,
     )
@@ -276,7 +276,7 @@ async def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForward
             "no matching resources found in the selected namespaces"
         )
 
-    selected_targets = ask_for_targets(specs)
+    selected_targets = await ask_for_targets(specs)
 
     if not selected_targets:
         raise NoSelectionError("no targets selected")

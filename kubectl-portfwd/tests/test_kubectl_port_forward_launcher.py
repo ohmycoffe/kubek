@@ -20,6 +20,7 @@ async def _launch(
     remote_port: int,
     context: str | None = None,
     kubeconfig: str | None = None,
+    skip_tls_verify: bool = False,
     kind: TargetKind = TargetKind.SERVICE,
 ) -> tuple:
     plan = PortForwardPlan(
@@ -31,6 +32,7 @@ async def _launch(
         context=context or "",
         namespace=namespace,
         kubeconfig=kubeconfig,
+        skip_tls_verify=skip_tls_verify,
     )
 
     with patch(
@@ -148,3 +150,28 @@ async def test_start_port_forward_omits_optional_flags_when_not_given():
 
     assert "--kubeconfig" not in cmd
     assert "--context" not in cmd
+
+
+@pytest.mark.asyncio
+async def test_start_port_forward_includes_insecure_skip_tls_verify_when_given():
+    cmd = await _launch(
+        namespace="ns",
+        service="svc",
+        local_port=5000,
+        remote_port=80,
+        skip_tls_verify=True,
+    )
+
+    assert "--insecure-skip-tls-verify" in cmd
+
+
+@pytest.mark.asyncio
+async def test_start_port_forward_omits_insecure_skip_tls_verify_by_default():
+    cmd = await _launch(
+        namespace="ns",
+        service="svc",
+        local_port=5000,
+        remote_port=80,
+    )
+
+    assert "--insecure-skip-tls-verify" not in cmd

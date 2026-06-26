@@ -34,6 +34,9 @@ async def test_insecure_skip_tls_verify_disables_verification(monkeypatch):
     captured = {}
     _patch_kubeconfig(monkeypatch, captured)
 
-    async with await KubeSession.from_config(KubeConfig(skip_tls_verify=True)):
+    async with await KubeSession.from_config(
+        KubeConfig(skip_tls_verify=True)
+    ) as session:
         assert captured["cfg"].verify_ssl is False
         assert captured["cfg"].disable_strict_ssl_verification is True
+        assert session.current_config.skip_tls_verify is True

@@ -145,7 +145,7 @@ async def _main(
     async with KubeFacade.from_config(config=kube_config) as api:
         _print_kubeconfig(out, api.current_config)
 
-        selected_kind = kind or ask_for_kind()  # type: ignore
+        selected_kind = kind or await ask_for_kind()
         if not selected_kind:
             raise typer.Exit(code=0)
 
@@ -228,4 +228,4 @@ async def _select_resource_name(
         )
 
     available_names = [r.metadata.name for r in resources]
-    return ask_for_resource(resources=available_names, kind=kind)
+    return await ask_for_resource(resources=available_names, kind=kind)

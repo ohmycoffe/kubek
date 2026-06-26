@@ -17,6 +17,8 @@ class FakeKubeClient:
         return ResolvedKubeConfig(
             context="test-context",
             namespace="test-ns",
+            kubeconfig=None,
+            skip_tls_verify=False,
         )
 
     def _get_one(self, resource: str, name: str, namespace: str | None = None) -> dict:

@@ -8,7 +8,7 @@ from questionary import Style
 QUESTIONARY_STYLE = Style(DEFAULT_QUESTIONARY_THEME)
 
 
-def ask_for_kind() -> (
+async def ask_for_kind() -> (
     Literal[
         Kind.DEPLOYMENT,
         Kind.STATEFULSET,
@@ -75,24 +75,24 @@ def ask_for_kind() -> (
             description="(Argo WorkflowTemplate)",
         ),
     ]
-    selected = questionary.select(
+    selected = await questionary.select(
         "Select a kind:",
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
-    ).ask()
+    ).ask_async()
 
     return selected
 
 
-def ask_for_resource(resources: list[str], kind: Kind) -> str:
-    selected = questionary.select(
+async def ask_for_resource(resources: list[str], kind: Kind) -> str:
+    selected = await questionary.select(
         f"Select a {kind.value}:",
         choices=resources,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
-    ).ask()
+    ).ask_async()
 
     return selected

@@ -59,10 +59,7 @@ class KubeSession:
         # Fix kubernetes-client/python#2394: Python 3.13 VERIFY_X509_STRICT rejects
         # pre-1.17 cluster CAs missing AKI/SKI;
         configuration.disable_strict_ssl_verification = True
-
-        if cfg.skip_tls_verify:
-            # kubek-only: does not change kubectl or kubeconfig on disk.
-            configuration.verify_ssl = False
+        configuration.verify_ssl = not cfg.skip_tls_verify
 
         api = client.ApiClient(configuration)
         return cls(
@@ -92,6 +89,7 @@ class KubeSession:
             context=context,
             namespace=ns,
             kubeconfig=cfg.kubeconfig,
+            skip_tls_verify=cfg.skip_tls_verify,
         )
 
 

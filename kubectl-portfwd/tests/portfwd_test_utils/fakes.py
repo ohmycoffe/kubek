@@ -472,7 +472,12 @@ def make_fake_api(
             statefulset=_InMemoryRepository(statefulsets),
             daemonset=_InMemoryRepository(daemonsets),
             replicaset=_InMemoryRepository(replicasets),
-            current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
+            current_config=ResolvedKubeConfig(
+                context="test",
+                namespace=NAMESPACE,
+                kubeconfig=None,
+                skip_tls_verify=False,
+            ),
         ),
     )
 

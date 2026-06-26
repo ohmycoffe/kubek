@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from export_dotenv.cli import _print_kubeconfig, _select_resource_name
@@ -171,39 +171,44 @@ def _create_api(
         job=_InMemoryRepository(jobs or []),
         cronjob=_InMemoryRepository(cronjobs or []),
         workflowtemplate=_InMemoryRepository([]),
-        current_config=ResolvedKubeConfig(context="test", namespace=NS),
+        current_config=ResolvedKubeConfig(
+            context="test",
+            namespace=NS,
+            kubeconfig=None,
+            skip_tls_verify=False,
+        ),
     )
 
 
-def test_ask_for_kind_delegates_to_questionary(monkeypatch):
+async def test_ask_for_kind_delegates_to_questionary(monkeypatch):
     asked = []
 
     class FakeSelect:
         def __init__(self, *args, **kwargs):
             asked.append(kwargs.get("choices"))
 
-        def ask(self):
+        async def ask_async(self):
             return Kind.DEPLOYMENT
 
     monkeypatch.setattr("export_dotenv.prompts.questionary.select", FakeSelect)
 
-    assert ask_for_kind() == Kind.DEPLOYMENT
+    assert await ask_for_kind() == Kind.DEPLOYMENT
     assert asked
 
 
-def test_ask_for_resource_delegates_to_questionary(monkeypatch):
+async def test_ask_for_resource_delegates_to_questionary(monkeypatch):
     asked = []
 
     class FakeSelect:
         def __init__(self, *args, **kwargs):
             asked.append(kwargs.get("choices"))
 
-        def ask(self):
+        async def ask_async(self):
             return "api-service"
 
     monkeypatch.setattr("export_dotenv.prompts.questionary.select", FakeSelect)
 
-    assert ask_for_resource(["api-service"], Kind.DEPLOYMENT) == "api-service"
+    assert await ask_for_resource(["api-service"], Kind.DEPLOYMENT) == "api-service"
     assert asked == [["api-service"]]
 
 
@@ -212,7 +217,7 @@ async def test_select_resource_name_returns_prompted_deployment():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="api-service",
+        new=AsyncMock(return_value="api-service"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -249,7 +254,7 @@ async def test_select_resource_name_lists_workflowtemplates():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="data-processor",
+        new=AsyncMock(return_value="data-processor"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -270,7 +275,7 @@ async def test_select_resource_name_lists_statefulsets():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="cache-service",
+        new=AsyncMock(return_value="cache-service"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -291,7 +296,7 @@ async def test_select_resource_name_lists_daemonsets():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="log-agent",
+        new=AsyncMock(return_value="log-agent"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -312,7 +317,7 @@ async def test_select_resource_name_lists_replicasets():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="log-agent-rs",
+        new=AsyncMock(return_value="log-agent-rs"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -333,7 +338,7 @@ async def test_select_resource_name_lists_jobs():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="data-migration",
+        new=AsyncMock(return_value="data-migration"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -354,7 +359,7 @@ async def test_select_resource_name_lists_cronjobs():
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
-        return_value="nightly-backup",
+        new=AsyncMock(return_value="nightly-backup"),
     ) as ask:
         name = await _select_resource_name(
             out=create_output(),
@@ -375,6 +380,7 @@ def test_print_kubeconfig_emits_notes_for_all_fields():
         context="ctx",
         namespace=NS,
         kubeconfig="/tmp/kcfg",
+        skip_tls_verify=False,
     )
 
     _print_kubeconfig(out, config)
