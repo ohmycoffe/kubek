@@ -22,24 +22,24 @@ class BaseKubernetesRepository(ABC, Generic[T, L]):
         self._client = client  # abstract dependency
 
     @abstractmethod
-    def _fetch_list(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    async def _fetch_list(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         pass
 
     @abstractmethod
-    def _fetch_one(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    async def _fetch_one(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         pass
 
-    def list(self, *args: Any, **kwargs: Any) -> list[T]:
+    async def list(self, *args: Any, **kwargs: Any) -> list[T]:
         try:
-            raw = self._fetch_list(*args, **kwargs)
+            raw = await self._fetch_list(*args, **kwargs)
         except KubeApiNotFoundError:
             return []
         model = self.list_model.model_validate(raw)
         return cast("HasItems[T]", model).items
 
-    def get(self, *args: Any, **kwargs: Any) -> T | None:
+    async def get(self, *args: Any, **kwargs: Any) -> T | None:
         try:
-            raw = self._fetch_one(*args, **kwargs)
+            raw = await self._fetch_one(*args, **kwargs)
         except KubeApiNotFoundError:
             return None
         return self.item_model.model_validate(raw)

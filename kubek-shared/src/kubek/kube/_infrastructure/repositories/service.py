@@ -9,8 +9,8 @@ class KubernetesServiceRepository(
     list_model = ServiceList
     item_model = Service
 
-    def _fetch_list(self, namespace: str | None = None) -> dict:
-        return self._client.get_services(namespace)
+    async def _fetch_list(self, namespace: str | None = None) -> dict:
+        return await self._client.get_services(namespace)
 
-    def _fetch_one(self, name: str, namespace: str | None = None) -> dict:
-        return self._client.get_service(name=name, namespace=namespace)
+    async def _fetch_one(self, name: str, namespace: str | None = None) -> dict:
+        return await self._client.get_service(name=name, namespace=namespace)

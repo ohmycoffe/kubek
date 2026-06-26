@@ -10,8 +10,8 @@ class KubernetesDaemonSetRepository(
     list_model = DaemonSetList
     item_model = DaemonSet
 
-    def _fetch_list(self, namespace: str | None = None) -> dict:
-        return self._client.get_daemonsets(namespace)
+    async def _fetch_list(self, namespace: str | None = None) -> dict:
+        return await self._client.get_daemonsets(namespace)
 
-    def _fetch_one(self, name: str, namespace: str | None = None) -> dict:
-        return self._client.get_daemonset(name=name, namespace=namespace)
+    async def _fetch_one(self, name: str, namespace: str | None = None) -> dict:
+        return await self._client.get_daemonset(name=name, namespace=namespace)

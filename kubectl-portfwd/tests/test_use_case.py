@@ -39,7 +39,7 @@ def _make_api(
     services_map = {(ns, name): svc for (ns, name), svc in (services or {}).items()}
 
     class FakeServiceRepo:
-        def get(self, name: str, namespace: str | None = None) -> Service | None:
+        async def get(self, name: str, namespace: str | None = None) -> Service | None:
             return services_map.get((namespace, name))
 
     return cast(

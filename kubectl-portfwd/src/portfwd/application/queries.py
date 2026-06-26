@@ -1,3 +1,4 @@
+import asyncio
 import itertools
 from collections.abc import Iterable
 
@@ -56,19 +57,19 @@ def _convert_pods_to_specs(
     ]
 
 
-def fetch_services_for_namespaces(
+async def fetch_services_for_namespaces(
     namespaces: list[str], api: KubeGateway
 ) -> list[PortForwardSpec]:
-    raw = itertools.chain.from_iterable(
-        api.service.list(namespace=ns) for ns in namespaces
-    )
+    tasks = [api.service.list(namespace=ns) for ns in namespaces]
+    raw = itertools.chain.from_iterable(await asyncio.gather(*tasks))
     return _convert_services_to_specs(raw)
 
 
-def fetch_pods_for_namespaces(
+async def fetch_pods_for_namespaces(
     namespaces: list[str], api: KubeGateway
 ) -> list[PortForwardSpec]:
-    raw = itertools.chain.from_iterable(api.pod.list(namespace=ns) for ns in namespaces)
+    tasks = [api.pod.list(namespace=ns) for ns in namespaces]
+    raw = itertools.chain.from_iterable(await asyncio.gather(*tasks))
     return _convert_pods_to_specs(raw)
 
 
@@ -94,13 +95,12 @@ def _convert_deployments_to_specs(
     ]
 
 
-def fetch_deployments_for_namespaces(
+async def fetch_deployments_for_namespaces(
     namespaces: list[str], api: KubeGateway
 ) -> list[PortForwardSpec]:
     """Fetch deployments with declared container ports for the picker."""
-    raw = itertools.chain.from_iterable(
-        api.deployment.list(namespace=ns) for ns in namespaces
-    )
+    tasks = [api.deployment.list(namespace=ns) for ns in namespaces]
+    raw = itertools.chain.from_iterable(await asyncio.gather(*tasks))
     return _convert_deployments_to_specs(raw)
 
 
@@ -126,13 +126,12 @@ def _convert_statefulsets_to_specs(
     ]
 
 
-def fetch_statefulsets_for_namespaces(
+async def fetch_statefulsets_for_namespaces(
     namespaces: list[str], api: KubeGateway
 ) -> list[PortForwardSpec]:
     """Fetch statefulsets with declared container ports for the picker."""
-    raw = itertools.chain.from_iterable(
-        api.statefulset.list(namespace=ns) for ns in namespaces
-    )
+    tasks = [api.statefulset.list(namespace=ns) for ns in namespaces]
+    raw = itertools.chain.from_iterable(await asyncio.gather(*tasks))
     return _convert_statefulsets_to_specs(raw)
 
 
@@ -158,13 +157,12 @@ def _convert_daemonsets_to_specs(
     ]
 
 
-def fetch_daemonsets_for_namespaces(
+async def fetch_daemonsets_for_namespaces(
     namespaces: list[str], api: KubeGateway
 ) -> list[PortForwardSpec]:
     """Fetch daemonsets with declared container ports for the picker."""
-    raw = itertools.chain.from_iterable(
-        api.daemonset.list(namespace=ns) for ns in namespaces
-    )
+    tasks = [api.daemonset.list(namespace=ns) for ns in namespaces]
+    raw = itertools.chain.from_iterable(await asyncio.gather(*tasks))
     return _convert_daemonsets_to_specs(raw)
 
 
@@ -190,13 +188,12 @@ def _convert_replicasets_to_specs(
     ]
 
 
-def fetch_replicasets_for_namespaces(
+async def fetch_replicasets_for_namespaces(
     namespaces: list[str], api: KubeGateway
 ) -> list[PortForwardSpec]:
     """Fetch replicasets with declared container ports for the picker."""
-    raw = itertools.chain.from_iterable(
-        api.replicaset.list(namespace=ns) for ns in namespaces
-    )
+    tasks = [api.replicaset.list(namespace=ns) for ns in namespaces]
+    raw = itertools.chain.from_iterable(await asyncio.gather(*tasks))
     return _convert_replicasets_to_specs(raw)
 
 
@@ -210,7 +207,7 @@ _FETCH_BY_KIND = {
 }
 
 
-def fetch_targets_for_namespaces(
+async def fetch_targets_for_namespaces(
     namespaces: list[str],
     api: KubeGateway,
     kinds: list[TargetKind],
@@ -220,5 +217,5 @@ def fetch_targets_for_namespaces(
     specs: list[PortForwardSpec] = []
     for kind in _FETCH_BY_KIND:
         if kind in selected:
-            specs += _FETCH_BY_KIND[kind](namespaces, api)
+            specs += await _FETCH_BY_KIND[kind](namespaces, api)
     return specs

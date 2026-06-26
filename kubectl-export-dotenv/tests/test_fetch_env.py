@@ -141,12 +141,12 @@ class InMemoryRepository:
     def __init__(self, items):
         self.items = items
 
-    def list(self, namespace: str | None = None):
+    async def list(self, namespace: str | None = None):
         if namespace is None:
             return self.items
         return [x for x in self.items if x.metadata.namespace == namespace]
 
-    def get(self, name: str, namespace: str | None = None):
+    async def get(self, name: str, namespace: str | None = None):
         assert namespace is not None, "namespace must be provided"
         return next(
             (
@@ -528,8 +528,8 @@ def api():
     )
 
 
-def test_workflowtemplate_env_vars(api):
-    result = fetch_environment_values(
+async def test_workflowtemplate_env_vars(api):
+    result = await fetch_environment_values(
         kind=Kind.WORKFLOWTEMPLATE,
         name="data-processor",
         api=api,
@@ -559,8 +559,8 @@ def test_workflowtemplate_env_vars(api):
     ]
 
 
-def test_deployment_env_vars(api):
-    result = fetch_environment_values(
+async def test_deployment_env_vars(api):
+    result = await fetch_environment_values(
         kind=Kind.DEPLOYMENT,
         name="api-service",
         api=api,
@@ -592,9 +592,9 @@ def test_deployment_env_vars(api):
     ]
 
 
-def test_statefulset_env_vars(api):
+async def test_statefulset_env_vars(api):
     """A single-container StatefulSet resolves env, envFrom, and value refs like a Deployment."""
-    result = fetch_environment_values(
+    result = await fetch_environment_values(
         kind=Kind.STATEFULSET,
         name="cache-service",
         api=api,
@@ -623,9 +623,9 @@ def test_statefulset_env_vars(api):
     ]
 
 
-def test_daemonset_env_vars(api):
+async def test_daemonset_env_vars(api):
     """A single-container DaemonSet resolves env, envFrom, and value refs like a Deployment."""
-    result = fetch_environment_values(
+    result = await fetch_environment_values(
         kind=Kind.DAEMONSET,
         name="log-agent",
         api=api,
@@ -654,9 +654,9 @@ def test_daemonset_env_vars(api):
     ]
 
 
-def test_replicaset_env_vars(api):
+async def test_replicaset_env_vars(api):
     """A single-container ReplicaSet resolves env, envFrom, and value refs like a Deployment."""
-    result = fetch_environment_values(
+    result = await fetch_environment_values(
         kind=Kind.REPLICASET,
         name="log-agent-rs",
         api=api,
@@ -685,9 +685,9 @@ def test_replicaset_env_vars(api):
     ]
 
 
-def test_job_env_vars(api):
+async def test_job_env_vars(api):
     """A single-container Job resolves env, envFrom, and value refs like a Deployment."""
-    result = fetch_environment_values(
+    result = await fetch_environment_values(
         kind=Kind.JOB,
         name="data-migration",
         api=api,
@@ -716,9 +716,9 @@ def test_job_env_vars(api):
     ]
 
 
-def test_cronjob_env_vars(api):
+async def test_cronjob_env_vars(api):
     """A single-container CronJob resolves env, envFrom, and value refs like a Deployment."""
-    result = fetch_environment_values(
+    result = await fetch_environment_values(
         kind=Kind.CRONJOB,
         name="nightly-backup",
         api=api,
@@ -747,8 +747,8 @@ def test_cronjob_env_vars(api):
     ]
 
 
-def test_pod_env_vars(api):
-    result = fetch_environment_values(
+async def test_pod_env_vars(api):
+    result = await fetch_environment_values(
         kind=Kind.POD,
         name="api-pod",
         api=api,
@@ -780,8 +780,8 @@ def test_pod_env_vars(api):
     ]
 
 
-def test_configmap_env_vars(api):
-    result = fetch_environment_values(
+async def test_configmap_env_vars(api):
+    result = await fetch_environment_values(
         kind=Kind.CONFIGMAP,
         name="app-config",
         api=api,
@@ -802,8 +802,8 @@ def test_configmap_env_vars(api):
     ]
 
 
-def test_secret_env_vars(api):
-    result = fetch_environment_values(
+async def test_secret_env_vars(api):
+    result = await fetch_environment_values(
         kind=Kind.SECRET,
         name="app-secrets",
         api=api,
@@ -822,13 +822,13 @@ def test_secret_env_vars(api):
     ]
 
 
-def test_statefulset_not_found_raises(api):
+async def test_statefulset_not_found_raises(api):
     """A missing StatefulSet name raises ResourceNotFoundError."""
     with pytest.raises(ResourceNotFoundError, match="StatefulSet missing"):
-        StatefulSetEnvFetcher(api=api).fetch(name="missing")
+        await StatefulSetEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_statefulset_with_multiple_containers(api):
+async def test_statefulset_with_multiple_containers(api):
     """A StatefulSet with multiple containers exports env vars per container."""
     api.statefulset = InMemoryRepository(
         [
@@ -853,20 +853,20 @@ def test_statefulset_with_multiple_containers(api):
         ]
     )
 
-    result = StatefulSetEnvFetcher(api=api).fetch(name="cache-service")
+    result = await StatefulSetEnvFetcher(api=api).fetch(name="cache-service")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_daemonset_not_found_raises(api):
+async def test_daemonset_not_found_raises(api):
     """A missing DaemonSet name raises ResourceNotFoundError."""
     with pytest.raises(ResourceNotFoundError, match="DaemonSet missing"):
-        DaemonSetEnvFetcher(api=api).fetch(name="missing")
+        await DaemonSetEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_daemonset_with_multiple_containers(api):
+async def test_daemonset_with_multiple_containers(api):
     """A DaemonSet with multiple containers exports env vars per container."""
     api.daemonset = InMemoryRepository(
         [
@@ -891,20 +891,20 @@ def test_daemonset_with_multiple_containers(api):
         ]
     )
 
-    result = DaemonSetEnvFetcher(api=api).fetch(name="log-agent")
+    result = await DaemonSetEnvFetcher(api=api).fetch(name="log-agent")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_replicaset_not_found_raises(api):
+async def test_replicaset_not_found_raises(api):
     """A missing ReplicaSet name raises ResourceNotFoundError."""
     with pytest.raises(ResourceNotFoundError, match="ReplicaSet missing"):
-        ReplicaSetEnvFetcher(api=api).fetch(name="missing")
+        await ReplicaSetEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_replicaset_with_multiple_containers(api):
+async def test_replicaset_with_multiple_containers(api):
     """A ReplicaSet with multiple containers exports env vars per container."""
     api.replicaset = InMemoryRepository(
         [
@@ -929,20 +929,20 @@ def test_replicaset_with_multiple_containers(api):
         ]
     )
 
-    result = ReplicaSetEnvFetcher(api=api).fetch(name="log-agent-rs")
+    result = await ReplicaSetEnvFetcher(api=api).fetch(name="log-agent-rs")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_job_not_found_raises(api):
+async def test_job_not_found_raises(api):
     """A missing Job name raises ResourceNotFoundError."""
     with pytest.raises(ResourceNotFoundError, match="Job missing"):
-        JobEnvFetcher(api=api).fetch(name="missing")
+        await JobEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_job_with_multiple_containers(api):
+async def test_job_with_multiple_containers(api):
     """A Job with multiple containers exports env vars per container."""
     api.job = InMemoryRepository(
         [
@@ -967,20 +967,20 @@ def test_job_with_multiple_containers(api):
         ]
     )
 
-    result = JobEnvFetcher(api=api).fetch(name="data-migration")
+    result = await JobEnvFetcher(api=api).fetch(name="data-migration")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_cronjob_not_found_raises(api):
+async def test_cronjob_not_found_raises(api):
     """A missing CronJob name raises ResourceNotFoundError."""
     with pytest.raises(ResourceNotFoundError, match="CronJob missing"):
-        CronJobEnvFetcher(api=api).fetch(name="missing")
+        await CronJobEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_cronjob_with_multiple_containers(api):
+async def test_cronjob_with_multiple_containers(api):
     """A CronJob with multiple containers exports env vars per container."""
     api.cronjob = InMemoryRepository(
         [
@@ -1010,19 +1010,19 @@ def test_cronjob_with_multiple_containers(api):
         ]
     )
 
-    result = CronJobEnvFetcher(api=api).fetch(name="nightly-backup")
+    result = await CronJobEnvFetcher(api=api).fetch(name="nightly-backup")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_deployment_not_found_raises(api):
+async def test_deployment_not_found_raises(api):
     with pytest.raises(ResourceNotFoundError, match="Deployment missing"):
-        DeploymentEnvFetcher(api=api).fetch(name="missing")
+        await DeploymentEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_deployment_with_multiple_containers(api):
+async def test_deployment_with_multiple_containers(api):
     """A Deployment with multiple containers exports env vars per container."""
     api.deployment = InMemoryRepository(
         [
@@ -1047,19 +1047,19 @@ def test_deployment_with_multiple_containers(api):
         ]
     )
 
-    result = DeploymentEnvFetcher(api=api).fetch(name="api-service")
+    result = await DeploymentEnvFetcher(api=api).fetch(name="api-service")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_pod_not_found_raises(api):
+async def test_pod_not_found_raises(api):
     with pytest.raises(ResourceNotFoundError, match="Pod missing"):
-        PodEnvFetcher(api=api).fetch(name="missing")
+        await PodEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_pod_with_multiple_containers(api):
+async def test_pod_with_multiple_containers(api):
     """A Pod with multiple containers exports env vars per container."""
     api.pod = InMemoryRepository(
         [
@@ -1077,39 +1077,39 @@ def test_pod_with_multiple_containers(api):
         ]
     )
 
-    result = PodEnvFetcher(api=api).fetch(name="api-pod")
+    result = await PodEnvFetcher(api=api).fetch(name="api-pod")
     assert result == [
         EnvironmentValues(name="app", values={"APP": "1"}),
         EnvironmentValues(name="sidecar", values={"SIDECAR": "2"}),
     ]
 
 
-def test_missing_configmap_in_env_from_is_skipped(api):
+async def test_missing_configmap_in_env_from_is_skipped(api):
     container = Container(
         name="test",
         env_from=[EnvFromSource(config_map_ref=ConfigMapRef(name="missing-config"))],
     )
 
-    assert extract_envs_from_container(api=api, container=container) == {}
+    assert await extract_envs_from_container(api=api, container=container) == {}
 
 
-def test_missing_secret_in_env_from_is_skipped(api):
+async def test_missing_secret_in_env_from_is_skipped(api):
     container = Container(
         name="test",
         env_from=[EnvFromSource(secret_ref=SecretRef(name="missing-secret"))],
     )
 
-    assert extract_envs_from_container(api=api, container=container) == {}
+    assert await extract_envs_from_container(api=api, container=container) == {}
 
 
-def test_unsupported_env_from_raises(api):
+async def test_unsupported_env_from_raises(api):
     container = Container(name="test", env_from=[EnvFromSource()])
 
     with pytest.raises(UnsupportedFormatError, match="Unknown envFrom"):
-        extract_envs_from_container(api=api, container=container)
+        await extract_envs_from_container(api=api, container=container)
 
 
-def test_missing_configmap_key_sets_empty_value(api):
+async def test_missing_configmap_key_sets_empty_value(api):
     container = Container(
         name="test",
         env=[
@@ -1125,11 +1125,11 @@ def test_missing_configmap_key_sets_empty_value(api):
         ],
     )
 
-    result = extract_envs_from_container(api=api, container=container)
+    result = await extract_envs_from_container(api=api, container=container)
     assert result == {"MISSING_KEY": ""}
 
 
-def test_missing_secret_key_sets_empty_value(api):
+async def test_missing_secret_key_sets_empty_value(api):
     container = Container(
         name="test",
         env=[
@@ -1145,26 +1145,28 @@ def test_missing_secret_key_sets_empty_value(api):
         ],
     )
 
-    result = extract_envs_from_container(api=api, container=container)
+    result = await extract_envs_from_container(api=api, container=container)
     assert result == {"MISSING_KEY": ""}
 
 
-def test_env_with_unknown_value_from_is_skipped(api):
+async def test_env_with_unknown_value_from_is_skipped(api):
     container = Container(
         name="test",
         env=[EnvVar(name="UNKNOWN", value_from=EnvValueFrom())],
     )
 
-    assert extract_envs_from_container(api=api, container=container) == {}
+    assert await extract_envs_from_container(api=api, container=container) == {}
 
 
-def test_env_with_no_value_or_value_from_exports_empty_string(api):
+async def test_env_with_no_value_or_value_from_exports_empty_string(api):
     container = Container(name="test", env=[EnvVar(name="EMPTY")])
 
-    assert extract_envs_from_container(api=api, container=container) == {"EMPTY": ""}
+    assert await extract_envs_from_container(api=api, container=container) == {
+        "EMPTY": ""
+    }
 
 
-def test_field_ref_is_skipped_silently(api, caplog):
+async def test_field_ref_is_skipped_silently(api, caplog):
     """Downward API fieldRef env vars resolve at pod runtime, so they are skipped without a warning."""
     container = Container(
         name="test",
@@ -1183,13 +1185,13 @@ def test_field_ref_is_skipped_silently(api, caplog):
     )
 
     with caplog.at_level("WARNING"):
-        result = extract_envs_from_container(api=api, container=container)
+        result = await extract_envs_from_container(api=api, container=container)
 
     assert result == {}
     assert caplog.records == []
 
 
-def test_resource_field_ref_is_skipped_silently(api, caplog):
+async def test_resource_field_ref_is_skipped_silently(api, caplog):
     """Downward API resourceFieldRef env vars are skipped without a warning."""
     container = Container(
         name="test",
@@ -1206,13 +1208,13 @@ def test_resource_field_ref_is_skipped_silently(api, caplog):
     )
 
     with caplog.at_level("WARNING"):
-        result = extract_envs_from_container(api=api, container=container)
+        result = await extract_envs_from_container(api=api, container=container)
 
     assert result == {}
     assert caplog.records == []
 
 
-def test_statefulset_skips_field_ref_env(api):
+async def test_statefulset_skips_field_ref_env(api):
     """StatefulSetEnvFetcher skips fieldRef env vars while still emitting resolvable ones."""
     api.statefulset = InMemoryRepository(
         [
@@ -1247,16 +1249,16 @@ def test_statefulset_skips_field_ref_env(api):
         ]
     )
 
-    result = StatefulSetEnvFetcher(api=api).fetch(name="cache-service")
+    result = await StatefulSetEnvFetcher(api=api).fetch(name="cache-service")
     assert result == [EnvironmentValues(name="cache", values={"DIRECT_VALUE": "hello"})]
 
 
-def test_workflowtemplate_not_found_raises(api):
+async def test_workflowtemplate_not_found_raises(api):
     with pytest.raises(ResourceNotFoundError, match="WorkflowTemplate missing"):
-        WorkflowTemplateEnvFetcher(api=api).fetch(name="missing")
+        await WorkflowTemplateEnvFetcher(api=api).fetch(name="missing")
 
 
-def test_workflowtemplate_skips_non_container_templates(api):
+async def test_workflowtemplate_skips_non_container_templates(api):
     workflow = WorkflowTemplate(
         metadata=WorkflowMetadata(name="mixed", namespace=NS),
         spec=WorkflowSpec(
@@ -1274,11 +1276,11 @@ def test_workflowtemplate_skips_non_container_templates(api):
     )
     api.workflowtemplate = InMemoryRepository([workflow])
 
-    result = WorkflowTemplateEnvFetcher(api=api).fetch(name="mixed")
+    result = await WorkflowTemplateEnvFetcher(api=api).fetch(name="mixed")
     assert result == [EnvironmentValues(name="main", values={"ONLY": "from-container"})]
 
 
-def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
+async def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
     workflow = WorkflowTemplate(
         metadata=WorkflowMetadata(name="with-defaults", namespace=NS),
         spec=WorkflowSpec(
@@ -1308,11 +1310,11 @@ def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api):
     )
     api.workflowtemplate = InMemoryRepository([workflow])
 
-    result = WorkflowTemplateEnvFetcher(api=api).fetch(name="with-defaults")
+    result = await WorkflowTemplateEnvFetcher(api=api).fetch(name="with-defaults")
     assert result == [EnvironmentValues(name="main", values={"BATCH": ""})]
 
 
-def test_missing_configmap_for_value_from_is_skipped(api):
+async def test_missing_configmap_for_value_from_is_skipped(api):
     container = Container(
         name="test",
         env=[
@@ -1328,10 +1330,10 @@ def test_missing_configmap_for_value_from_is_skipped(api):
         ],
     )
 
-    assert extract_envs_from_container(api=api, container=container) == {}
+    assert await extract_envs_from_container(api=api, container=container) == {}
 
 
-def test_missing_secret_for_value_from_is_skipped(api):
+async def test_missing_secret_for_value_from_is_skipped(api):
     container = Container(
         name="test",
         env=[
@@ -1347,9 +1349,9 @@ def test_missing_secret_for_value_from_is_skipped(api):
         ],
     )
 
-    assert extract_envs_from_container(api=api, container=container) == {}
+    assert await extract_envs_from_container(api=api, container=container) == {}
 
 
-def test_fetch_environment_values_raises_for_unsupported_kind(api):
+async def test_fetch_environment_values_raises_for_unsupported_kind(api):
     with pytest.raises(UnsupportedKindError, match="Unsupported kind"):
-        fetch_environment_values(kind=Kind.SERVICE, name="any", api=api)
+        await fetch_environment_values(kind=Kind.SERVICE, name="any", api=api)

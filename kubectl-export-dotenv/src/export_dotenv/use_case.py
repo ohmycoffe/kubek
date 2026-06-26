@@ -30,10 +30,10 @@ _FETCHERS = {
 }
 
 
-def fetch_environment_values(
+async def fetch_environment_values(
     kind: Kind, name: str, api: KubeGateway
 ) -> list[EnvironmentValues]:
     fetcher = _FETCHERS.get(kind)
     if not fetcher:
         raise UnsupportedKindError(f"Unsupported kind: {kind}")
-    return fetcher(api=api).fetch(name=name)
+    return await fetcher(api=api).fetch(name=name)

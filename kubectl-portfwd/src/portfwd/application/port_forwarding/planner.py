@@ -85,8 +85,8 @@ def resolve_local_port(
     return find_free_port()
 
 
-def _fetch_service(name: str, namespace: str, api: KubeGateway) -> Service:
-    service = api.service.get(name=name, namespace=namespace)
+async def _fetch_service(name: str, namespace: str, api: KubeGateway) -> Service:
+    service = await api.service.get(name=name, namespace=namespace)
     if not service:
         raise ServiceNotFoundError(
             f'service "{name}" not found in namespace "{namespace}"'
@@ -94,33 +94,33 @@ def _fetch_service(name: str, namespace: str, api: KubeGateway) -> Service:
     return service
 
 
-def _fetch_pod(name: str, namespace: str, api: KubeGateway) -> Pod:
-    pod = api.pod.get(name=name, namespace=namespace)
+async def _fetch_pod(name: str, namespace: str, api: KubeGateway) -> Pod:
+    pod = await api.pod.get(name=name, namespace=namespace)
     if not pod:
         raise PodNotFoundError(f'pod "{name}" not found in namespace "{namespace}"')
     return pod
 
 
-def _remote_port_from_service(
+async def _remote_port_from_service(
     name: str,
     namespace: str,
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
-    service = _fetch_service(name, namespace, api)
+    service = await _fetch_service(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_service_remote_port(service)
 
 
-def _remote_port_from_pod(
+async def _remote_port_from_pod(
     name: str,
     namespace: str,
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
     """Resolve the remote port for a pod target."""
-    pod = _fetch_pod(name, namespace, api)
+    pod = await _fetch_pod(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_pod_remote_port(pod)
@@ -144,9 +144,9 @@ def resolve_deployment_remote_port(deployment: Deployment) -> int:
     return min(ports)
 
 
-def _fetch_deployment(name: str, namespace: str, api: KubeGateway) -> Deployment:
+async def _fetch_deployment(name: str, namespace: str, api: KubeGateway) -> Deployment:
     """Fetch a deployment or raise DeploymentNotFoundError."""
-    deployment = api.deployment.get(name=name, namespace=namespace)
+    deployment = await api.deployment.get(name=name, namespace=namespace)
     if not deployment:
         raise DeploymentNotFoundError(
             f'deployment "{name}" not found in namespace "{namespace}"'
@@ -154,14 +154,14 @@ def _fetch_deployment(name: str, namespace: str, api: KubeGateway) -> Deployment
     return deployment
 
 
-def _remote_port_from_deployment(
+async def _remote_port_from_deployment(
     name: str,
     namespace: str,
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
     """Resolve the remote port for a deployment target."""
-    deployment = _fetch_deployment(name, namespace, api)
+    deployment = await _fetch_deployment(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_deployment_remote_port(deployment)
@@ -185,9 +185,11 @@ def resolve_statefulset_remote_port(statefulset: StatefulSet) -> int:
     return min(ports)
 
 
-def _fetch_statefulset(name: str, namespace: str, api: KubeGateway) -> StatefulSet:
+async def _fetch_statefulset(
+    name: str, namespace: str, api: KubeGateway
+) -> StatefulSet:
     """Fetch a statefulset or raise StatefulSetNotFoundError."""
-    statefulset = api.statefulset.get(name=name, namespace=namespace)
+    statefulset = await api.statefulset.get(name=name, namespace=namespace)
     if not statefulset:
         raise StatefulSetNotFoundError(
             f'statefulset "{name}" not found in namespace "{namespace}"'
@@ -195,14 +197,14 @@ def _fetch_statefulset(name: str, namespace: str, api: KubeGateway) -> StatefulS
     return statefulset
 
 
-def _remote_port_from_statefulset(
+async def _remote_port_from_statefulset(
     name: str,
     namespace: str,
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
     """Resolve the remote port for a statefulset target."""
-    statefulset = _fetch_statefulset(name, namespace, api)
+    statefulset = await _fetch_statefulset(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_statefulset_remote_port(statefulset)
@@ -226,9 +228,9 @@ def resolve_daemonset_remote_port(daemonset: DaemonSet) -> int:
     return min(ports)
 
 
-def _fetch_daemonset(name: str, namespace: str, api: KubeGateway) -> DaemonSet:
+async def _fetch_daemonset(name: str, namespace: str, api: KubeGateway) -> DaemonSet:
     """Fetch a daemonset or raise DaemonSetNotFoundError."""
-    daemonset = api.daemonset.get(name=name, namespace=namespace)
+    daemonset = await api.daemonset.get(name=name, namespace=namespace)
     if not daemonset:
         raise DaemonSetNotFoundError(
             f'daemonset "{name}" not found in namespace "{namespace}"'
@@ -236,14 +238,14 @@ def _fetch_daemonset(name: str, namespace: str, api: KubeGateway) -> DaemonSet:
     return daemonset
 
 
-def _remote_port_from_daemonset(
+async def _remote_port_from_daemonset(
     name: str,
     namespace: str,
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
     """Resolve the remote port for a daemonset target."""
-    daemonset = _fetch_daemonset(name, namespace, api)
+    daemonset = await _fetch_daemonset(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_daemonset_remote_port(daemonset)
@@ -267,9 +269,9 @@ def resolve_replicaset_remote_port(replicaset: ReplicaSet) -> int:
     return min(ports)
 
 
-def _fetch_replicaset(name: str, namespace: str, api: KubeGateway) -> ReplicaSet:
+async def _fetch_replicaset(name: str, namespace: str, api: KubeGateway) -> ReplicaSet:
     """Fetch a replicaset or raise ReplicaSetNotFoundError."""
-    replicaset = api.replicaset.get(name=name, namespace=namespace)
+    replicaset = await api.replicaset.get(name=name, namespace=namespace)
     if not replicaset:
         raise ReplicaSetNotFoundError(
             f'replicaset "{name}" not found in namespace "{namespace}"'
@@ -277,14 +279,14 @@ def _fetch_replicaset(name: str, namespace: str, api: KubeGateway) -> ReplicaSet
     return replicaset
 
 
-def _remote_port_from_replicaset(
+async def _remote_port_from_replicaset(
     name: str,
     namespace: str,
     api: KubeGateway,
     explicit_port: int | None,
 ) -> int:
     """Resolve the remote port for a replicaset target."""
-    replicaset = _fetch_replicaset(name, namespace, api)
+    replicaset = await _fetch_replicaset(name, namespace, api)
     if explicit_port is not None:
         return explicit_port
     return resolve_replicaset_remote_port(replicaset)
@@ -300,7 +302,7 @@ _REMOTE_PORT_BY_KIND = {
 }
 
 
-def _resolve_remote_port(
+async def _resolve_remote_port(
     spec: PortForwardSpec,
     name: str,
     namespace: str,
@@ -312,10 +314,10 @@ def _resolve_remote_port(
     the remote port is given explicitly.
     """
     resolver = _REMOTE_PORT_BY_KIND[spec.target.kind]
-    return resolver(name, namespace, api, spec.remote_port)
+    return await resolver(name, namespace, api, spec.remote_port)
 
 
-def build_port_forward_plan(
+async def build_port_forward_plan(
     spec: PortForwardSpec,
     api: KubeGateway,
 ) -> PortForwardPlan:
@@ -328,7 +330,9 @@ def build_port_forward_plan(
             "or as the current kubectl namespace"
         )
 
-    remote_port = _resolve_remote_port(spec=spec, name=name, namespace=ns, api=api)
+    remote_port = await _resolve_remote_port(
+        spec=spec, name=name, namespace=ns, api=api
+    )
     local_port = (
         spec.local_port
         if spec.local_port is not None

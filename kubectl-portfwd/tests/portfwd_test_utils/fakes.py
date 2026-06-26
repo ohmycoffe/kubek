@@ -254,12 +254,12 @@ class _InMemoryRepository:
     def __init__(self, items: list) -> None:
         self._items = items
 
-    def list(self, namespace: str | None = None) -> list:
+    async def list(self, namespace: str | None = None) -> list:
         if namespace is None:
             return self._items
         return [x for x in self._items if x.metadata.namespace == namespace]
 
-    def get(self, name: str, namespace: str | None = None):
+    async def get(self, name: str, namespace: str | None = None):
         return next(
             (
                 x

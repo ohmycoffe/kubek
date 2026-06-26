@@ -11,92 +11,100 @@ class KubeClient(Protocol):
     @property
     def current_config(self) -> ResolvedKubeConfig: ...
 
-    def get_namespaces(self) -> KubeRawResponse: ...
+    async def get_namespaces(self) -> KubeRawResponse: ...
 
-    def get_namespace(self, name: str) -> KubeRawResponse: ...
+    async def get_namespace(self, name: str) -> KubeRawResponse: ...
 
-    def get_services(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_services(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_service(
+    async def get_service(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_pods(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_pods(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_pod(self, name: str, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_pod(
+        self, name: str, namespace: str | None = None
+    ) -> KubeRawResponse: ...
 
-    def get_deployments(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_deployments(
+        self, namespace: str | None = None
+    ) -> KubeRawResponse: ...
 
-    def get_deployment(
+    async def get_deployment(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_statefulsets(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_statefulsets(
+        self, namespace: str | None = None
+    ) -> KubeRawResponse: ...
 
-    def get_statefulset(
+    async def get_statefulset(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_daemonsets(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_daemonsets(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_daemonset(
+    async def get_daemonset(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_replica_sets(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_replica_sets(
+        self, namespace: str | None = None
+    ) -> KubeRawResponse: ...
 
-    def get_replica_set(
+    async def get_replica_set(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_jobs(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_jobs(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_job(
+    async def get_job(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_cronjobs(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_cronjobs(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_cronjob(
+    async def get_cronjob(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_secrets(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_secrets(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_secret(
+    async def get_secret(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_configmaps(self, namespace: str | None = None) -> KubeRawResponse: ...
+    async def get_configmaps(self, namespace: str | None = None) -> KubeRawResponse: ...
 
-    def get_configmap(
+    async def get_configmap(
         self,
         name: str,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_workflowtemplates(
+    async def get_workflowtemplates(
         self,
         namespace: str | None = None,
     ) -> KubeRawResponse: ...
 
-    def get_workflowtemplate(
+    async def get_workflowtemplate(
         self,
         name: str,
         namespace: str | None = None,

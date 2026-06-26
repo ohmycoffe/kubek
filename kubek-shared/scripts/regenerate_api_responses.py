@@ -1,25 +1,13 @@
+import asyncio
 import json
 import os
 import shutil
 from datetime import datetime
 
-from kubek.kube._infrastructure.client import KubernetesClient
+from kubek.kube._infrastructure.client import KubernetesClient, KubeSession
 
-client = KubernetesClient.from_config()
-
-
-ns = "ns-kubek-shared"
-deployments = client.get_deployments(namespace=ns)
-statefulsets = client.get_statefulsets(namespace=ns)
-daemonsets = client.get_daemonsets(namespace=ns)
-jobs = client.get_jobs(namespace=ns)
-cronjobs = client.get_cronjobs(namespace=ns)
-replica_sets = client.get_replica_sets(namespace=ns)
-services = client.get_services(namespace=ns)
-secrets = client.get_secrets(namespace=ns)
-configmaps = client.get_configmaps(namespace=ns)
-workflows = client.get_workflowtemplates(namespace=ns)
-namespaces = client.get_namespaces()
+NS = "ns-kubek-shared"
+DIRECTORY = "tmp_api-responses"
 
 
 def serialize(obj):
@@ -28,25 +16,36 @@ def serialize(obj):
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
-DIRECTORY = "tmp_api-responses"
-
-
 def write_to_file(name: str, data: dict):
     with open(f"{DIRECTORY}/{name}.json", "w") as f:
         f.write(json.dumps(data["items"], indent=2, default=serialize))
 
 
-shutil.rmtree(DIRECTORY, ignore_errors=True)
-os.makedirs(DIRECTORY, exist_ok=True)
+async def _fetch_all() -> dict[str, dict]:
+    async with await KubeSession.from_config() as session:
+        client = KubernetesClient(session)
+        return {
+            "Deployment": await client.get_deployments(namespace=NS),
+            "StatefulSet": await client.get_statefulsets(namespace=NS),
+            "DaemonSet": await client.get_daemonsets(namespace=NS),
+            "Job": await client.get_jobs(namespace=NS),
+            "CronJob": await client.get_cronjobs(namespace=NS),
+            "ReplicaSet": await client.get_replica_sets(namespace=NS),
+            "Service": await client.get_services(namespace=NS),
+            "Secret": await client.get_secrets(namespace=NS),
+            "ConfigMap": await client.get_configmaps(namespace=NS),
+            "WorkflowTemplate": await client.get_workflowtemplates(namespace=NS),
+            "Namespace": await client.get_namespaces(),
+        }
 
-write_to_file("Deployment", deployments)
-write_to_file("StatefulSet", statefulsets)
-write_to_file("DaemonSet", daemonsets)
-write_to_file("Job", jobs)
-write_to_file("CronJob", cronjobs)
-write_to_file("ReplicaSet", replica_sets)
-write_to_file("Service", services)
-write_to_file("Secret", secrets)
-write_to_file("ConfigMap", configmaps)
-write_to_file("WorkflowTemplate", workflows)
-write_to_file("Namespace", namespaces)
+
+def main() -> None:
+    responses = asyncio.run(_fetch_all())
+    shutil.rmtree(DIRECTORY, ignore_errors=True)
+    os.makedirs(DIRECTORY, exist_ok=True)
+    for name, data in responses.items():
+        write_to_file(name, data)
+
+
+if __name__ == "__main__":
+    main()

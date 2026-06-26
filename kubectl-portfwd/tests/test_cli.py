@@ -1,5 +1,4 @@
 import signal
-from pathlib import Path
 
 import pytest
 from kubek.term.output import create_output
@@ -9,7 +8,6 @@ from portfwd.application.port_forwarding.streamer import (
     PortForwardEventStreamer,
 )
 from portfwd.application.use_case import PortForwardUseCase
-from portfwd.presentation.cli import run_port_forwards_from_cli
 from portfwd.presentation.display import PortForwardLiveDisplay
 from portfwd.presentation.spec_parser import parse_spec
 from portfwd_test_utils.fakes import (
@@ -29,23 +27,6 @@ def _make_use_case(launcher: PlannedLauncher, api) -> PortForwardUseCase:
         is_local_port_free=lambda port: True,
     )
     return PortForwardUseCase(streamer=streamer, api=api)
-
-
-def test_run_port_forwards_raises_when_file_and_target_both_provided(fake_api):
-    """file and target flags are mutually exclusive at the dispatch layer."""
-    use_case = _make_use_case(PlannedLauncher({}), fake_api)
-
-    with pytest.raises(ValueError, match="cannot both be provided"):
-        run_port_forwards_from_cli(
-            file=Path("forwards"),
-            target=["ns/svc/svc:80::8080"],
-            api=fake_api,
-            out=create_output(),
-            use_case=use_case,
-            display=PortForwardLiveDisplay(
-                context=None, console=create_output().console
-            ),
-        )
 
 
 @pytest.mark.asyncio

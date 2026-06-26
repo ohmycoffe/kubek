@@ -10,8 +10,8 @@ class KubernetesJobRepository(
     list_model = JobList
     item_model = Job
 
-    def _fetch_list(self, namespace: str | None = None) -> dict:
-        return self._client.get_jobs(namespace)
+    async def _fetch_list(self, namespace: str | None = None) -> dict:
+        return await self._client.get_jobs(namespace)
 
-    def _fetch_one(self, name: str, namespace: str | None = None) -> dict:
-        return self._client.get_job(name=name, namespace=namespace)
+    async def _fetch_one(self, name: str, namespace: str | None = None) -> dict:
+        return await self._client.get_job(name=name, namespace=namespace)

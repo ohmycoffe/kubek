@@ -90,7 +90,7 @@ class _InMemoryRepository:
     def __init__(self, items):
         self.items = items
 
-    def list(self, namespace: str | None = None):
+    async def list(self, namespace: str | None = None):
         if namespace is None:
             return self.items
         return [x for x in self.items if x.metadata.namespace == namespace]
@@ -207,14 +207,14 @@ def test_ask_for_resource_delegates_to_questionary(monkeypatch):
     assert asked == [["api-service"]]
 
 
-def test_select_resource_name_returns_prompted_deployment():
+async def test_select_resource_name_returns_prompted_deployment():
     api = _create_api()
 
     with patch(
         "export_dotenv.cli.ask_for_resource",
         return_value="api-service",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.DEPLOYMENT,
             api=api,
@@ -224,18 +224,18 @@ def test_select_resource_name_returns_prompted_deployment():
     ask.assert_called_once()
 
 
-def test_select_resource_name_raises_when_no_deployments():
+async def test_select_resource_name_raises_when_no_deployments():
     api = _create_api(deployments=[])
 
     with pytest.raises(NoResourcesFoundError, match="No Deployments found"):
-        _select_resource_name(
+        await _select_resource_name(
             out=create_output(),
             kind=Kind.DEPLOYMENT,
             api=api,
         )
 
 
-def test_select_resource_name_lists_workflowtemplates():
+async def test_select_resource_name_lists_workflowtemplates():
     workflow = WorkflowTemplate(
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
         spec=WorkflowSpec(
@@ -251,7 +251,7 @@ def test_select_resource_name_lists_workflowtemplates():
         "export_dotenv.cli.ask_for_resource",
         return_value="data-processor",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.WORKFLOWTEMPLATE,
             api=api,
@@ -264,7 +264,7 @@ def test_select_resource_name_lists_workflowtemplates():
     )
 
 
-def test_select_resource_name_lists_statefulsets():
+async def test_select_resource_name_lists_statefulsets():
     """_select_resource_name lists StatefulSets from the statefulset repo for the StatefulSet kind."""
     api = _create_api(deployments=[], statefulsets=[_build_statefulset()])
 
@@ -272,7 +272,7 @@ def test_select_resource_name_lists_statefulsets():
         "export_dotenv.cli.ask_for_resource",
         return_value="cache-service",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.STATEFULSET,
             api=api,
@@ -285,7 +285,7 @@ def test_select_resource_name_lists_statefulsets():
     )
 
 
-def test_select_resource_name_lists_daemonsets():
+async def test_select_resource_name_lists_daemonsets():
     """_select_resource_name lists DaemonSets from the daemonset repo for the DaemonSet kind."""
     api = _create_api(deployments=[], daemonsets=[_build_daemonset()])
 
@@ -293,7 +293,7 @@ def test_select_resource_name_lists_daemonsets():
         "export_dotenv.cli.ask_for_resource",
         return_value="log-agent",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.DAEMONSET,
             api=api,
@@ -306,7 +306,7 @@ def test_select_resource_name_lists_daemonsets():
     )
 
 
-def test_select_resource_name_lists_replicasets():
+async def test_select_resource_name_lists_replicasets():
     """_select_resource_name lists ReplicaSets from the replicaset repo for the ReplicaSet kind."""
     api = _create_api(deployments=[], replicasets=[_build_replicaset()])
 
@@ -314,7 +314,7 @@ def test_select_resource_name_lists_replicasets():
         "export_dotenv.cli.ask_for_resource",
         return_value="log-agent-rs",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.REPLICASET,
             api=api,
@@ -327,7 +327,7 @@ def test_select_resource_name_lists_replicasets():
     )
 
 
-def test_select_resource_name_lists_jobs():
+async def test_select_resource_name_lists_jobs():
     """_select_resource_name lists Jobs from the job repo for the Job kind."""
     api = _create_api(deployments=[], jobs=[_build_job()])
 
@@ -335,7 +335,7 @@ def test_select_resource_name_lists_jobs():
         "export_dotenv.cli.ask_for_resource",
         return_value="data-migration",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.JOB,
             api=api,
@@ -348,7 +348,7 @@ def test_select_resource_name_lists_jobs():
     )
 
 
-def test_select_resource_name_lists_cronjobs():
+async def test_select_resource_name_lists_cronjobs():
     """_select_resource_name lists CronJobs from the cronjob repo for the CronJob kind."""
     api = _create_api(deployments=[], cronjobs=[_build_cronjob()])
 
@@ -356,7 +356,7 @@ def test_select_resource_name_lists_cronjobs():
         "export_dotenv.cli.ask_for_resource",
         return_value="nightly-backup",
     ) as ask:
-        name = _select_resource_name(
+        name = await _select_resource_name(
             out=create_output(),
             kind=Kind.CRONJOB,
             api=api,

@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Self
 
 from kubek.kube._infrastructure import (
@@ -15,6 +17,7 @@ from kubek.kube._infrastructure import (
     KubernetesStatefulSetRepository,
     KubernetesWorkflowTemplateRepository,
 )
+from kubek.kube._infrastructure.client import KubeSession
 from kubek.kube.config import KubeConfig, ResolvedKubeConfig
 from kubek.kube.contracts import (
     KubeClient,
@@ -54,9 +57,14 @@ class KubeFacade:
         self.current_config = current_config
 
     @classmethod
-    def from_config(cls, config: KubeConfig | None = None) -> Self:
-        client = KubernetesClient.from_config(config)
-        return cls.from_client(client)
+    @asynccontextmanager
+    async def from_config(cls, config: KubeConfig | None = None) -> AsyncIterator[Self]:
+        async with await KubeSession.from_config(config) as session:
+            yield cls.from_session(session)
+
+    @classmethod
+    def from_session(cls, session: KubeSession) -> Self:
+        return cls.from_client(KubernetesClient(session))
 
     @classmethod
     def from_client(cls, client: KubeClient) -> Self:

@@ -36,93 +36,93 @@ class FakeKubeClient:
         except KeyError:
             raise KubeApiNotFoundError("not found") from None
 
-    def get_deployment(self, name, namespace=None):
+    async def get_deployment(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.DEPLOYMENT, name, namespace)
 
-    def get_deployments(self, namespace=None):
+    async def get_deployments(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.DEPLOYMENT, namespace)
 
-    def get_statefulset(self, name, namespace=None):
+    async def get_statefulset(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.STATEFULSET, name, namespace)
 
-    def get_statefulsets(self, namespace=None):
+    async def get_statefulsets(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.STATEFULSET, namespace)
 
-    def get_daemonset(self, name, namespace=None):
+    async def get_daemonset(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.DAEMONSET, name, namespace)
 
-    def get_daemonsets(self, namespace=None):
+    async def get_daemonsets(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.DAEMONSET, namespace)
 
-    def get_replica_set(self, name, namespace=None):
+    async def get_replica_set(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.REPLICASET, name, namespace)
 
-    def get_replica_sets(self, namespace=None):
+    async def get_replica_sets(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.REPLICASET, namespace)
 
-    def get_job(self, name, namespace=None):
+    async def get_job(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.JOB, name, namespace)
 
-    def get_jobs(self, namespace=None):
+    async def get_jobs(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.JOB, namespace)
 
-    def get_cronjob(self, name, namespace=None):
+    async def get_cronjob(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.CRONJOB, name, namespace)
 
-    def get_cronjobs(self, namespace=None):
+    async def get_cronjobs(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.CRONJOB, namespace)
 
-    def get_secret(self, name, namespace=None):
+    async def get_secret(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.SECRET, name, namespace)
 
-    def get_secrets(self, namespace=None):
+    async def get_secrets(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.SECRET, namespace)
 
-    def get_configmap(self, name, namespace=None):
+    async def get_configmap(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.CONFIGMAP, name, namespace)
 
-    def get_configmaps(self, namespace=None):
+    async def get_configmaps(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.CONFIGMAP, namespace)
 
-    def get_workflowtemplate(self, name, namespace=None):
+    async def get_workflowtemplate(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.WORKFLOWTEMPLATE, name, namespace)
 
-    def get_workflowtemplates(self, namespace=None):
+    async def get_workflowtemplates(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.WORKFLOWTEMPLATE, namespace)
 
-    def get_service(self, name, namespace=None):
+    async def get_service(self, name, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_one(Kind.SERVICE, name, namespace)
 
-    def get_services(self, namespace=None):
+    async def get_services(self, namespace=None):
         namespace = namespace or self.current_config.namespace
         return self._get_list(Kind.SERVICE, namespace)
 
-    def get_namespace(self, name):
+    async def get_namespace(self, name):
         try:
             return self._namespaces[name]
         except KeyError:
             raise KubeApiNotFoundError("not found") from None
 
-    def get_namespaces(self):
+    async def get_namespaces(self):
         return {"items": list(self._namespaces.values())}
 
     def add_namespaced_resource(
