@@ -25,7 +25,9 @@ class PortForwardUseCase:
         self, specs: list[PortForwardSpec]
     ) -> AsyncIterator[PortForwardEvent]:
         """Resolve specs to plans and yield port-forward lifecycle events."""
-        plans = [build_port_forward_plan(spec=spec, api=self._api) for spec in specs]
+        plans = [
+            await build_port_forward_plan(spec=spec, api=self._api) for spec in specs
+        ]
         self._check_no_duplicate_local_ports(plans)
         async for event in self._streamer.stream(plans):
             yield event

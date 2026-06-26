@@ -1,4 +1,4 @@
-from .client import KubernetesClient
+from .client import KubernetesClient, KubeSession
 from .repositories import (
     KubernetesConfigMapRepository,
     KubernetesCronJobRepository,
@@ -15,6 +15,7 @@ from .repositories import (
 )
 
 __all__ = [
+    "KubeSession",
     "KubernetesConfigMapRepository",
     "KubernetesCronJobRepository",
     "KubernetesDaemonSetRepository",

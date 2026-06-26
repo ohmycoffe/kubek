@@ -8,7 +8,7 @@ from portfwd.domain.models import PortForwardSpec, TargetKind
 QUESTIONARY_STYLE = questionary.Style(DEFAULT_QUESTIONARY_THEME)
 
 
-def ask_for_kinds() -> list[TargetKind]:
+async def ask_for_kinds() -> list[TargetKind]:
     """Prompt the user to pick which resource types to forward."""
     choices = [
         questionary.Choice(
@@ -37,17 +37,17 @@ def ask_for_kinds() -> list[TargetKind]:
             value=TargetKind.REPLICASET,
         ),
     ]
-    return questionary.checkbox(
+    return await questionary.checkbox(
         "Select resource types to forward:",
         choices=choices,
         initial_choice=TargetKind.SERVICE,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
-    ).ask()
+    ).ask_async()
 
 
-def ask_for_namespace(
+async def ask_for_namespace(
     all_namespaces: list[str],
     current_namespace: str | None,
 ) -> list[str]:
@@ -65,13 +65,13 @@ def ask_for_namespace(
         )
         for ns in ordered
     ]
-    return questionary.checkbox(
+    return await questionary.checkbox(
         "Select namespaces:",
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
-    ).ask()
+    ).ask_async()
 
 
 def _target_choice_title(spec: PortForwardSpec) -> str:
@@ -81,7 +81,7 @@ def _target_choice_title(spec: PortForwardSpec) -> str:
     return f"{base}  :{spec.remote_port}"
 
 
-def ask_for_targets(
+async def ask_for_targets(
     available_targets: list[PortForwardSpec],
 ) -> list[PortForwardSpec]:
     """Prompt the user to pick services and pods to forward from a sorted list."""
@@ -100,10 +100,10 @@ def ask_for_targets(
             ),
         )
     ]
-    return questionary.checkbox(
+    return await questionary.checkbox(
         "Select targets to forward:",
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
         style=QUESTIONARY_STYLE,
-    ).ask()
+    ).ask_async()

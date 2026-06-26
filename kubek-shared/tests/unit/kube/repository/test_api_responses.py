@@ -144,18 +144,18 @@ def real_data_client():
 class TestRepositoriesWithRealData:
     NS = "ns-kubek-shared"
 
-    def test_deployment_names(self, real_data_client):
+    async def test_deployment_names(self, real_data_client):
         repo = KubernetesDeploymentRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {d.metadata.name for d in result} == {
             "api-service",
             "dummy-service",
         }
 
-    def test_deployment_env_parsing(self, real_data_client):
+    async def test_deployment_env_parsing(self, real_data_client):
         repo = KubernetesDeploymentRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         api = next(d for d in result if d.metadata.name == "api-service")
         container = api.spec.template.spec.containers[0]
@@ -168,18 +168,18 @@ class TestRepositoriesWithRealData:
         assert any(e.name == "DB_PASSWORD" for e in container.env)
         assert any(e.name == "DIRECT_VALUE" for e in container.env)
 
-    def test_statefulset_names(self, real_data_client):
+    async def test_statefulset_names(self, real_data_client):
         repo = KubernetesStatefulSetRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {s.metadata.name for s in result} == {
             "cache-service",
             "dummy-statefulset",
         }
 
-    def test_statefulset_env_parsing(self, real_data_client):
+    async def test_statefulset_env_parsing(self, real_data_client):
         repo = KubernetesStatefulSetRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         cache = next(s for s in result if s.metadata.name == "cache-service")
         container = cache.spec.template.spec.containers[0]
@@ -192,18 +192,18 @@ class TestRepositoriesWithRealData:
         assert any(e.name == "DB_PASSWORD" for e in container.env)
         assert any(e.name == "DIRECT_VALUE" for e in container.env)
 
-    def test_daemonset_names(self, real_data_client):
+    async def test_daemonset_names(self, real_data_client):
         repo = KubernetesDaemonSetRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {d.metadata.name for d in result} == {
             "log-agent",
             "dummy-daemonset",
         }
 
-    def test_daemonset_env_parsing(self, real_data_client):
+    async def test_daemonset_env_parsing(self, real_data_client):
         repo = KubernetesDaemonSetRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         agent = next(d for d in result if d.metadata.name == "log-agent")
         container = agent.spec.template.spec.containers[0]
@@ -216,18 +216,18 @@ class TestRepositoriesWithRealData:
         assert any(e.name == "DB_PASSWORD" for e in container.env)
         assert any(e.name == "DIRECT_VALUE" for e in container.env)
 
-    def test_replicaset_names(self, real_data_client):
+    async def test_replicaset_names(self, real_data_client):
         repo = KubernetesReplicaSetRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {r.metadata.name for r in result} == {
             "log-agent-rs",
             "dummy-replicaset",
         }
 
-    def test_replicaset_env_parsing(self, real_data_client):
+    async def test_replicaset_env_parsing(self, real_data_client):
         repo = KubernetesReplicaSetRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         agent = next(r for r in result if r.metadata.name == "log-agent-rs")
         container = agent.spec.template.spec.containers[0]
@@ -240,18 +240,18 @@ class TestRepositoriesWithRealData:
         assert any(e.name == "DB_PASSWORD" for e in container.env)
         assert any(e.name == "DIRECT_VALUE" for e in container.env)
 
-    def test_job_names(self, real_data_client):
+    async def test_job_names(self, real_data_client):
         repo = KubernetesJobRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {j.metadata.name for j in result} == {
             "data-migration",
             "dummy-job",
         }
 
-    def test_job_env_parsing(self, real_data_client):
+    async def test_job_env_parsing(self, real_data_client):
         repo = KubernetesJobRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         migration = next(j for j in result if j.metadata.name == "data-migration")
         container = migration.spec.template.spec.containers[0]
@@ -264,18 +264,18 @@ class TestRepositoriesWithRealData:
         assert any(e.name == "DB_PASSWORD" for e in container.env)
         assert any(e.name == "DIRECT_VALUE" for e in container.env)
 
-    def test_cronjob_names(self, real_data_client):
+    async def test_cronjob_names(self, real_data_client):
         repo = KubernetesCronJobRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {c.metadata.name for c in result} == {
             "nightly-backup",
             "dummy-cronjob",
         }
 
-    def test_cronjob_env_parsing(self, real_data_client):
+    async def test_cronjob_env_parsing(self, real_data_client):
         repo = KubernetesCronJobRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         backup = next(c for c in result if c.metadata.name == "nightly-backup")
         container = backup.spec.job_template.spec.template.spec.containers[0]
@@ -288,31 +288,31 @@ class TestRepositoriesWithRealData:
         assert any(e.name == "DB_PASSWORD" for e in container.env)
         assert any(e.name == "DIRECT_VALUE" for e in container.env)
 
-    def test_secret_decoding(self, real_data_client):
+    async def test_secret_decoding(self, real_data_client):
         repo = KubernetesSecretRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         s = next(s for s in result if s.metadata.name == "app-secrets")
         assert s.decoded("API_KEY") == "myapikey123"
 
-    def test_configmap_data(self, real_data_client):
+    async def test_configmap_data(self, real_data_client):
         repo = KubernetesConfigMapRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         c = next(c for c in result if c.metadata.name == "app-config")
         assert c.data["APP_ENV"] == "local"
 
-    def test_workflow_names(self, real_data_client):
+    async def test_workflow_names(self, real_data_client):
         repo = KubernetesWorkflowTemplateRepository(real_data_client)
-        result = repo.list(namespace=self.NS)
+        result = await repo.list(namespace=self.NS)
 
         assert {w.metadata.name for w in result} == {
             "data-processor",
             "dummy-worker",
         }
 
-    def test_namespace_list(self, real_data_client):
+    async def test_namespace_list(self, real_data_client):
         repo = KubernetesNamespaceRepository(real_data_client)
 
-        names = {n.metadata.name for n in repo.list()}
+        names = {n.metadata.name for n in await repo.list()}
         assert self.NS in names

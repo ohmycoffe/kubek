@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from kubek.kube import KubeClientError, KubeConfig, KubeFacade, ResolvedKubeConfig
+from kubek.kube import (
+    KubeClientError,
+    KubeConfig,
+    KubeFacade,
+    ResolvedKubeConfig,
+)
 from kubek.net import is_port_free
 from kubek.term import (
     CLIOutput,
@@ -103,7 +108,7 @@ def port_forward(
         bool,
         typer.Option(
             "--insecure-skip-tls-verify",
-            help="Disable TLS certificate verification for the Kubernetes API (kubek client only).",
+            help="Disable TLS certificate verification for the Kubernetes connection",
         ),
     ] = False,
     verbose: Annotated[
@@ -133,36 +138,16 @@ def port_forward(
     if file is not None and target is not None:
         raise typer.BadParameter("'--file' and '--target' are mutually exclusive.")
 
-    kubeconfig_str = str(kubeconfig) if kubeconfig else None
-
     try:
-        kube_config = KubeConfig(
-            context=context,
-            kubeconfig=kubeconfig_str,
-            skip_tls_verify=insecure_skip_tls_verify,
-        )
-        api = KubeFacade.from_config(config=kube_config)
-        _print_kubeconfig(out, api.current_config)
-
-        display = PortForwardLiveDisplay(
-            context=api.current_config.context,
-            console=out.console,
-        )
-
-        use_case = PortForwardUseCase(
-            api=api,
-            streamer=PortForwardEventStreamer(
-                launcher=KubectlPortForwardLauncher(config=api.current_config),
-                is_local_port_free=is_port_free,
-            ),
-        )
-        run_port_forwards_from_cli(
-            file=file,
-            target=target,
-            api=api,
-            out=out,
-            use_case=use_case,
-            display=display,
+        asyncio.run(
+            _main(
+                file=file,
+                target=target,
+                context=context,
+                kubeconfig=str(kubeconfig) if kubeconfig else None,
+                insecure_skip_tls_verify=insecure_skip_tls_verify,
+                out=out,
+            )
         )
     except (PortForwardError, KubeClientError) as e:
         out.exception(str(e))
@@ -170,6 +155,45 @@ def port_forward(
     except Exception:
         out.exception("An unexpected error occurred. Use -vv for more details.")
         raise typer.Exit(code=1) from None
+
+
+async def _main(
+    *,
+    file: Path | None,
+    target: list[str] | None,
+    context: str | None,
+    kubeconfig: str | None,
+    insecure_skip_tls_verify: bool,
+    out: CLIOutput,
+) -> None:
+    kube_config = KubeConfig(
+        context=context,
+        kubeconfig=kubeconfig,
+        skip_tls_verify=insecure_skip_tls_verify,
+    )
+    async with KubeFacade.from_config(config=kube_config) as api:
+        _print_kubeconfig(out, api.current_config)
+
+        display = PortForwardLiveDisplay(
+            context=api.current_config.context,
+            console=out.console,
+        )
+        use_case = PortForwardUseCase(
+            api=api,
+            streamer=PortForwardEventStreamer(
+                launcher=KubectlPortForwardLauncher(config=api.current_config),
+                is_local_port_free=is_port_free,
+            ),
+        )
+
+        if target is not None:
+            specs = [parse_spec(value) for value in target]
+        elif file is not None:
+            specs = _load_spec_file(file)
+        else:
+            specs = await _ask_for_targets(api=api, out=out)
+
+        await _run_event_stream(display, use_case.stream_specs(specs))
 
 
 def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
@@ -189,37 +213,6 @@ async def _run_event_stream(
     with suppress_logging(), display.live():
         async for event in event_stream:
             display.apply(event)
-
-
-def run_port_forwards_from_cli(
-    *,
-    file: Path | None,
-    target: list[str] | None,
-    api: KubeGateway,
-    out: CLIOutput,
-    use_case: PortForwardUseCase,
-    display: PortForwardLiveDisplay,
-) -> None:
-    """Dispatch to the correct port-forward flow based on CLI flags.
-
-    - ``--target`` wins outright.
-    - ``--file`` loads targets from a spec file.
-    - Otherwise prompt the user to pick targets interactively.
-    """
-    if target is not None and file is not None:
-        raise ValueError("'file' and 'target' cannot both be provided")
-
-    if target is not None:
-        specs = [parse_spec(value) for value in target]
-        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
-        return
-    if file is not None:
-        specs = _load_spec_file(file)
-        asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
-        return
-
-    specs = _ask_for_targets(api=api, out=out)
-    asyncio.run(_run_event_stream(display, use_case.stream_specs(specs)))
 
 
 def _load_spec_file(path: Path) -> list[PortForwardSpec]:
@@ -254,16 +247,16 @@ def _display_path(path: Path) -> str:
         return str(path)
 
 
-def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
-    selected_kinds = ask_for_kinds()
+async def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
+    selected_kinds = await ask_for_kinds()
 
     if not selected_kinds:
         raise NoSelectionError("no resource types selected")
 
     with out.progress("Fetching namespaces…"):
-        namespaces = [ns.metadata.name for ns in api.namespace.list()]
+        namespaces = [ns.metadata.name for ns in await api.namespace.list()]
 
-    selected_namespaces = ask_for_namespace(
+    selected_namespaces = await ask_for_namespace(
         all_namespaces=namespaces,
         current_namespace=api.current_config.namespace,
     )
@@ -272,7 +265,7 @@ def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
         raise NoSelectionError("no namespaces selected")
 
     with out.progress("Fetching resources…"):
-        specs = fetch_targets_for_namespaces(
+        specs = await fetch_targets_for_namespaces(
             api=api,
             namespaces=selected_namespaces,
             kinds=selected_kinds,
@@ -283,7 +276,7 @@ def _ask_for_targets(api: KubeGateway, out: CLIOutput) -> list[PortForwardSpec]:
             "no matching resources found in the selected namespaces"
         )
 
-    selected_targets = ask_for_targets(specs)
+    selected_targets = await ask_for_targets(specs)
 
     if not selected_targets:
         raise NoSelectionError("no targets selected")

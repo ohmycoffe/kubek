@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from kubek.kube._infrastructure.client import KubernetesClient
@@ -8,7 +8,12 @@ from kubek.kube.config import ResolvedKubeConfig
 @pytest.fixture
 def session():
     return MagicMock(
-        current_config=ResolvedKubeConfig(context="test", namespace="default"),
+        current_config=ResolvedKubeConfig(
+            context="test",
+            namespace="default",
+            kubeconfig=None,
+            skip_tls_verify=False,
+        ),
     )
 
 
@@ -215,7 +220,7 @@ def _api_response(payload: dict) -> MagicMock:
         ),
     ],
 )
-def test_client_methods_call_kubernetes_api_and_return_dict(
+async def test_client_methods_call_kubernetes_api_and_return_dict(
     client,
     session,
     method_name,
@@ -227,9 +232,9 @@ def test_client_methods_call_kubernetes_api_and_return_dict(
 ):
     payload = {"metadata": {"name": "x"}}
     api = getattr(session, api_attr)
-    getattr(api, api_method).return_value = _api_response(payload)
+    setattr(api, api_method, AsyncMock(return_value=_api_response(payload)))
 
-    result = getattr(client, method_name)(*args, **kwargs)
+    result = await getattr(client, method_name)(*args, **kwargs)
 
     if isinstance(expected_api_args, dict):
         getattr(api, api_method).assert_called_once_with(**expected_api_args)
@@ -238,12 +243,12 @@ def test_client_methods_call_kubernetes_api_and_return_dict(
     assert result == payload
 
 
-def test_client_uses_explicit_namespace(session, client):
-    session.core_v1.read_namespaced_service.return_value = _api_response(
-        {"metadata": {"name": "api"}}
+async def test_client_uses_explicit_namespace(session, client):
+    session.core_v1.read_namespaced_service = AsyncMock(
+        return_value=_api_response({"metadata": {"name": "api"}})
     )
 
-    client.get_service("api", namespace="staging")
+    await client.get_service("api", namespace="staging")
 
     session.core_v1.read_namespaced_service.assert_called_once_with("api", "staging")
 

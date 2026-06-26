@@ -1,7 +1,8 @@
 import logging
 import re
-from collections.abc import Callable
-from functools import lru_cache
+from collections.abc import Awaitable, Callable
+from functools import wraps
+from typing import TypeVar
 
 from kubek.kube import ConfigMap, Container, Secret
 
@@ -9,6 +10,20 @@ from export_dotenv.errors import UnsupportedFormatError
 from export_dotenv.kube.gateway import KubeGateway
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _async_cache(fn: Callable[[str], Awaitable[T]]) -> Callable[[str], Awaitable[T]]:
+    cache: dict[str, T] = {}
+
+    @wraps(fn)
+    async def wrapper(name: str) -> T:
+        if name not in cache:
+            cache[name] = await fn(name)
+        return cache[name]
+
+    return wrapper
 
 
 def _clean_key(key: str) -> str:
@@ -25,20 +40,20 @@ def _clean_key(key: str) -> str:
     return key
 
 
-def extract_envs_from_container(
+async def extract_envs_from_container(
     api: KubeGateway,
     container: Container,
     fallback_keys: dict[str, str] | None = None,
 ) -> dict[str, str]:
     namespace = api.current_config.namespace
 
-    @lru_cache
-    def get_secret(name: str) -> Secret | None:
-        return api.secret.get(name=name, namespace=namespace)
+    @_async_cache
+    async def get_secret(name: str) -> Secret | None:
+        return await api.secret.get(name=name, namespace=namespace)
 
-    @lru_cache
-    def get_configmap(name: str) -> ConfigMap | None:
-        return api.configmap.get(name=name, namespace=namespace)
+    @_async_cache
+    async def get_configmap(name: str) -> ConfigMap | None:
+        return await api.configmap.get(name=name, namespace=namespace)
 
     if fallback_keys is None:
         fallback_keys = {}
@@ -48,7 +63,7 @@ def extract_envs_from_container(
     if container.env_from:
         for env_from in container.env_from:
             if env_from.config_map_ref:
-                configmap = get_configmap(env_from.config_map_ref.name)
+                configmap = await get_configmap(env_from.config_map_ref.name)
                 if not configmap:
                     cfg_map_name = env_from.config_map_ref.name
                     logger.warning("ConfigMap %s not found, skipping.", cfg_map_name)
@@ -56,7 +71,7 @@ def extract_envs_from_container(
                 result.update(configmap.data)
             elif env_from.secret_ref:
                 secret_name = env_from.secret_ref.name
-                secret = get_secret(secret_name)
+                secret = await get_secret(secret_name)
                 if not secret:
                     logger.warning("Secret %s not found, skipping.", secret_name)
                     continue
@@ -73,7 +88,7 @@ def extract_envs_from_container(
             elif env.value_from:
                 value_from = env.value_from
                 if value_from.config_map_key_ref:
-                    configmap = get_configmap(value_from.config_map_key_ref.name)
+                    configmap = await get_configmap(value_from.config_map_key_ref.name)
                     if configmap is None:
                         cfg_map_name = value_from.config_map_key_ref.name
                         logger.warning(
@@ -96,7 +111,7 @@ def extract_envs_from_container(
                     result[name] = value
                 elif value_from.secret_key_ref:
                     secret_name = value_from.secret_key_ref.name
-                    secret = get_secret(secret_name)
+                    secret = await get_secret(secret_name)
                     if secret is None:
                         logger.warning("Secret %s not found, skipping.", secret_name)
                         continue

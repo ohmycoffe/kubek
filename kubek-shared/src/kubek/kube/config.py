@@ -6,7 +6,8 @@ from dataclasses import dataclass
 class ResolvedKubeConfig:
     context: str
     namespace: str
-    kubeconfig: str | os.PathLike | None = None
+    kubeconfig: str | os.PathLike | None
+    skip_tls_verify: bool
 
 
 @dataclass(frozen=True)

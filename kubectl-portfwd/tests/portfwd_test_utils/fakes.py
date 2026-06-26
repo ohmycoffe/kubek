@@ -254,12 +254,12 @@ class _InMemoryRepository:
     def __init__(self, items: list) -> None:
         self._items = items
 
-    def list(self, namespace: str | None = None) -> list:
+    async def list(self, namespace: str | None = None) -> list:
         if namespace is None:
             return self._items
         return [x for x in self._items if x.metadata.namespace == namespace]
 
-    def get(self, name: str, namespace: str | None = None):
+    async def get(self, name: str, namespace: str | None = None):
         return next(
             (
                 x
@@ -472,7 +472,12 @@ def make_fake_api(
             statefulset=_InMemoryRepository(statefulsets),
             daemonset=_InMemoryRepository(daemonsets),
             replicaset=_InMemoryRepository(replicasets),
-            current_config=ResolvedKubeConfig(context="test", namespace=NAMESPACE),
+            current_config=ResolvedKubeConfig(
+                context="test",
+                namespace=NAMESPACE,
+                kubeconfig=None,
+                skip_tls_verify=False,
+            ),
         ),
     )
 

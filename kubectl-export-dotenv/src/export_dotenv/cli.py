@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -98,54 +99,76 @@ def get(
     out: CLIOutput = create_output(verbosity_count=verbose)
     setup_logging(out.console, verbose)
 
-    kubeconfig_str = kubeconfig if kubeconfig else None
-
     try:
-        kube_config = KubeConfig(
-            context=context,
-            namespace=namespace,
-            kubeconfig=kubeconfig_str,
-            skip_tls_verify=insecure_skip_tls_verify,
-        )
-
-        api = KubeFacade.from_config(config=kube_config)
-        _print_kubeconfig(out, api.current_config)
-
-        selected_kind = kind or ask_for_kind()  # type: ignore
-        if not selected_kind:
-            raise typer.Exit(code=0)
-
-        selected_name = name or _select_resource_name(
-            out=out,
-            kind=selected_kind,
-            api=api,
-        )
-
-        if not selected_name:
-            raise typer.Exit(code=0)
-
-        with out.progress("Fetching environment variables…"):
-            values = fetch_environment_values(
-                kind=selected_kind,
-                name=selected_name,
-                api=api,
+        formatted = asyncio.run(
+            _main(
+                out=out,
+                kind=kind,
+                context=context,
+                kubeconfig=kubeconfig if kubeconfig else None,
+                namespace=namespace,
+                name=name,
+                output=output,
+                insecure_skip_tls_verify=insecure_skip_tls_verify,
             )
-
-        formatted = format_environment_values(
-            values=values,
-            name=selected_name,
-            output=output,
         )
     except (ExportDotenvError, KubeClientError) as e:
         out.exception(str(e))
         raise typer.Exit(code=1) from None
-
+    except typer.Exit:
+        raise
     except Exception:
         out.exception("An unexpected error occurred. Use -vv for more details.")
         raise typer.Exit(code=1) from None
 
     typer.echo(formatted)
     raise typer.Exit(code=0)
+
+
+async def _main(
+    *,
+    out: CLIOutput,
+    kind: Kind | None,
+    context: str | None,
+    kubeconfig: Path | None,
+    namespace: str | None,
+    name: str | None,
+    output: ExportFormat,
+    insecure_skip_tls_verify: bool,
+) -> str:
+    kube_config = KubeConfig(
+        context=context,
+        namespace=namespace,
+        kubeconfig=str(kubeconfig) if kubeconfig else None,
+        skip_tls_verify=insecure_skip_tls_verify,
+    )
+    async with KubeFacade.from_config(config=kube_config) as api:
+        _print_kubeconfig(out, api.current_config)
+
+        selected_kind = kind or await ask_for_kind()
+        if not selected_kind:
+            raise typer.Exit(code=0)
+
+        selected_name = name or await _select_resource_name(
+            out=out,
+            kind=selected_kind,
+            api=api,
+        )
+        if not selected_name:
+            raise typer.Exit(code=0)
+
+        with out.progress("Fetching environment variables…"):
+            values = await fetch_environment_values(
+                kind=selected_kind,
+                name=selected_name,
+                api=api,
+            )
+
+    return format_environment_values(
+        values=values,
+        name=selected_name,
+        output=output,
+    )
 
 
 def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
@@ -168,7 +191,7 @@ def _print_kubeconfig(out: CLIOutput, kube_config: ResolvedKubeConfig) -> None:
         )
 
 
-def _select_resource_name(
+async def _select_resource_name(
     out: CLIOutput,
     kind: Kind,
     api: KubeGateway,
@@ -177,25 +200,25 @@ def _select_resource_name(
         f"Fetching available {kind.value}s in {api.current_config.namespace}…"
     ):
         if kind == Kind.DEPLOYMENT:
-            resources = api.deployment.list()
+            resources = await api.deployment.list()
         elif kind == Kind.STATEFULSET:
-            resources = api.statefulset.list()
+            resources = await api.statefulset.list()
         elif kind == Kind.DAEMONSET:
-            resources = api.daemonset.list()
+            resources = await api.daemonset.list()
         elif kind == Kind.REPLICASET:
-            resources = api.replicaset.list()
+            resources = await api.replicaset.list()
         elif kind == Kind.JOB:
-            resources = api.job.list()
+            resources = await api.job.list()
         elif kind == Kind.CRONJOB:
-            resources = api.cronjob.list()
+            resources = await api.cronjob.list()
         elif kind == Kind.WORKFLOWTEMPLATE:
-            resources = api.workflowtemplate.list()
+            resources = await api.workflowtemplate.list()
         elif kind == Kind.CONFIGMAP:
-            resources = api.configmap.list()
+            resources = await api.configmap.list()
         elif kind == Kind.SECRET:
-            resources = api.secret.list()
+            resources = await api.secret.list()
         elif kind == Kind.POD:
-            resources = api.pod.list()
+            resources = await api.pod.list()
         else:
             raise UnsupportedResourceError(f"Unsupported kind: {kind}")
 
@@ -205,5 +228,4 @@ def _select_resource_name(
         )
 
     available_names = [r.metadata.name for r in resources]
-    name = ask_for_resource(resources=available_names, kind=kind)
-    return name
+    return await ask_for_resource(resources=available_names, kind=kind)
