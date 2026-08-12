@@ -121,6 +121,7 @@ from kubek.kube.dto.workflowtemplate.template import (
     DagTemplate,
     Inputs,
     Parameters,
+    WorkflowContainer,
 )
 from kubek.kube.dto.workflowtemplate.workflowtemplate import (
     Metadata as WorkflowMetadata,
@@ -468,7 +469,7 @@ def build_workflow():
             templates=[
                 ContainerTemplate(
                     name="main",
-                    container=Container(
+                    container=WorkflowContainer(
                         name="main",
                         env=[
                             EnvVar(
@@ -1271,7 +1272,7 @@ async def test_workflowtemplate_skips_non_container_templates(api):
                 DagTemplate(name="dag-step"),
                 ContainerTemplate(
                     name="main",
-                    container=Container(
+                    container=WorkflowContainer(
                         name="main",
                         env=[EnvVar(name="ONLY", value="from-container")],
                     ),
@@ -1295,7 +1296,7 @@ async def test_workflowtemplate_builds_fallback_keys_from_parameter_defaults(api
                     inputs=Inputs(
                         parameters=[Parameters(name="batch_size", default="100")]
                     ),
-                    container=Container(
+                    container=WorkflowContainer(
                         name="main",
                         env=[
                             EnvVar(

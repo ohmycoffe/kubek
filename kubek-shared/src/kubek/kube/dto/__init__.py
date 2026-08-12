@@ -12,6 +12,7 @@ from .secret import Secret
 from .service import Service, ServiceList
 from .statefulset import StatefulSet, StatefulSetList
 from .workflowtemplate import (
+    WorkflowContainer,
     WorkflowTemplate,
     WorkflowTemplateList,
     WorkflowTemplateType,
@@ -35,6 +36,7 @@ __all__ = [
     "Pod",
     "PodList",
     "Kind",
+    "WorkflowContainer",
     "WorkflowTemplate",
     "WorkflowTemplateList",
     "Service",
