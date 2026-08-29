@@ -3,6 +3,7 @@ from kubek.kube.dto.workflowtemplate.template import (
     DagTemplate,
     ScriptTemplate,
     StepsTemplate,
+    WorkflowContainer,
     WorkflowTemplateType,
 )
 from kubek.kube.dto.workflowtemplate.workflowtemplate import (
@@ -11,6 +12,7 @@ from kubek.kube.dto.workflowtemplate.workflowtemplate import (
 )
 
 __all__ = [
+    "WorkflowContainer",
     "WorkflowTemplate",
     "WorkflowTemplateList",
     "WorkflowTemplateType",

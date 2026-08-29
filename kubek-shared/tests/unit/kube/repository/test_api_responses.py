@@ -311,6 +311,16 @@ class TestRepositoriesWithRealData:
             "dummy-worker",
         }
 
+    async def test_workflow_container_without_name(self, real_data_client):
+        """The API returns Argo containers without a name; they default to ``main``."""
+        repo = KubernetesWorkflowTemplateRepository(real_data_client)
+        result = await repo.list(namespace=self.NS)
+
+        processor = next(w for w in result if w.metadata.name == "data-processor")
+        template = processor.spec.templates[0]
+
+        assert template.container.name == "main"
+
     async def test_namespace_list(self, real_data_client):
         repo = KubernetesNamespaceRepository(real_data_client)
 

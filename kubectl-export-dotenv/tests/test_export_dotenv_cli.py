@@ -6,7 +6,6 @@ from export_dotenv.cli import _print_kubeconfig, _select_resource_name
 from export_dotenv.errors import NoResourcesFoundError
 from export_dotenv.prompts import ask_for_kind, ask_for_resource
 from kubek.kube import Kind, ResolvedKubeConfig
-from kubek.kube.dto.container import Container
 from kubek.kube.dto.cronjob import (
     CronJob,
     CronJobJobSpec,
@@ -73,7 +72,10 @@ from kubek.kube.dto.statefulset import (
 from kubek.kube.dto.statefulset import (
     TemplateSpec as StatefulSetTemplateSpec,
 )
-from kubek.kube.dto.workflowtemplate.template import ContainerTemplate
+from kubek.kube.dto.workflowtemplate.template import (
+    ContainerTemplate,
+    WorkflowContainer,
+)
 from kubek.kube.dto.workflowtemplate.workflowtemplate import (
     Metadata as WorkflowMetadata,
 )
@@ -245,7 +247,9 @@ async def test_select_resource_name_lists_workflowtemplates():
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
         spec=WorkflowSpec(
             templates=[
-                ContainerTemplate(name="main", container=Container(name="main")),
+                ContainerTemplate(
+                    name="main", container=WorkflowContainer(name="main")
+                ),
             ]
         ),
     )

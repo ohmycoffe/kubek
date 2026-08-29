@@ -78,8 +78,7 @@
                 }
               }
             ],
-            "image": "python:3.10-slim",
-            "name": "main"
+            "image": "python:3.10-slim"
           },
           "inputs": {
             "parameters": [
@@ -143,8 +142,7 @@
                 "value": "hello-from-dummy-worker"
               }
             ],
-            "image": "python:3.10-slim",
-            "name": "main"
+            "image": "python:3.10-slim"
           },
           "name": "main"
         }
