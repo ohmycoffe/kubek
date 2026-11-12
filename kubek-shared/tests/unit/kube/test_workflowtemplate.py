@@ -2,6 +2,7 @@ import pytest
 from kubek.kube.dto.workflowtemplate.template import (
     ContainerTemplate,
     DagTemplate,
+    OtherTemplate,
     ScriptTemplate,
     StepsTemplate,
 )
@@ -27,6 +28,8 @@ def test_parse_template_returns_existing_instance():
             },
             ContainerTemplate,
         ),
+        ({"suspend": {}, "name": "approve"}, OtherTemplate),
+        ({"resource": {"action": "create"}, "name": "resource-step"}, OtherTemplate),
     ],
 )
 def test_parse_template_parses_single_template_type(data, expected_type):
@@ -34,6 +37,15 @@ def test_parse_template_parses_single_template_type(data, expected_type):
 
     assert isinstance(result, expected_type)
     assert result.name == data["name"]
+
+
+def test_parse_template_container_name_defaults_to_main():
+    result = parse_template(
+        {"container": {"image": "busybox"}, "name": "container-step"}
+    )
+
+    assert isinstance(result, ContainerTemplate)
+    assert result.container.name == "main"
 
 
 @pytest.mark.parametrize(
