@@ -1,4 +1,5 @@
 from kubek.kube.dto.workflowtemplate.template import (
+    ArgoContainer,
     ContainerTemplate,
     DagTemplate,
     OtherTemplate,
@@ -15,6 +16,7 @@ __all__ = [
     "WorkflowTemplate",
     "WorkflowTemplateList",
     "WorkflowTemplateType",
+    "ArgoContainer",
     "ContainerTemplate",
     "DagTemplate",
     "OtherTemplate",

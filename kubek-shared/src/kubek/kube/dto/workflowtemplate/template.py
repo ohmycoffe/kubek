@@ -1,7 +1,7 @@
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 
 from kubek.kube.dto.container import Container
 
@@ -44,6 +44,12 @@ class OtherTemplate(BaseModel):
     name: str
 
 
+class ArgoContainer(Container):
+    """Unlike a Pod container, an Argo template container may omit the name."""
+
+    name: str = "main"
+
+
 class Parameters(BaseModel):
     name: str
     default: str | None = None
@@ -58,13 +64,5 @@ class ContainerTemplate(BaseModel):
 
     kind: Literal[WorkflowTemplateType.CONTAINER] = WorkflowTemplateType.CONTAINER
     name: str
-    container: Container
+    container: ArgoContainer
     inputs: Inputs | None = None
-
-    @field_validator("container", mode="before")
-    @classmethod
-    def default_container_name(cls, value: Any) -> Any:
-        # Unlike a Pod container, an Argo container may omit the name.
-        if isinstance(value, dict) and "name" not in value:
-            return {"name": "main", **value}
-        return value
