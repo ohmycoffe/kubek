@@ -73,8 +73,8 @@ from kubek.kube.dto.statefulset import (
     TemplateSpec as StatefulSetTemplateSpec,
 )
 from kubek.kube.dto.workflowtemplate.template import (
-    ArgoContainer,
     ContainerTemplate,
+    WorkflowContainer,
 )
 from kubek.kube.dto.workflowtemplate.workflowtemplate import (
     Metadata as WorkflowMetadata,
@@ -247,7 +247,9 @@ async def test_select_resource_name_lists_workflowtemplates():
         metadata=WorkflowMetadata(name="data-processor", namespace=NS),
         spec=WorkflowSpec(
             templates=[
-                ContainerTemplate(name="main", container=ArgoContainer(name="main")),
+                ContainerTemplate(
+                    name="main", container=WorkflowContainer(name="main")
+                ),
             ]
         ),
     )

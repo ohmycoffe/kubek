@@ -39,15 +39,6 @@ def test_parse_template_parses_single_template_type(data, expected_type):
     assert result.name == data["name"]
 
 
-def test_parse_template_container_name_defaults_to_main():
-    result = parse_template(
-        {"container": {"image": "busybox"}, "name": "container-step"}
-    )
-
-    assert isinstance(result, ContainerTemplate)
-    assert result.container.name == "main"
-
-
 @pytest.mark.parametrize(
     "data",
     [
@@ -58,3 +49,28 @@ def test_parse_template_container_name_defaults_to_main():
 def test_parse_template_raises_for_invalid_shape(data):
     with pytest.raises(ValueError):
         parse_template(data)
+
+
+def test_parse_template_defaults_unnamed_container_to_main():
+    """Argo makes ``container.name`` optional and runs it as the ``main`` container."""
+    result = parse_template(
+        {
+            "container": {"image": "busybox", "command": ["echo", "hi"]},
+            "name": "container-step",
+        }
+    )
+
+    assert isinstance(result, ContainerTemplate)
+    assert result.container.name == "main"
+
+
+def test_parse_template_keeps_explicit_container_name():
+    result = parse_template(
+        {
+            "container": {"name": "busybox", "image": "busybox"},
+            "name": "container-step",
+        }
+    )
+
+    assert isinstance(result, ContainerTemplate)
+    assert result.container.name == "busybox"

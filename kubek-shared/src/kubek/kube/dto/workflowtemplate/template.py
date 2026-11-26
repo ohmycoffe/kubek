@@ -5,6 +5,27 @@ from pydantic import BaseModel, ConfigDict
 
 from kubek.kube.dto.container import Container
 
+DEFAULT_CONTAINER_NAME = "main"
+
+
+class WorkflowContainer(Container):
+    """A container inside an Argo workflow template, where ``name`` is optional.
+
+    Kubernetes requires a name on every pod container, so ``Container`` makes it
+    mandatory. Argo does not: when it turns a template into a pod it renames the
+    container to ``main`` anyway, so writing a name has no effect and most
+    manifests leave it out. Argo allows that by removing ``name`` from the
+    required fields of its CRD, and the API happily returns containers without
+    one -- which used to fail validation here.
+
+    Hence this separate class. ``Container`` stays strict for Deployments, Jobs
+    and Pods, where a name really is guaranteed. Here a missing name becomes
+    ``main``, the name Argo would give it; a name the API did return is kept
+    as-is, even though Argo will override it.
+    """
+
+    name: str = DEFAULT_CONTAINER_NAME
+
 
 class WorkflowTemplateType(StrEnum):
     DAG = "dag"
@@ -44,12 +65,6 @@ class OtherTemplate(BaseModel):
     name: str
 
 
-class ArgoContainer(Container):
-    """Unlike a Pod container, an Argo template container may omit the name."""
-
-    name: str = "main"
-
-
 class Parameters(BaseModel):
     name: str
     default: str | None = None
@@ -64,5 +79,5 @@ class ContainerTemplate(BaseModel):
 
     kind: Literal[WorkflowTemplateType.CONTAINER] = WorkflowTemplateType.CONTAINER
     name: str
-    container: ArgoContainer
+    container: WorkflowContainer
     inputs: Inputs | None = None

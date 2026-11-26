@@ -28,6 +28,7 @@ from kubek.kube.dto import (
     Secret,
     Service,
     StatefulSet,
+    WorkflowContainer,
     WorkflowTemplate,
     WorkflowTemplateType,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "Secret",
     "ConfigMap",
     "Container",
+    "WorkflowContainer",
     "WorkflowTemplateType",
     "KubeClientError",
     "KubeApiNotFoundError",
