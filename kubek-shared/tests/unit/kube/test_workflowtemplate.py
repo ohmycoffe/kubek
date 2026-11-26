@@ -2,6 +2,7 @@ import pytest
 from kubek.kube.dto.workflowtemplate.template import (
     ContainerTemplate,
     DagTemplate,
+    OtherTemplate,
     ScriptTemplate,
     StepsTemplate,
 )
@@ -27,6 +28,8 @@ def test_parse_template_returns_existing_instance():
             },
             ContainerTemplate,
         ),
+        ({"suspend": {}, "name": "approve"}, OtherTemplate),
+        ({"resource": {"action": "create"}, "name": "resource-step"}, OtherTemplate),
     ],
 )
 def test_parse_template_parses_single_template_type(data, expected_type):

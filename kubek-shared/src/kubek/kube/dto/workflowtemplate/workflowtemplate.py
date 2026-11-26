@@ -7,24 +7,25 @@ from kubek.kube.dto.kind import Kind
 from .template import (
     ContainerTemplate,
     DagTemplate,
+    OtherTemplate,
     ScriptTemplate,
     StepsTemplate,
 )
 
-Template = DagTemplate | StepsTemplate | ScriptTemplate | ContainerTemplate
+Template = (
+    DagTemplate | StepsTemplate | ScriptTemplate | ContainerTemplate | OtherTemplate
+)
 
 
 def parse_template(data: dict | Template) -> Template:
-    if isinstance(
-        data, DagTemplate | StepsTemplate | ScriptTemplate | ContainerTemplate
-    ):
+    if isinstance(data, Template):
         return data
 
     keys = ["dag", "steps", "script", "container"]
     found = [k for k in keys if k in data]
 
-    if len(found) != 1:
-        raise ValueError(f"Expected exactly one template type, got {found}: {data}")
+    if len(found) > 1:
+        raise ValueError(f"Expected at most one template type, got {found}: {data}")
 
     if "dag" in data:
         return DagTemplate(**data)
@@ -38,7 +39,7 @@ def parse_template(data: dict | Template) -> Template:
     if "container" in data:
         return ContainerTemplate(**data)
 
-    raise ValueError(f"Unexpected template type: {data}")
+    return OtherTemplate(**data)
 
 
 class Metadata(BaseModel):

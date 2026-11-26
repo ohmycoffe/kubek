@@ -32,6 +32,7 @@ class WorkflowTemplateType(StrEnum):
     STEPS = "steps"
     SCRIPT = "script"
     CONTAINER = "container"
+    OTHER = "other"
 
 
 class DagTemplate(BaseModel):
@@ -52,6 +53,15 @@ class ScriptTemplate(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     kind: Literal[WorkflowTemplateType.SCRIPT] = WorkflowTemplateType.SCRIPT
+    name: str
+
+
+class OtherTemplate(BaseModel):
+    """Any Argo template type we don't use, e.g. suspend, resource or http."""
+
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal[WorkflowTemplateType.OTHER] = WorkflowTemplateType.OTHER
     name: str
 
 
